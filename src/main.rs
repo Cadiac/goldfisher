@@ -122,7 +122,7 @@ fn main() {
         });
 
         if let Some((card_ref, payment)) = pattern_of_rebirth {
-            if is_creature_on_battlefield && !is_pattern_on_battlefield {
+            if payment.is_some() && is_creature_on_battlefield && !is_pattern_on_battlefield {
                 // Target non-sacrifice outlets over sac outlets
                 let non_sac_creature = game_objects.iter().find(|card| {
                     let card = card.borrow();
@@ -145,13 +145,7 @@ fn main() {
                     Rc::clone(sac_creature.unwrap())
                 };
 
-                // TODO: Wrap this as function for casting spells
-                let mut card = card_ref.borrow_mut();
-                card.attached_to = Some(target);
-                card.zone = Zone::Battlefield;
-                for mana_source in payment.unwrap() {
-                    mana_source.borrow_mut().is_tapped = true;
-                }
+                cast_card(card_ref, &payment.unwrap(), Some(target));
             }
         }
 
@@ -162,12 +156,7 @@ fn main() {
         });
 
         if let Some((card_ref, payment)) = sac_creature {
-            // Cast the creature
-            let mut card = card_ref.borrow_mut();
-            card.zone = Zone::Battlefield;
-            for mana_source in payment.unwrap() {
-                mana_source.borrow_mut().is_tapped = true;
-            }
+            cast_card(card_ref, &payment.unwrap(), None);
         }
 
         // 5. Otherwise cast any creatures
@@ -176,12 +165,7 @@ fn main() {
         });
 
         if let Some((card_ref, payment)) = creature {
-            // Cast the creature
-            let mut card = card_ref.borrow_mut();
-            card.zone = Zone::Battlefield;
-            for mana_source in payment.unwrap() {
-                mana_source.borrow_mut().is_tapped = true;
-            }
+            cast_card(card_ref, &payment.unwrap(), None);
         }
 
         // N. Do we have it?
@@ -226,4 +210,13 @@ fn print_game_state(game_objects: &[Rc<RefCell<Card>>], deck: &Deck, turn: usize
     );
     println!("[Turn {turn:002}][Hand]: {hand_str}");
     println!("[Turn {turn:002}][Battlefield]: {battlefield_str}");
+}
+
+fn cast_card(card_ref: Rc<RefCell<Card>>, payment: &[Rc<RefCell<Card>>], attach_to: Option<Rc<RefCell<Card>>>) {
+    let mut card = card_ref.borrow_mut();
+    card.attached_to = attach_to;
+    card.zone = Zone::Battlefield;
+    for mana_source in payment {
+        mana_source.borrow_mut().is_tapped = true;
+    }
 }
