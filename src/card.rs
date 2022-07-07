@@ -18,10 +18,26 @@ impl Default for CardType {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum Zone {
+    Library,
+    Hand,
+    Battlefield,
+    Graveyard,
+    Exile
+}
+
+impl Default for Zone {
+    fn default() -> Self {
+        Zone::Library
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Card {
     pub name: String,
     pub card_type: CardType,
+    pub zone: Zone,
     pub cost: HashMap<Mana, usize>,
     pub produced_mana: HashMap<Mana, usize>,
     pub is_sac_outlet: bool,
