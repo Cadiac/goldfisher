@@ -1,9 +1,9 @@
+use std::cell::RefCell;
 use std::rc::Rc;
-use std::cell::{RefCell};
 
 use goldfisher::card::{Card, CardType};
 use goldfisher::deck::create_deck;
-use goldfisher::mana::can_pay_for;
+use goldfisher::mana::find_payment_for;
 
 fn main() {
     let mut deck = create_deck(vec![
@@ -65,57 +65,87 @@ fn main() {
             battlefield.push(Rc::new(RefCell::new(land)));
         }
 
-
         // 2. Figure out which cards in our hand we can pay for
         let nonlands_in_hand = hand
             .iter_mut()
             .filter(|card| card.card_type != CardType::Land);
 
-        let mana_sources = battlefield.iter().filter(|card| {
-            let card = card.borrow();
-            !card.produced_mana.is_empty() && !card.is_summoning_sick && !card.is_tapped
+        let mut mana_sources: Vec<_> = battlefield
+            .iter()
+            .filter(|card| {
+                let card = card.borrow();
+                !card.produced_mana.is_empty() && !card.is_summoning_sick && !card.is_tapped
+            })
+            .map(Rc::clone)
+            .collect();
+
+        mana_sources.sort_by(|a, b| {
+            a.borrow()
+                .produced_mana
+                .len()
+                .partial_cmp(&b.borrow().produced_mana.len())
+                .unwrap()
         });
 
-        let mut available_mana: Vec<_> = mana_sources
-            .map(|card| card.borrow().produced_mana.clone())
-            .collect();
-        available_mana.sort_by(|a, b| a.len().partial_cmp(&b.len()).unwrap());
-
         let mut castable = nonlands_in_hand
-            .filter(|card| can_pay_for(card, &available_mana));
-
+            .map(|card| (card.clone(), find_payment_for(card, &mana_sources)))
+            .filter(|(_, payment)| payment.is_some());
 
         // 3. If we have a Pattern of Rebirth in hand cast it on a creature if we don't have one yet
-        let pattern_of_rebirth = castable.find(|card| card.is_pattern);
+        let pattern_of_rebirth = castable.find(|(card, _)| card.is_pattern);
         let is_creature_on_battlefield = battlefield
             .iter()
             .any(|card| card.borrow().card_type == CardType::Creature);
         let is_pattern_on_battlefield = !battlefield.iter().any(|card| card.borrow().is_pattern);
 
-        if pattern_of_rebirth.is_some() && is_creature_on_battlefield && !is_pattern_on_battlefield {
-            // Target non-sacrifice outlets over sac outlets
+        if let Some((mut pattern_of_rebirth, payment)) = pattern_of_rebirth {
+            if is_creature_on_battlefield && !is_pattern_on_battlefield {
+                // Target non-sacrifice outlets over sac outlets
+                let non_sac_creature = battlefield.iter().find(|card| {
+                    card.borrow().card_type == CardType::Creature && !card.borrow().is_sac_outlet
+                });
 
-            let non_sac_creature = battlefield
-                .iter()
-                .find(|card| card.borrow().card_type == CardType::Creature && !card.borrow().is_sac_outlet);
+                let target = if let Some(creature) = non_sac_creature {
+                    Rc::clone(creature)
+                } else {
+                    // Otherwise just cast in on a sac outlet
+                    let sac_creature = battlefield.iter().find(|card| {
+                        card.borrow().card_type == CardType::Creature && card.borrow().is_sac_outlet
+                    });
 
-            if let Some(creature) = non_sac_creature {
-                pattern_of_rebirth.unwrap().attached_to = Some(Rc::clone(creature));
-            } else {
-                // Otherwise just cast in on a sac outlet
-                let sac_creature = battlefield
-                    .iter()
-                    .find(|card| card.borrow().card_type == CardType::Creature && card.borrow().is_sac_outlet);
+                    Rc::clone(sac_creature.unwrap())
+                };
 
-                if let Some(creature) = sac_creature {
-                    pattern_of_rebirth.unwrap().attached_to = Some(Rc::clone(creature));
+                // TODO: Function for casting
+                // TODO: Remove from hand
+                pattern_of_rebirth.attached_to = Some(target);
+                battlefield.push(Rc::new(RefCell::new(pattern_of_rebirth)));
+                for mana_source in payment.unwrap() {
+                    mana_source.borrow_mut().is_tapped = true;
                 }
             }
         }
 
-        // 4. If we have Pattern of Rebirth already cast sac outlets
-        if is_pattern_on_battlefield {
-            
+        // 4. If we have Pattern of Rebirth already cast any sac outlets
+        let sac_creature = castable.find(|(card, _)| card.card_type == CardType::Creature && card.is_sac_outlet);
+
+        if let Some((creature, payment)) = sac_creature {
+            // Cast the sac creature
+            battlefield.push(Rc::new(RefCell::new(creature)));
+            for mana_source in payment.unwrap() {
+                mana_source.borrow_mut().is_tapped = true;
+            }
+        }
+
+        // 5. Otherwise cast any creatures
+        let creature = castable.find(|(card, _)| card.card_type == CardType::Creature);
+
+        if let Some((creature, payment)) = creature {
+            // Cast the sac creature
+            battlefield.push(Rc::new(RefCell::new(creature)));
+            for mana_source in payment.unwrap() {
+                mana_source.borrow_mut().is_tapped = true;
+            }
         }
 
         // N. Do we have it?
