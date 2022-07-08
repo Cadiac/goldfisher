@@ -1,9 +1,5 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
-use goldfisher::card::{Card, Zone};
 use goldfisher::deck::{create_deck};
-use goldfisher::game;
+use goldfisher::game::{GameState};
 
 fn main() {
     let mut deck = create_deck(vec![
@@ -21,45 +17,39 @@ fn main() {
 
     deck.shuffle();
 
-    let mut turn = 1;
-    let mut game_objects: Vec<Rc<RefCell<Card>>> = Vec::new();
-
-    let is_first_player = true;
+    let mut game = GameState::new(deck);
 
     // Take the opening 7
-    for _ in 0..7 {
-        if let Some(mut card) = deck.draw() {
-            card.zone = Zone::Hand;
-            game_objects.push(Rc::new(RefCell::new(card)))
-        }
-    }
+    game.draw_n(7);
+
+    game.advance_turn();
 
     loop {
-        game::untap(&game_objects);
+        game.untap();
 
-        game::draw(turn, is_first_player, &mut deck, &mut game_objects);
+        game.draw();
 
-        game::print_game_state(&game_objects, &deck, turn);
+        game.print_game_state();
 
-        game::play_land(&game_objects);
+        game.play_land();
 
-        game::cast_pattern_of_rebirths(&game_objects);
+        game.cast_pattern_of_rebirths();
 
-        game::cast_sac_outlets(&game_objects);
+        game.cast_sac_outlets();
 
-        game::cast_creatures(&game_objects);
+        game.cast_creatures();
 
         // N. Do we have it?
         // TODO: test if its attached to the only sac outlet
-        if game::is_combo_ready(&game_objects) {
-            println!("Won the game on turn {turn}!");
-            game::print_game_state(&game_objects, &deck, turn);
+        if game.is_combo_ready() {
+            println!("Won the game on turn {turn}!", turn = game.turn);
+            game.print_game_state();
             return;
         }
 
         // If not, take another turn
-        game::cleanup(&game_objects);
+        game.cleanup();
 
-        turn += 1;
+        game.advance_turn();
     }
 }
