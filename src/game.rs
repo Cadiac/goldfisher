@@ -2,14 +2,14 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::card::{Card, CardType, Zone};
-use crate::deck::{Deck};
+use crate::deck::Deck;
 use crate::mana::find_payment_for;
 
 pub struct GameState {
     pub deck: Deck,
     pub turn: usize,
     pub game_objects: Vec<Rc<RefCell<Card>>>,
-    pub is_first_player: bool
+    pub is_first_player: bool,
 }
 
 impl GameState {
@@ -18,26 +18,78 @@ impl GameState {
             deck,
             turn: 0,
             game_objects: Vec::with_capacity(60),
-            is_first_player: true
+            is_first_player: true,
         }
     }
 
-    pub fn is_combo_ready(&self) -> bool {
-        let have_sac_outlet = self.game_objects.iter().any(|card| {
+    pub fn is_win_condition_met(&self) -> bool {
+        let creatures = self
+            .game_objects
+            .iter()
+            .filter(|card| {
+                let card = card.borrow();
+                card.zone == Zone::Battlefield && card.card_type == CardType::Creature
+            })
+            .collect::<Vec<_>>();
+        
+        let sac_outlets = self
+            .game_objects
+            .iter()
+            .filter(|card| {
+                let card = card.borrow();
+                card.zone == Zone::Battlefield && card.is_sac_outlet
+            })
+            .collect::<Vec<_>>();
+
+        let rectors = self
+            .game_objects
+            .iter()
+            .filter(|card| {
+                let card = card.borrow();
+                card.zone == Zone::Battlefield && card.is_rector
+            })
+            .collect::<Vec<_>>();
+
+        let is_pattern_attached_to_redundant_creature = self.game_objects.iter().any(|card| {
             let card = card.borrow();
-            card.zone == Zone::Battlefield && card.is_sac_outlet
+
+            if card.zone != Zone::Battlefield || !card.is_pattern {
+                false
+            } else {
+                match &card.attached_to {
+                    Some(target) => {
+                        if target.borrow().is_sac_outlet {
+                            // Make sure we have a redundant sac outlet if pattern is attached to one
+                            sac_outlets.len() > 1
+                        } else {
+                            true
+                        }
+                    }
+                    None => false,
+                }
+            }
         });
-        let have_pattern_attached = self.game_objects.iter().any(|card| {
-            let card = card.borrow();
-            card.zone == Zone::Battlefield && card.is_pattern
-        });
-    
-        have_sac_outlet && have_pattern_attached
+
+        // Winning combinations:
+        // 1) Sac outlet + any redundant creature + Pattern of Rebirth on that creature
+        if !sac_outlets.is_empty() && is_pattern_attached_to_redundant_creature {
+            return true;
+        }
+
+        // 2) Sac outlet + Academy Rector + any redundant creature
+        if !sac_outlets.is_empty() && !rectors.is_empty() && creatures.len() >= 3 {
+            return true;
+        }
+
+        // TODO: Check for more wincons involving Cabal Therapy
+
+        return false
+
     }
-    
+
     pub fn cast_creatures(&self) {
         let castable = self.find_castable();
-    
+
         let creature = castable
             .iter()
             .find(|(card, _)| card.borrow().card_type == CardType::Creature);
@@ -45,10 +97,10 @@ impl GameState {
             self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
         }
     }
-    
+
     pub fn cast_sac_outlets(&self) {
         let castable = self.find_castable();
-    
+
         let sac_creature = castable.iter().find(|(card, _)| {
             let card = card.borrow();
             card.card_type == CardType::Creature && card.is_sac_outlet
@@ -57,10 +109,10 @@ impl GameState {
             self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
         }
     }
-    
+
     pub fn cast_pattern_of_rebirths(&self) {
         let castable = self.find_castable();
-    
+
         let pattern_of_rebirth = castable.iter().find(|(card, _)| card.borrow().is_pattern);
         let is_creature_on_battlefield = self.game_objects.iter().any(|card| {
             let card = card.borrow();
@@ -79,7 +131,7 @@ impl GameState {
                         && card.card_type == CardType::Creature
                         && !card.is_sac_outlet
                 });
-    
+
                 let target = if let Some(creature) = non_sac_creature {
                     Rc::clone(creature)
                 } else {
@@ -90,21 +142,24 @@ impl GameState {
                             && card.card_type == CardType::Creature
                             && card.is_sac_outlet
                     });
-    
+
                     Rc::clone(sac_creature.unwrap())
                 };
-    
+
                 self.cast_spell(card_ref, payment.as_ref().unwrap(), Some(target));
             }
         }
     }
-    
-    pub fn find_castable(&self) -> Vec<(Rc<RefCell<Card>>, Option<(Vec<Rc<RefCell<Card>>>, usize)>)> {
+
+    pub fn find_castable(
+        &self,
+    ) -> Vec<(Rc<RefCell<Card>>, Option<(Vec<Rc<RefCell<Card>>>, usize)>)> {
         let nonlands_in_hand = self.game_objects.iter().filter(|card| {
             let card = card.borrow();
             card.zone == Zone::Hand && card.card_type != CardType::Land
         });
-        let mut mana_sources: Vec<_> = self.game_objects
+        let mut mana_sources: Vec<_> = self
+            .game_objects
             .iter()
             .filter(|card| {
                 let card = card.borrow();
@@ -130,12 +185,13 @@ impl GameState {
                 )
             })
             .filter(|(_, payment)| payment.is_some());
-    
+
         castable.collect()
     }
-    
+
     pub fn play_land(&self) {
-        let mut lands_in_hand = self.game_objects
+        let mut lands_in_hand = self
+            .game_objects
             .iter()
             .filter(|card| {
                 let card = card.borrow();
@@ -153,11 +209,13 @@ impl GameState {
         // Play the one that produces most colors
         // TODO: Play the one that produces most cards that could be played
         if let Some(land) = lands_in_hand.pop() {
-            let mut card = land.borrow_mut();    
-        
-            println!("[Turn {turn:002}][Action]: Playing land: \"{land}\"",
+            let mut card = land.borrow_mut();
+
+            println!(
+                "[Turn {turn:002}][Action]: Playing land: \"{land}\"",
                 turn = self.turn,
-                land = card.name);
+                land = card.name
+            );
 
             card.zone = Zone::Battlefield;
         }
@@ -169,7 +227,7 @@ impl GameState {
         }
     }
 
-    pub fn draw(&mut self,) {
+    pub fn draw(&mut self) {
         if self.turn == 0 || (self.turn == 1 && !self.is_first_player) || self.turn > 1 {
             if let Some(mut card) = self.deck.draw() {
                 card.zone = Zone::Hand;
@@ -177,7 +235,7 @@ impl GameState {
             }
         }
     }
-    
+
     pub fn untap(&self) {
         for card in self.game_objects.iter() {
             let mut card = card.borrow_mut();
@@ -185,30 +243,35 @@ impl GameState {
             card.is_tapped = false;
         }
     }
-    
+
     pub fn print_game_state(&self) {
-        let hand_str = self.game_objects
+        let hand_str = self
+            .game_objects
             .iter()
             .filter(|card| card.borrow().zone == Zone::Hand)
             .map(|card| card.borrow().name.clone())
             .collect::<Vec<_>>()
             .join(", ");
-        let battlefield_str = self.game_objects
+        let battlefield_str = self
+            .game_objects
             .iter()
             .filter(|card| card.borrow().zone == Zone::Battlefield)
             .map(|card| card.borrow().name.clone())
             .collect::<Vec<_>>()
             .join(", ");
-    
+
         println!(
             "[Turn {turn:002}][Library]: {deck} cards remaining.",
             turn = self.turn,
             deck = self.deck.len()
         );
         println!("[Turn {turn:002}][Hand]: {hand_str}", turn = self.turn);
-        println!("[Turn {turn:002}][Battlefield]: {battlefield_str}", turn = self.turn);
+        println!(
+            "[Turn {turn:002}][Battlefield]: {battlefield_str}",
+            turn = self.turn
+        );
     }
-    
+
     pub fn cast_spell(
         &self,
         card_ref: &Rc<RefCell<Card>>,
@@ -216,35 +279,37 @@ impl GameState {
         attach_to: Option<Rc<RefCell<Card>>>,
     ) {
         let mut card = card_ref.borrow_mut();
-    
+
         let card_name = &card.name;
         let mana_sources = payment
             .iter()
-            .map(|source| source.borrow().name.clone()).collect::<Vec<_>>()
+            .map(|source| source.borrow().name.clone())
+            .collect::<Vec<_>>()
             .join(", ");
-    
+
         println!("[Turn {turn:002}][Action]: Casting spell \"{card_name}\" on target: {target:?} with: {mana_sources}",
             turn = self.turn,
             target = attach_to.as_ref().map(|card| card.borrow().name.clone()));
-    
+
         card.attached_to = attach_to;
         card.zone = Zone::Battlefield;
-    
+
         if card.card_type == CardType::Creature {
             card.is_summoning_sick = true;
         }
-    
+
         for mana_source in payment {
             mana_source.borrow_mut().is_tapped = true;
         }
     }
-    
+
     pub fn cleanup(&self) {
-        let cards_in_hand = self.game_objects
+        let cards_in_hand = self
+            .game_objects
             .iter()
             .filter(|card| card.borrow().zone == Zone::Hand)
             .enumerate();
-    
+
         for (index, card) in cards_in_hand {
             if index >= 7 {
                 // TODO: Select the cards to discard by priority

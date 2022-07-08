@@ -22,34 +22,28 @@ fn main() {
     // Take the opening 7
     game.draw_n(7);
 
-    game.advance_turn();
-
     loop {
+        game.advance_turn();
         game.untap();
-
         game.draw();
-
         game.print_game_state();
 
         game.play_land();
 
         game.cast_pattern_of_rebirths();
-
         game.cast_sac_outlets();
-
         game.cast_creatures();
 
-        // N. Do we have it?
-        // TODO: test if its attached to the only sac outlet
-        if game.is_combo_ready() {
-            println!("Won the game on turn {turn}!", turn = game.turn);
+        // Do we have it?
+        if game.is_win_condition_met() {
+            println!("========================================");
+            println!(" Won the game on turn {turn}!", turn = game.turn);
+            println!("========================================");
             game.print_game_state();
             return;
         }
 
         // If not, take another turn
         game.cleanup();
-
-        game.advance_turn();
     }
 }
