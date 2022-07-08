@@ -25,7 +25,7 @@ pub fn cast_creatures(game_objects: &Vec<Rc<RefCell<Card>>>) {
         .iter()
         .find(|(card, _)| card.borrow().card_type == CardType::Creature);
     if let Some((card_ref, payment)) = creature {
-        cast_spell(card_ref, &payment.as_ref().unwrap(), None);
+        cast_spell(card_ref, payment.as_ref().unwrap(), None);
     }
 }
 
@@ -37,7 +37,7 @@ pub fn cast_sac_outlets(game_objects: &Vec<Rc<RefCell<Card>>>) {
         card.card_type == CardType::Creature && card.is_sac_outlet
     });
     if let Some((card_ref, payment)) = sac_creature {
-        cast_spell(card_ref, &payment.as_ref().unwrap(), None);
+        cast_spell(card_ref, payment.as_ref().unwrap(), None);
     }
 }
 
@@ -77,14 +77,14 @@ pub fn cast_pattern_of_rebirths(game_objects: &Vec<Rc<RefCell<Card>>>) {
                 Rc::clone(sac_creature.unwrap())
             };
 
-            cast_spell(card_ref, &payment.as_ref().unwrap(), Some(target));
+            cast_spell(card_ref, payment.as_ref().unwrap(), Some(target));
         }
     }
 }
 
 pub fn find_castable(
     game_objects: &Vec<Rc<RefCell<Card>>>,
-) -> Vec<(Rc<RefCell<Card>>, Option<Vec<Rc<RefCell<Card>>>>)> {
+) -> Vec<(Rc<RefCell<Card>>, Option<(Vec<Rc<RefCell<Card>>>, usize)>)> {
     let nonlands_in_hand = game_objects.iter().filter(|card| {
         let card = card.borrow();
         card.zone == Zone::Hand && card.card_type != CardType::Land
@@ -191,7 +191,7 @@ pub fn print_game_state(game_objects: &[Rc<RefCell<Card>>], deck: &Deck, turn: u
 
 pub fn cast_spell(
     card_ref: &Rc<RefCell<Card>>,
-    payment: &[Rc<RefCell<Card>>],
+    (payment, _floating): &(Vec<Rc<RefCell<Card>>>, usize),
     attach_to: Option<Rc<RefCell<Card>>>,
 ) {
     let mut card = card_ref.borrow_mut();
