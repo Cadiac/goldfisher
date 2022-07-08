@@ -52,6 +52,8 @@ pub fn find_payment_for(
 
     let mut used_sources = Vec::new();
 
+    // TODO: Give colors to floating
+    // TODO: Take floating as parameter for this function
     let mut floating = 0;
 
     for (color, cost) in card.cost.iter() {
@@ -87,12 +89,22 @@ pub fn find_payment_for(
 
         // If floating mana wasn't enough loop through remaining sources to pay for the colorless
         if paid < *colorless_cost {
-            let remaining_sources = mana_sources
+            let mut remaining_sources = mana_sources
                 .into_iter()
                 .filter(|source| {
                     !used_sources.iter().any(|used| Rc::ptr_eq(used, source))
                 })
                 .collect::<Vec<_>>();
+
+            remaining_sources.sort_by(|a, b| {
+                b.borrow()
+                    .produced_mana
+                    .values()
+                    .max()
+                    .unwrap_or(&0)
+                    .partial_cmp(a.borrow().produced_mana.values().max().unwrap_or(&0))
+                    .unwrap()
+            });
 
             for source in remaining_sources {
                 let borrowed = source.borrow();
@@ -133,7 +145,7 @@ mod tests {
     fn it_finds_payment_1cmc_right_color_basic() {
         let birds_of_paradise = Card { cost: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
         let forest = Card { produced_mana: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
-        let forest_ref = Rc::new(RefCell::new(forest.clone()));
+        let forest_ref = Rc::new(RefCell::new(forest));
 
         let payment = find_payment_for(&birds_of_paradise, &vec![forest_ref.clone()]);
         assert_eq!(true, payment.is_some());
@@ -147,7 +159,7 @@ mod tests {
     fn it_finds_payment_1cmc_wrong_color_basic() {
         let birds_of_paradise = Card { cost: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
         let mountain = Card { produced_mana: HashMap::from([(Mana::Red, 1)]), ..Default::default() };
-        let mountain_ref = Rc::new(RefCell::new(mountain.clone()));
+        let mountain_ref = Rc::new(RefCell::new(mountain));
 
         let payment = find_payment_for(&birds_of_paradise, &vec![
             mountain_ref.clone()
@@ -160,10 +172,10 @@ mod tests {
         let birds_of_paradise = Card { cost: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
 
         let forest = Card { produced_mana: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
-        let forest_ref = Rc::new(RefCell::new(forest.clone()));
+        let forest_ref = Rc::new(RefCell::new(forest));
 
         let mountain = Card { produced_mana: HashMap::from([(Mana::Red, 1)]), ..Default::default() };
-        let mountain_ref = Rc::new(RefCell::new(mountain.clone()));
+        let mountain_ref = Rc::new(RefCell::new(mountain));
 
         let payment = find_payment_for(&birds_of_paradise, &vec![
             forest_ref.clone(),
@@ -181,7 +193,7 @@ mod tests {
         let birds_of_paradise = Card { cost: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
 
         let taiga = Card { produced_mana: HashMap::from([(Mana::Green, 1), (Mana::Red, 1)]), ..Default::default() };
-        let taiga_ref = Rc::new(RefCell::new(taiga.clone()));
+        let taiga_ref = Rc::new(RefCell::new(taiga));
 
         let payment = find_payment_for(&birds_of_paradise, &vec![
             taiga_ref.clone()
@@ -193,81 +205,173 @@ mod tests {
         assert_eq!(0, floating);
     }
 
-    /*
     #[test]
-    fn it_checks_if_2cmc_colored_can_be_paid_for() {
-        let card = Card {
-            cost: HashMap::from([(Mana::Green, 2)]),
-            ..Default::default()
-        };
+    fn it_finds_payment_1cmc_excess_mana() {
+        let birds_of_paradise = Card { cost: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
 
-        assert_eq!(false, find_payment_for(&card, &vec![]));
-        assert_eq!(false, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 1)])]));
-        assert_eq!(true, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 2)])]));
-        assert_eq!(false, find_payment_for(&card, &vec![HashMap::from([(Mana::Red, 2)])]));
-        assert_eq!(false, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 1), (Mana::Red, 1)])]));
-        assert_eq!(true, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 2), (Mana::Red, 2)])]));
-        assert_eq!(true, find_payment_for(&card, &vec![HashMap::from([(Mana::Red, 2), (Mana::Green, 2)])]));
-        assert_eq!(false, find_payment_for(&card, &vec![HashMap::from([(Mana::Red, 1)]), HashMap::from([(Mana::Green, 1)])]));
-        assert_eq!(false, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 1)]), HashMap::from([(Mana::Green, 1)])]));
+        let gaeas_cradle  = Card { produced_mana: HashMap::from([(Mana::Green, 2)]), ..Default::default() };
+        let gaeas_cradle_ref = Rc::new(RefCell::new(gaeas_cradle));
+
+        let payment = find_payment_for(&birds_of_paradise, &vec![
+            gaeas_cradle_ref.clone()
+        ]);
+        assert_eq!(true, payment.is_some());
+        let (payment, floating) = payment.unwrap();
+        assert_eq!(1, payment.len());
+        assert_eq!(true, Rc::ptr_eq(&gaeas_cradle_ref, &payment[0]));
+        assert_eq!(1, floating);
     }
 
     #[test]
-    fn it_checks_if_2cmc_multicolored_can_be_paid_for() {
-        let card = Card {
-            cost: HashMap::from([(Mana::Green, 1), (Mana::Black, 1)]),
-            ..Default::default()
-        };
+    fn it_finds_payment_2cmc_right_colors() {
+        let channel = Card { cost: HashMap::from([(Mana::Green, 2)]), ..Default::default() };
 
-        assert_eq!(false, find_payment_for(&card, &vec![]));
-        assert_eq!(false, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 1)])]));
-        assert_eq!(false, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 2)])]));
-        assert_eq!(false, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 1), (Mana::Black, 1)])]));
-        assert_eq!(false, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 2), (Mana::Black, 2)])]));
-        assert_eq!(true, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 1)]), HashMap::from([(Mana::Black, 1)])]));
-        assert_eq!(true, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 1)]), HashMap::from([(Mana::Green, 1)]), HashMap::from([(Mana::Black, 1)])]));
+        let forest = Card { produced_mana: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
+        let forest_1 = Rc::new(RefCell::new(forest.clone()));
+        let forest_2 = Rc::new(RefCell::new(forest.clone()));
+        let forest_3 = Rc::new(RefCell::new(forest.clone()));
+
+        let payment = find_payment_for(&channel, &vec![
+            forest_1.clone(),
+            forest_2.clone(),
+            forest_3.clone(),
+        ]);
+        assert_eq!(true, payment.is_some());
+        let (payment, floating) = payment.unwrap();
+        assert_eq!(2, payment.len());
+        assert_eq!(true, Rc::ptr_eq(&forest_1, &payment[0]));
+        assert_eq!(true, Rc::ptr_eq(&forest_2, &payment[1]));
+        assert_eq!(0, floating);
     }
 
     #[test]
-    fn it_checks_if_4cmc_colored_with_colorless_can_be_paid_for() {
-        let card = Card {
-            cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 3)]),
+    fn it_finds_payment_3cmc_multicolor() {
+        let jungle_troll = Card {
+            cost: HashMap::from([(Mana::Green, 1), (Mana::Red, 1), (Mana::Colorless, 1)]),
             ..Default::default()
         };
 
-        assert_eq!(false, find_payment_for(&card, &vec![]));
-        assert_eq!(false, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 1)])]));
-        assert_eq!(false, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 2)])]));
-        assert_eq!(false, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 1), (Mana::Black, 4)])]));
-        assert_eq!(true, find_payment_for(&card, &vec![
-            HashMap::from([(Mana::Green, 1)]),
-            HashMap::from([(Mana::Red, 1)]),
-            HashMap::from([(Mana::Black, 1)]),
-            HashMap::from([(Mana::Blue, 1)])
-        ]));
-        assert_eq!(true, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 4)])]));
+        let forest = Card { produced_mana: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
+        let mountain = Card { produced_mana: HashMap::from([(Mana::Red, 1)]), ..Default::default() };
+        let forest_1 = Rc::new(RefCell::new(forest.clone()));
+        let forest_2 = Rc::new(RefCell::new(forest.clone()));
+        let mountain_1 = Rc::new(RefCell::new(mountain.clone()));
+
+        let payment = find_payment_for(&jungle_troll, &vec![
+            forest_1.clone(),
+            forest_2.clone(),
+            mountain_1.clone(),
+        ]);
+        assert_eq!(true, payment.is_some());
+        let (payment, floating) = payment.unwrap();
+        assert_eq!(3, payment.len());
+        assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_1, source)));
+        assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_2, source)));
+        assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&mountain_1, source)));
+        assert_eq!(0, floating);
     }
 
     #[test]
-    fn it_checks_if_colorless_can_be_paid_for() {
-        let card = Card {
+    fn it_finds_payment_3cmc_colorless() {
+        let metalworker = Card {
             cost: HashMap::from([(Mana::Colorless, 3)]),
             ..Default::default()
         };
 
-        assert_eq!(false, find_payment_for(&card, &vec![]));
-        assert_eq!(false, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 1)])]));
-        assert_eq!(true, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 3)])]));
-        assert_eq!(true, find_payment_for(&card, &vec![HashMap::from([(Mana::Green, 1), (Mana::Black, 4)])]));
-        assert_eq!(true, find_payment_for(&card, &vec![
-            HashMap::from([(Mana::Green, 1)]),
-            HashMap::from([(Mana::Red, 1)]),
-            HashMap::from([(Mana::Black, 1)]),
-        ]));
-        assert_eq!(true, find_payment_for(&card, &vec![
-            HashMap::from([(Mana::Colorless, 1)]),
-            HashMap::from([(Mana::Colorless, 2)]),
-        ]));
+        let forest = Card { produced_mana: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
+        let mountain = Card { produced_mana: HashMap::from([(Mana::Red, 1)]), ..Default::default() };
+        let forest_1 = Rc::new(RefCell::new(forest.clone()));
+        let forest_2 = Rc::new(RefCell::new(forest.clone()));
+        let mountain_1 = Rc::new(RefCell::new(mountain.clone()));
+
+        let payment = find_payment_for(&metalworker, &vec![
+            forest_1.clone(),
+            forest_2.clone(),
+            mountain_1.clone(),
+        ]);
+        assert_eq!(true, payment.is_some());
+        let (payment, floating) = payment.unwrap();
+        assert_eq!(3, payment.len());
+        assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_1, source)));
+        assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_2, source)));
+        assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&mountain_1, source)));
+        assert_eq!(0, floating);
     }
-    */
+
+    #[test]
+    fn it_finds_payment_3cmc_colorless_prefers_sol_lands() {
+        let metalworker = Card {
+            cost: HashMap::from([(Mana::Colorless, 3)]),
+            ..Default::default()
+        };
+
+        let forest = Card { produced_mana: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
+        let ancient_tomb = Card { produced_mana: HashMap::from([(Mana::Colorless, 2)]), ..Default::default() };
+        let forest_1 = Rc::new(RefCell::new(forest.clone()));
+        let forest_2 = Rc::new(RefCell::new(forest.clone()));
+        let ancient_tomb_1 = Rc::new(RefCell::new(ancient_tomb.clone()));
+
+        let payment = find_payment_for(&metalworker, &vec![
+            forest_1.clone(),
+            forest_2.clone(),
+            ancient_tomb_1.clone(),
+        ]);
+        assert_eq!(true, payment.is_some());
+        let (payment, floating) = payment.unwrap();
+        assert_eq!(2, payment.len());
+        assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_1, source)));
+        assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&ancient_tomb_1, source)));
+        assert_eq!(0, floating);
+    }
+
+    #[test]
+    fn it_finds_payment_3cmc_saves_colors() {
+        let jungle_troll = Card {
+            cost: HashMap::from([(Mana::Green, 1), (Mana::Red, 1), (Mana::Colorless, 1)]),
+            ..Default::default()
+        };
+
+        let forest = Card { produced_mana: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
+        let mountain = Card { produced_mana: HashMap::from([(Mana::Red, 1)]), ..Default::default() };
+        let city_of_brass = Card {
+            produced_mana: HashMap::from([
+                (Mana::White, 1),
+                (Mana::Blue, 1),
+                (Mana::Black, 1),
+                (Mana::Green, 1),
+                (Mana::Red, 1),
+            ]),
+            ..Default::default()
+        };
+        let taiga = Card {
+            produced_mana: HashMap::from([
+                (Mana::Green, 1),
+                (Mana::Red, 1),
+            ]),
+            ..Default::default()
+        };
+        let forest_1 = Rc::new(RefCell::new(forest.clone()));
+        let forest_2 = Rc::new(RefCell::new(forest.clone()));
+        let mountain_1 = Rc::new(RefCell::new(mountain.clone()));
+        let taiga_1 = Rc::new(RefCell::new(taiga.clone()));
+        let city_of_brass_1 = Rc::new(RefCell::new(city_of_brass.clone()));
+        let city_of_brass_2 = Rc::new(RefCell::new(city_of_brass.clone()));2
+
+        // Note: These must be provided in ascending order by mana produced or else this won't work
+        let payment = find_payment_for(&jungle_troll, &vec![
+            forest_1.clone(),
+            forest_2.clone(),
+            mountain_1.clone(),
+            taiga_1.clone(),
+            city_of_brass_1.clone(),
+            city_of_brass_2.clone(),
+        ]);
+        assert_eq!(true, payment.is_some());
+        let (payment, floating) = payment.unwrap();
+        assert_eq!(3, payment.len());
+        assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_1, source)));
+        assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_2, source)));
+        assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&mountain_1, source)));
+        assert_eq!(0, floating);
+    }
 }
