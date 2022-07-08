@@ -135,7 +135,7 @@ impl GameState {
                 let target = if let Some(creature) = non_sac_creature {
                     Rc::clone(creature)
                 } else {
-                    // Otherwise just cast in on a sac outlet
+                    // Otherwise just cast it on a sac outlet
                     let sac_creature = self.game_objects.iter().find(|card| {
                         let card = card.borrow();
                         card.zone == Zone::Battlefield
@@ -147,6 +147,22 @@ impl GameState {
                 };
 
                 self.cast_spell(card_ref, payment.as_ref().unwrap(), Some(target));
+            }
+        }
+    }
+
+    pub fn cast_rectors(&self) {
+        let castable = self.find_castable();
+
+        let rector = castable.iter().find(|(card, _)| card.borrow().is_rector);
+        let is_pattern_on_battlefield = self.game_objects.iter().any(|card| {
+            let card = card.borrow();
+            card.zone == Zone::Battlefield && card.is_pattern
+        });
+
+        if let Some((card_ref, payment)) = rector {
+            if payment.is_some() && !is_pattern_on_battlefield {
+                self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
             }
         }
     }

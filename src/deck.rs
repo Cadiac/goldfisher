@@ -95,6 +95,113 @@ pub fn create_deck(cards: Vec<(&str, usize)>) -> Deck {
                 is_rector: true,
                 ..Default::default()
             },
+            "Mesmeric Fiend" => Card {
+                name: "Mesmeric Fiend".to_owned(),
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Iridescent Drake" => Card {
+                name: "Iridescent Drake".to_owned(),
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 3)]),
+                ..Default::default()
+            },
+            "Karmic Guide" => Card {
+                name: "Karmic Guide".to_owned(),
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::White, 2), (Mana::Colorless, 3)]),
+                ..Default::default()
+            },
+            "Volrath's Shapeshifter" => Card {
+                name: "Volrath's Shapeshifter".to_owned(),
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Blue, 2), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Caller of the Claw" => Card {
+                name: "Caller of the Claw".to_owned(),
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Body Snatcher" => Card {
+                name: "Body Snatcher".to_owned(),
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 3)]),
+                ..Default::default()
+            },
+            "Akroma, Angel of Wrath" => Card {
+                name: "Akroma, Angel of Wrath".to_owned(),
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::White, 3), (Mana::Colorless, 5)]),
+                ..Default::default()
+            },
+            "Worship" => Card {
+                name: "Worship".to_owned(),
+                card_type: CardType::Enchantment,
+                cost: HashMap::from([(Mana::White, 1), (Mana::Colorless, 3)]),
+                ..Default::default()
+            },
+            "Goblin Bombardment" => Card {
+                name: "Goblin Bombardment".to_owned(),
+                card_type: CardType::Enchantment,
+                cost: HashMap::from([(Mana::Red, 1), (Mana::Colorless, 1)]),
+                is_sac_outlet: true,
+                ..Default::default()
+            },
+            "Cabal Therapy" => Card {
+                name: "Cabal Therapy".to_owned(),
+                card_type: CardType::Sorcery,
+                cost: HashMap::from([(Mana::Black, 1)]),
+                ..Default::default()
+            },
+            "City of Brass" => Card {
+                name: "City of Brass".to_owned(),
+                card_type: CardType::Land,
+                // TODO: max number of uses
+                produced_mana: HashMap::from([(Mana::White, 1), (Mana::Blue, 1), (Mana::Black, 1), (Mana::Red, 1), (Mana::Green, 1)]),
+                ..Default::default()
+            },
+            "Llanowar Wastes" => Card {
+                name: "Llanowar Wastes".to_owned(),
+                card_type: CardType::Land,
+                produced_mana: HashMap::from([(Mana::Black, 1), (Mana::Green, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Yavimaya Coast" => Card {
+                name: "Yavimaya Coast".to_owned(),
+                card_type: CardType::Land,
+                produced_mana: HashMap::from([(Mana::Blue, 1), (Mana::Green, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Caves of Koilos" => Card {
+                name: "Caves of Koilos".to_owned(),
+                card_type: CardType::Land,
+                produced_mana: HashMap::from([(Mana::White, 1), (Mana::Black, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Gemstone Mine" => Card {
+                name: "Gemstone Mine".to_owned(),
+                card_type: CardType::Land,
+                // TODO: max number of uses
+                produced_mana: HashMap::from([(Mana::White, 1), (Mana::Blue, 1), (Mana::Black, 1), (Mana::Red, 1), (Mana::Green, 1)]),
+                ..Default::default()
+            },
+            "Reflecting Pool" => Card {
+                name: "Reflecting Pool".to_owned(),
+                card_type: CardType::Land,
+                // TODO: dynamically figure out what mana this produces
+                produced_mana: HashMap::from([(Mana::White, 1), (Mana::Blue, 1), (Mana::Black, 1), (Mana::Red, 1), (Mana::Green, 1)]),
+                ..Default::default()
+            },
+            "Phyrexian Tower" => Card {
+                name: "Phyrexian Tower".to_owned(),
+                card_type: CardType::Land,
+                // TODO: the black mana from sac
+                produced_mana: HashMap::from([(Mana::Colorless, 1)]),
+                ..Default::default()
+            },
             "Forest" => Card {
                 name: "Forest".to_owned(),
                 card_type: CardType::Land,
@@ -113,7 +220,7 @@ pub fn create_deck(cards: Vec<(&str, usize)>) -> Deck {
                 produced_mana: HashMap::from([(Mana::White, 1)]),
                 ..Default::default()
             },
-            _ => unimplemented!(),
+            name => unimplemented!("{}", name),
         };
 
         for _ in 0..quantity {
