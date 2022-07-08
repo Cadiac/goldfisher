@@ -50,8 +50,15 @@ fn main() {
 
         game.cast_pattern_of_rebirths();
         game.cast_rectors();
-        game.cast_sac_outlets();
-        game.cast_creatures();
+
+        if game.mana_sources_count() >= 4 {
+            game.cast_sac_outlets();
+            game.cast_mana_dorks();
+        } else {
+            game.cast_mana_dorks();
+            game.cast_sac_outlets();
+        }
+        game.cast_redundant_creatures();
 
         // Do we have it?
         if game.is_win_condition_met() {

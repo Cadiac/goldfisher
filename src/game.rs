@@ -81,13 +81,37 @@ impl GameState {
             return true;
         }
 
-        // TODO: Check for more wincons involving Cabal Therapy
+        // TODO: Check for more wincons involving Cabal Therapy and Phyrexian Tower
 
         return false
 
     }
 
-    pub fn cast_creatures(&self) {
+    pub fn cast_mana_dorks(&self) {
+        let castable = self.find_castable();
+
+        let mut mana_dorks = castable
+            .iter()
+            .filter(|(card, _)| {
+                let card = card.borrow();
+                card.card_type == CardType::Creature && !card.produced_mana.is_empty()
+            })
+            .collect::<Vec<_>>();
+
+        // Pick the one that produces most colors
+        mana_dorks.sort_by(|(a, _), (b, _)| b.borrow()
+            .produced_mana
+            .len()
+            .partial_cmp(&a.borrow().produced_mana.len())
+            .unwrap()
+        );
+
+        if let Some((card_ref, payment)) = mana_dorks.first() {
+            self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
+        }
+    }
+
+    pub fn cast_redundant_creatures(&self) {
         let castable = self.find_castable();
 
         let creature = castable
@@ -101,11 +125,8 @@ impl GameState {
     pub fn cast_sac_outlets(&self) {
         let castable = self.find_castable();
 
-        let sac_creature = castable.iter().find(|(card, _)| {
-            let card = card.borrow();
-            card.card_type == CardType::Creature && card.is_sac_outlet
-        });
-        if let Some((card_ref, payment)) = sac_creature {
+        let sac_outlet = castable.iter().find(|(card, _)| card.borrow().is_sac_outlet);
+        if let Some((card_ref, payment)) = sac_outlet {
             self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
         }
     }
@@ -174,6 +195,7 @@ impl GameState {
             let card = card.borrow();
             card.zone == Zone::Hand && card.card_type != CardType::Land
         });
+
         let mut mana_sources: Vec<_> = self
             .game_objects
             .iter()
@@ -186,6 +208,7 @@ impl GameState {
             })
             .map(Rc::clone)
             .collect();
+
         mana_sources.sort_by(|a, b| {
             a.borrow()
                 .produced_mana
@@ -336,5 +359,15 @@ impl GameState {
 
     pub fn advance_turn(&mut self) {
         self.turn += 1;
+    }
+
+    pub fn mana_sources_count(&self) -> usize {
+        self.game_objects
+            .iter()
+            .filter(|card| {
+                let card = card.borrow();
+                card.zone == Zone::Battlefield && !card.produced_mana.is_empty()
+            })
+            .count()
     }
 }
