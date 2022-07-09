@@ -9,7 +9,7 @@ For now, the only supported deck is my build of [Premodern Pattern Rector](https
 
 ## Example game
 
-```shell
+```
 $ ./goldfisher
 [Turn 00][Hand]: Pattern of Rebirth, Volrath's Shapeshifter, Goblin Bombardment, Llanowar Wastes, Gemstone Mine, Birds of Paradise, Karmic Guide
 [Turn 00][Action]: Keeping a hand of 7 cards.
@@ -47,10 +47,10 @@ $ ./goldfisher
 
 Follow [Rust](https://www.rust-lang.org/en-US/install.html) installation instructions.
 
-## Running the tool
+## Usage
 
-You can run develop builds of the tool with
+You can run develop builds of the tool by
 
-```shell
+```console
 $ cargo run
 ```
