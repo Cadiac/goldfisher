@@ -1,17 +1,18 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use log::{debug};
 
 use crate::card::{CardType, Zone, CardRef};
+use crate::mana::{Mana, PaymentAndFloating};
 use crate::deck::Deck;
 use crate::mana::find_payment_for;
-
-type PaymentAndFloating = (Vec<CardRef>, usize);
 
 pub struct GameState {
     pub turn: usize,
     deck: Deck,
     game_objects: Vec<CardRef>,
+    floating_mana: HashMap<Mana, usize>,
     is_first_player: bool,
 }
 
@@ -23,6 +24,7 @@ impl GameState {
             deck,
             turn: 0,
             game_objects: Vec::with_capacity(60),
+            floating_mana: HashMap::new(),
             is_first_player: true,
         }
     }
@@ -90,7 +92,7 @@ impl GameState {
         false
     }
 
-    pub fn cast_mana_dorks(&self) {
+    pub fn cast_mana_dorks(&mut self) {
         let castable = self.find_castable();
 
         let mut mana_dorks = castable
@@ -109,7 +111,7 @@ impl GameState {
         }
     }
 
-    pub fn cast_sac_outlets(&self) {
+    pub fn cast_sac_outlets(&mut self) {
         let castable = self.find_castable();
 
         let mut sac_outlets = castable
@@ -125,7 +127,7 @@ impl GameState {
         }
     }
 
-    pub fn cast_pattern_of_rebirths(&self) {
+    pub fn cast_pattern_of_rebirths(&mut self) {
         let castable = self.find_castable();
 
         let pattern_of_rebirth = castable.iter().find(|(card, _)| card.borrow().is_pattern);
@@ -166,7 +168,7 @@ impl GameState {
         }
     }
 
-    pub fn cast_rectors(&self) {
+    pub fn cast_rectors(&mut self) {
         let castable = self.find_castable();
 
         let rector = castable.iter().find(|(card, _)| card.borrow().is_rector);
@@ -182,7 +184,7 @@ impl GameState {
         }
     }
 
-    pub fn cast_redundant_creatures(&self) {
+    pub fn cast_redundant_creatures(&mut self) {
         let castable = self.find_castable();
 
         let mut creatures = castable
@@ -198,7 +200,7 @@ impl GameState {
         }
     }
 
-    pub fn cast_others(&self) {
+    pub fn cast_others(&mut self) {
         loop {
             let mut castable = self.find_castable();
 
@@ -245,7 +247,7 @@ impl GameState {
             .map(|card| {
                 (
                     card.clone(),
-                    find_payment_for(&card.borrow(), &mana_sources),
+                    find_payment_for(&card.borrow(), &mana_sources, self.floating_mana.clone()),
                 )
             })
             .filter(|(_, payment)| payment.is_some());
@@ -319,9 +321,9 @@ impl GameState {
     }
 
     pub fn cast_spell(
-        &self,
+        &mut self,
         card_ref: &CardRef,
-        (payment, _floating): &PaymentAndFloating,
+        (payment, floating): &PaymentAndFloating,
         attach_to: Option<CardRef>,
     ) {
         let mut card = card_ref.borrow_mut();
@@ -355,14 +357,18 @@ impl GameState {
         for mana_source in payment {
             mana_source.borrow_mut().is_tapped = true;
         }
+
+        self.floating_mana = floating.to_owned();
     }
 
-    pub fn cleanup(&self) {
+    pub fn cleanup(&mut self) {
         let cards_to_discard = self.select_worst_cards(7);
 
         for card in cards_to_discard {
             card.borrow_mut().zone = Zone::Graveyard;
         }
+        
+        self.floating_mana.clear();
     }
 
     pub fn advance_turn(&mut self) {

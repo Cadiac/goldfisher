@@ -1,10 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 use std::rc::Rc;
 use std::vec;
 
 use crate::card::{Card, CardRef};
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub type PaymentAndFloating = (Vec<CardRef>, HashMap<Mana, usize>);
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Mana {
     White,
     Blue,
@@ -19,9 +21,10 @@ const COLORS: [Mana; 5] = [Mana::White, Mana::Blue, Mana::Black, Mana::Red, Mana
 pub fn find_payment_for(
     card: &Card,
     mana_sources: &[CardRef],
-) -> Option<(Vec<CardRef>, usize)> {
+    mut floating: HashMap<Mana, usize>
+) -> Option<PaymentAndFloating> {
     if card.cost.is_empty() {
-        return Some((vec![], 0));
+        return Some((vec![], HashMap::new()));
     }
 
     let mut sources_to_pay_colors_with = HashMap::new();
@@ -51,16 +54,24 @@ pub fn find_payment_for(
 
     let mut used_sources = Vec::new();
 
-    // TODO: Give colors to floating
-    // TODO: Take floating as parameter for this function
-    let mut floating = 0;
-
     for (color, cost) in card.cost.iter() {
         if *color == Mana::Colorless {
             continue;
         }
 
         let mut paid = 0;
+
+        // Try to spend any floating mana we might have
+        let floating_mana = floating.entry(*color).or_insert(0);
+        if *floating_mana < *cost {
+            // Partial payment with floating mana
+            paid += *floating_mana;
+            *floating_mana = 0;
+        } else {
+            // Full colored payment with floating mnaa, continue to next color
+            *floating_mana -= cost;
+            continue;
+        }
 
         let sources = sources_to_pay_colors_with.get(color).unwrap();
         for (source, amount) in sources.iter() {
@@ -72,7 +83,7 @@ pub fn find_payment_for(
             used_sources.push(Rc::clone(source));
 
             if paid >= *cost {
-                floating += paid - cost;
+                *floating.entry(*color).or_insert(0) += paid - cost;
                 break;
             }
         }
@@ -82,12 +93,27 @@ pub fn find_payment_for(
         }
     }
 
-    if let Some(colorless_cost) = card.cost.get(&Mana::Colorless) {
+    if let Some(cost) = card.cost.get(&Mana::Colorless) {
         // Use the floating mana first
-        let mut paid = floating;
+        let mut paid = 0;
+
+        // Try to spend any floating mana we might have
+        for floating_mana in floating.values_mut() {
+            // Try to spend any floating mana we might have
+            if *floating_mana < *cost {
+                // Partial payment with floating mana
+                paid += *floating_mana;
+                *floating_mana = 0;
+            } else {
+                // Full payment with floating mnaa, break the loop
+                paid = *cost;
+                *floating_mana -= cost;
+                break;
+            }
+        }
 
         // If floating mana wasn't enough loop through remaining sources to pay for the colorless
-        if paid < *colorless_cost {
+        if paid < *cost {
             let mut remaining_sources = mana_sources
                 .iter()
                 .filter(|source| {
@@ -107,18 +133,22 @@ pub fn find_payment_for(
 
             for source in remaining_sources {
                 let borrowed = source.borrow();
-                if let Some(mana) = borrowed.produced_mana.values().max() {
-                    paid += mana;
+                let max_produced_mana_from_source = borrowed.produced_mana
+                    .iter()
+                    .max_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap());
+
+                if let Some((color, amount)) = max_produced_mana_from_source {
+                    paid += amount;
                     used_sources.push(Rc::clone(source));
     
-                    if paid >= *colorless_cost {
-                        floating = paid - colorless_cost;
+                    if paid >= *cost {
+                        *floating.entry(*color).or_insert(0) = paid - cost;
                         break;
                     }
                 }
             }
 
-            if paid < *colorless_cost {
+            if paid < *cost {
                 return None;
             }
         }
@@ -127,17 +157,22 @@ pub fn find_payment_for(
     Some((used_sources, floating))
 }
 
+
 #[cfg(test)]
 #[rustfmt::skip]
 mod tests {
     use super::*;
     use std::cell::{RefCell};
 
+    fn is_empty_mana_pool(floating: HashMap<Mana, usize>) -> bool {
+        floating.values().all(|amount| *amount == 0)
+    }
+
     #[test]
     fn it_finds_payment_no_mana_sources() {
         let card = Card { cost: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
 
-        let payment = find_payment_for(&card, &vec![]);
+        let payment = find_payment_for(&card, &vec![], HashMap::new());
         assert_eq!(true, payment.is_none());
     }
 
@@ -147,12 +182,17 @@ mod tests {
         let forest = Card { produced_mana: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
         let forest_ref = Rc::new(RefCell::new(forest));
 
-        let payment = find_payment_for(&birds_of_paradise, &vec![forest_ref.clone()]);
+        let payment = find_payment_for(
+            &birds_of_paradise,
+            &vec![forest_ref.clone()],
+            HashMap::new()
+        );
+
         assert_eq!(true, payment.is_some());
-        let payment = payment.unwrap();
-        assert_eq!(1, payment.0.len());
-        assert_eq!(true, Rc::ptr_eq(&forest_ref, &payment.0[0]));
-        assert_eq!(0, payment.1);
+        let (payment, floating) = payment.unwrap();
+        assert_eq!(1, payment.len());
+        assert_eq!(true, Rc::ptr_eq(&forest_ref, &payment[0]));
+        assert_eq!(true, is_empty_mana_pool(floating));
     }
 
     #[test]
@@ -161,9 +201,12 @@ mod tests {
         let mountain = Card { produced_mana: HashMap::from([(Mana::Red, 1)]), ..Default::default() };
         let mountain_ref = Rc::new(RefCell::new(mountain));
 
-        let payment = find_payment_for(&birds_of_paradise, &vec![
-            mountain_ref.clone()
-        ]);
+        let payment = find_payment_for(
+            &birds_of_paradise,
+            &vec![mountain_ref.clone()],
+            HashMap::new()
+        );
+
         assert_eq!(true, payment.is_none());
     }
 
@@ -177,15 +220,20 @@ mod tests {
         let mountain = Card { produced_mana: HashMap::from([(Mana::Red, 1)]), ..Default::default() };
         let mountain_ref = Rc::new(RefCell::new(mountain));
 
-        let payment = find_payment_for(&birds_of_paradise, &vec![
-            forest_ref.clone(),
-            mountain_ref.clone()
-        ]);
+        let payment = find_payment_for(
+            &birds_of_paradise, 
+            &vec![
+                forest_ref.clone(),
+                mountain_ref.clone(),
+            ],
+            HashMap::new()
+        );
+
         assert_eq!(true, payment.is_some());
         let (payment, floating) = payment.unwrap();
         assert_eq!(1, payment.len());
         assert_eq!(true, Rc::ptr_eq(&forest_ref, &payment[0]));
-        assert_eq!(0, floating);
+        assert_eq!(true, is_empty_mana_pool(floating));
     }
 
     #[test]
@@ -195,14 +243,17 @@ mod tests {
         let taiga = Card { produced_mana: HashMap::from([(Mana::Green, 1), (Mana::Red, 1)]), ..Default::default() };
         let taiga_ref = Rc::new(RefCell::new(taiga));
 
-        let payment = find_payment_for(&birds_of_paradise, &vec![
-            taiga_ref.clone()
-        ]);
+        let payment = find_payment_for(
+            &birds_of_paradise, 
+            &vec![taiga_ref.clone()],
+            HashMap::new(),
+        );
+
         assert_eq!(true, payment.is_some());
         let (payment, floating) = payment.unwrap();
         assert_eq!(1, payment.len());
         assert_eq!(true, Rc::ptr_eq(&taiga_ref, &payment[0]));
-        assert_eq!(0, floating);
+        assert_eq!(true, is_empty_mana_pool(floating));
     }
 
     #[test]
@@ -212,14 +263,18 @@ mod tests {
         let gaeas_cradle  = Card { produced_mana: HashMap::from([(Mana::Green, 2)]), ..Default::default() };
         let gaeas_cradle_ref = Rc::new(RefCell::new(gaeas_cradle));
 
-        let payment = find_payment_for(&birds_of_paradise, &vec![
-            gaeas_cradle_ref.clone()
-        ]);
+        let payment = find_payment_for(
+            &birds_of_paradise,
+            &vec![gaeas_cradle_ref.clone()],
+            HashMap::new(),
+        );
+
         assert_eq!(true, payment.is_some());
         let (payment, floating) = payment.unwrap();
         assert_eq!(1, payment.len());
         assert_eq!(true, Rc::ptr_eq(&gaeas_cradle_ref, &payment[0]));
-        assert_eq!(1, floating);
+        assert_eq!(1, floating.len());
+        assert_eq!(1, *floating.get(&Mana::Green).unwrap());
     }
 
     #[test]
@@ -231,17 +286,22 @@ mod tests {
         let forest_2 = Rc::new(RefCell::new(forest.clone()));
         let forest_3 = Rc::new(RefCell::new(forest.clone()));
 
-        let payment = find_payment_for(&channel, &vec![
-            forest_1.clone(),
-            forest_2.clone(),
-            forest_3.clone(),
-        ]);
+        let payment = find_payment_for(
+            &channel,
+            &vec![
+                forest_1.clone(),
+                forest_2.clone(),
+                forest_3.clone(),
+            ],
+            HashMap::new(),
+        );
+
         assert_eq!(true, payment.is_some());
         let (payment, floating) = payment.unwrap();
         assert_eq!(2, payment.len());
         assert_eq!(true, Rc::ptr_eq(&forest_1, &payment[0]));
         assert_eq!(true, Rc::ptr_eq(&forest_2, &payment[1]));
-        assert_eq!(0, floating);
+        assert_eq!(true, is_empty_mana_pool(floating));
     }
 
     #[test]
@@ -257,18 +317,23 @@ mod tests {
         let forest_2 = Rc::new(RefCell::new(forest.clone()));
         let mountain_1 = Rc::new(RefCell::new(mountain.clone()));
 
-        let payment = find_payment_for(&jungle_troll, &vec![
-            forest_1.clone(),
-            forest_2.clone(),
-            mountain_1.clone(),
-        ]);
+        let payment = find_payment_for(
+            &jungle_troll,
+            &vec![
+                forest_1.clone(),
+                forest_2.clone(),
+                mountain_1.clone(),
+            ],
+            HashMap::new(),
+        );
+
         assert_eq!(true, payment.is_some());
         let (payment, floating) = payment.unwrap();
         assert_eq!(3, payment.len());
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_1, source)));
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_2, source)));
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&mountain_1, source)));
-        assert_eq!(0, floating);
+        assert_eq!(true, is_empty_mana_pool(floating));
     }
 
     #[test]
@@ -284,18 +349,23 @@ mod tests {
         let forest_2 = Rc::new(RefCell::new(forest.clone()));
         let mountain_1 = Rc::new(RefCell::new(mountain.clone()));
 
-        let payment = find_payment_for(&metalworker, &vec![
-            forest_1.clone(),
-            forest_2.clone(),
-            mountain_1.clone(),
-        ]);
+        let payment = find_payment_for(
+            &metalworker,
+            &vec![
+                forest_1.clone(),
+                forest_2.clone(),
+                mountain_1.clone(),
+            ],
+            HashMap::new(),
+        );
+
         assert_eq!(true, payment.is_some());
         let (payment, floating) = payment.unwrap();
         assert_eq!(3, payment.len());
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_1, source)));
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_2, source)));
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&mountain_1, source)));
-        assert_eq!(0, floating);
+        assert_eq!(true, is_empty_mana_pool(floating));
     }
 
     #[test]
@@ -311,17 +381,22 @@ mod tests {
         let forest_2 = Rc::new(RefCell::new(forest.clone()));
         let ancient_tomb_1 = Rc::new(RefCell::new(ancient_tomb.clone()));
 
-        let payment = find_payment_for(&metalworker, &vec![
-            forest_1.clone(),
-            forest_2.clone(),
-            ancient_tomb_1.clone(),
-        ]);
+        let payment = find_payment_for(
+            &metalworker,
+            &vec![
+                forest_1.clone(),
+                forest_2.clone(),
+                ancient_tomb_1.clone(),
+            ],
+            HashMap::new(),
+        );
+
         assert_eq!(true, payment.is_some());
         let (payment, floating) = payment.unwrap();
         assert_eq!(2, payment.len());
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_1, source)));
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&ancient_tomb_1, source)));
-        assert_eq!(0, floating);
+        assert_eq!(true, is_empty_mana_pool(floating));
     }
 
     #[test]
@@ -358,20 +433,25 @@ mod tests {
         let city_of_brass_2 = Rc::new(RefCell::new(city_of_brass.clone()));
 
         // Note: These must be provided in ascending order by mana produced or else this won't work
-        let payment = find_payment_for(&jungle_troll, &vec![
-            forest_1.clone(),
-            forest_2.clone(),
-            mountain_1.clone(),
-            taiga_1.clone(),
-            city_of_brass_1.clone(),
-            city_of_brass_2.clone(),
-        ]);
+        let payment = find_payment_for(
+            &jungle_troll,
+            &vec![
+                forest_1.clone(),
+                forest_2.clone(),
+                mountain_1.clone(),
+                taiga_1.clone(),
+                city_of_brass_1.clone(),
+                city_of_brass_2.clone(),
+            ],
+            HashMap::new()
+        );
+
         assert_eq!(true, payment.is_some());
         let (payment, floating) = payment.unwrap();
         assert_eq!(3, payment.len());
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_1, source)));
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest_2, source)));
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&mountain_1, source)));
-        assert_eq!(0, floating);
+        assert_eq!(true, is_empty_mana_pool(floating));
     }
 }
