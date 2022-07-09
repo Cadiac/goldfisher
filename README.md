@@ -23,81 +23,86 @@ $ cargo run
 
 ```
 $ ./goldfisher
-[Turn 00][Hand]: Pattern of Rebirth, Volrath's Shapeshifter, Goblin Bombardment, Llanowar Wastes, Gemstone Mine, Birds of Paradise, Karmic Guide
-[Turn 00][Action]: Keeping a hand of 7 cards.
-========================================
-[Turn 01][Library]: 53 cards remaining.
-[Turn 01][Hand]: Pattern of Rebirth, Volrath's Shapeshifter, Goblin Bombardment, Llanowar Wastes, Gemstone Mine, Birds of Paradise, Karmic Guide
-[Turn 01][Battlefield]: 
-[Turn 01][Graveyard]: 
-[Turn 01][Action]: Playing land: "Gemstone Mine"
-[Turn 01][Action]: Casting spell "Birds of Paradise" with mana sources: Gemstone Mine
-========================================
-[Turn 02][Library]: 52 cards remaining.
-[Turn 02][Hand]: Pattern of Rebirth, Volrath's Shapeshifter, Goblin Bombardment, Llanowar Wastes, Karmic Guide, Mesmeric Fiend
-[Turn 02][Battlefield]: Gemstone Mine, Birds of Paradise
-[Turn 02][Graveyard]: 
-[Turn 02][Action]: Playing land: "Llanowar Wastes"
-[Turn 02][Action]: Casting spell "Goblin Bombardment" with mana sources: Gemstone Mine, Llanowar Wastes
-========================================
-[Turn 03][Library]: 51 cards remaining.
-[Turn 03][Hand]: Pattern of Rebirth, Volrath's Shapeshifter, Karmic Guide, Mesmeric Fiend, Reflecting Pool
-[Turn 03][Battlefield]: Goblin Bombardment, Llanowar Wastes, Gemstone Mine, Birds of Paradise
-[Turn 03][Graveyard]: 
-[Turn 03][Action]: Playing land: "Reflecting Pool"
-[Turn 03][Action]: Casting spell "Pattern of Rebirth" on target "Birds of Paradise" with mana sources: Llanowar Wastes, Gemstone Mine, Birds of Paradise, Reflecting Pool
-========================================
- Won the game on turn 3!
-========================================
-[Turn 03][Library]: 51 cards remaining.
-[Turn 03][Hand]: Volrath's Shapeshifter, Karmic Guide, Mesmeric Fiend
-[Turn 03][Battlefield]: Pattern of Rebirth, Goblin Bombardment, Llanowar Wastes, Gemstone Mine, Birds of Paradise, Reflecting Pool
-[Turn 03][Graveyard]: 
+[DEBUG] ====================[ START OF GAME ]=======================
+[DEBUG] [Turn 00][Hand]: Pattern of Rebirth, Phyrexian Tower, Llanowar Elves, Nantuko Husk, Worship, Nantuko Husk, Goblin Bombardment
+[DEBUG] [Turn 00][Action]: Taking a mulligan number 1.
+[DEBUG] [Turn 00][Hand]: Cabal Therapy, Llanowar Wastes, Academy Rector, Llanowar Elves, Karmic Guide, City of Brass, Llanowar Elves
+[DEBUG] [Turn 00][Action]: Keeping a hand of 6 cards.
+[DEBUG] [Turn 00][Action]: Putting 1 cards on bottom: Karmic Guide
+[DEBUG] ======================[ TURN 00 ]===========================
+[DEBUG] [Turn 01][Library]: 54 cards remaining.
+[DEBUG] [Turn 01][Hand]: Cabal Therapy, Llanowar Wastes, Academy Rector, Llanowar Elves, City of Brass, Llanowar Elves
+[DEBUG] [Turn 01][Battlefield]: 
+[DEBUG] [Turn 01][Graveyard]: 
+[DEBUG] [Turn 01][Action]: Playing land: "City of Brass"
+[DEBUG] [Turn 01][Action]: Casting spell "Llanowar Elves" with mana sources: City of Brass
+[DEBUG] ======================[ TURN 01 ]===========================
+[DEBUG] [Turn 02][Library]: 53 cards remaining.
+[DEBUG] [Turn 02][Hand]: Cabal Therapy, Llanowar Wastes, Academy Rector, Llanowar Elves, Goblin Bombardment
+[DEBUG] [Turn 02][Battlefield]: Llanowar Elves, City of Brass
+[DEBUG] [Turn 02][Graveyard]: 
+[DEBUG] [Turn 02][Action]: Playing land: "Llanowar Wastes"
+[DEBUG] [Turn 02][Action]: Casting spell "Llanowar Elves" with mana sources: Llanowar Elves
+[DEBUG] [Turn 02][Action]: Casting spell "Goblin Bombardment" with mana sources: City of Brass, Llanowar Wastes
+[DEBUG] ======================[ TURN 02 ]===========================
+[DEBUG] [Turn 03][Library]: 52 cards remaining.
+[DEBUG] [Turn 03][Hand]: Cabal Therapy, Academy Rector, Worship
+[DEBUG] [Turn 03][Battlefield]: Llanowar Wastes, Llanowar Elves, City of Brass, Llanowar Elves, Goblin Bombardment
+[DEBUG] [Turn 03][Graveyard]: 
+[DEBUG] [Turn 03][Action]: Casting spell "Academy Rector" with mana sources: City of Brass, Llanowar Elves, Llanowar Elves, Llanowar Wastes
+[DEBUG] =====================[ END OF GAME ]========================
+[DEBUG]  Won the game on turn 3!
+[DEBUG] ============================================================
+[DEBUG] [Turn 03][Library]: 52 cards remaining.
+[DEBUG] [Turn 03][Hand]: Cabal Therapy, Worship
+[DEBUG] [Turn 03][Battlefield]: Llanowar Wastes, Academy Rector, Llanowar Elves, City of Brass, Llanowar Elves, Goblin Bombardment
+[DEBUG] [Turn 03][Graveyard]: 
 ```
 
 ## Results
 
 ```
-Wins per turn after 100000 games:
-Turn 03: 18998 wins (19.0%).
-Turn 04: 22650 wins (22.6%).
-Turn 05: 16483 wins (16.5%).
-Turn 06: 10776 wins (10.8%).
-Turn 07: 7154 wins (7.2%).
-Turn 08: 5338 wins (5.3%).
-Turn 09: 4113 wins (4.1%).
-Turn 10: 3102 wins (3.1%).
-Turn 11: 2493 wins (2.5%).
-Turn 12: 1833 wins (1.8%).
-Turn 13: 1501 wins (1.5%).
-Turn 14: 1204 wins (1.2%).
-Turn 15: 953 wins (1.0%).
-Turn 16: 761 wins (0.8%).
-Turn 17: 566 wins (0.6%).
-Turn 18: 465 wins (0.5%).
-Turn 19: 392 wins (0.4%).
-Turn 20: 284 wins (0.3%).
-Turn 21: 246 wins (0.2%).
-Turn 22: 178 wins (0.2%).
-Turn 23: 125 wins (0.1%).
-Turn 24: 95 wins (0.1%).
-Turn 25: 89 wins (0.1%).
-Turn 26: 65 wins (0.1%).
-Turn 27: 42 wins (0.0%).
-Turn 28: 24 wins (0.0%).
-Turn 29: 21 wins (0.0%).
-Turn 30: 14 wins (0.0%).
-Turn 31: 11 wins (0.0%).
-Turn 32: 2 wins (0.0%).
-Turn 33: 2 wins (0.0%).
-Turn 34: 7 wins (0.0%).
-Turn 35: 4 wins (0.0%).
-Turn 36: 1 wins (0.0%).
-Turn 37: 2 wins (0.0%).
-Turn 38: 1 wins (0.0%).
-Turn 39: 1 wins (0.0%).
-Turn 40: 1 wins (0.0%).
-Turn 41: 1 wins (0.0%).
-Turn 42: 1 wins (0.0%).
-Turn 44: 1 wins (0.0%).
+[INFO ] =======================[ RESULTS ]==========================
+[INFO ] Wins per turn after 500000 games:
+[INFO ] ============================================================
+[INFO ] Turn 03: 94943 wins (19.0%) - cumulative 19.0%
+[INFO ] Turn 04: 113710 wins (22.7%) - cumulative 41.7%
+[INFO ] Turn 05: 82055 wins (16.4%) - cumulative 58.1%
+[INFO ] Turn 06: 52399 wins (10.5%) - cumulative 68.6%
+[INFO ] Turn 07: 36951 wins (7.4%) - cumulative 76.0%
+[INFO ] Turn 08: 26877 wins (5.4%) - cumulative 81.4%
+[INFO ] Turn 09: 20426 wins (4.1%) - cumulative 85.5%
+[INFO ] Turn 10: 15683 wins (3.1%) - cumulative 88.6%
+[INFO ] Turn 11: 12015 wins (2.4%) - cumulative 91.0%
+[INFO ] Turn 12: 9260 wins (1.9%) - cumulative 92.9%
+[INFO ] Turn 13: 7467 wins (1.5%) - cumulative 94.4%
+[INFO ] Turn 14: 6078 wins (1.2%) - cumulative 95.6%
+[INFO ] Turn 15: 4699 wins (0.9%) - cumulative 96.5%
+[INFO ] Turn 16: 3789 wins (0.8%) - cumulative 97.3%
+[INFO ] Turn 17: 3041 wins (0.6%) - cumulative 97.9%
+[INFO ] Turn 18: 2366 wins (0.5%) - cumulative 98.4%
+[INFO ] Turn 19: 1953 wins (0.4%) - cumulative 98.7%
+[INFO ] Turn 20: 1539 wins (0.3%) - cumulative 99.1%
+[INFO ] Turn 21: 1167 wins (0.2%) - cumulative 99.3%
+[INFO ] Turn 22: 899 wins (0.2%) - cumulative 99.5%
+[INFO ] Turn 23: 692 wins (0.1%) - cumulative 99.6%
+[INFO ] Turn 24: 525 wins (0.1%) - cumulative 99.7%
+[INFO ] Turn 25: 403 wins (0.1%) - cumulative 99.8%
+[INFO ] Turn 26: 284 wins (0.1%) - cumulative 99.8%
+[INFO ] Turn 27: 226 wins (0.0%) - cumulative 99.9%
+[INFO ] Turn 28: 165 wins (0.0%) - cumulative 99.9%
+[INFO ] Turn 29: 108 wins (0.0%) - cumulative 99.9%
+[INFO ] Turn 30: 90 wins (0.0%) - cumulative 100.0%
+[INFO ] Turn 31: 63 wins (0.0%) - cumulative 100.0%
+[INFO ] Turn 32: 50 wins (0.0%) - cumulative 100.0%
+[INFO ] Turn 33: 30 wins (0.0%) - cumulative 100.0%
+[INFO ] Turn 34: 17 wins (0.0%) - cumulative 100.0%
+[INFO ] Turn 35: 9 wins (0.0%) - cumulative 100.0%
+[INFO ] Turn 36: 8 wins (0.0%) - cumulative 100.0%
+[INFO ] Turn 37: 3 wins (0.0%) - cumulative 100.0%
+[INFO ] Turn 38: 3 wins (0.0%) - cumulative 100.0%
+[INFO ] Turn 39: 2 wins (0.0%) - cumulative 100.0%
+[INFO ] Turn 40: 2 wins (0.0%) - cumulative 100.0%
+[INFO ] Turn 41: 2 wins (0.0%) - cumulative 100.0%
+[INFO ] Turn 44: 1 wins (0.0%) - cumulative 100.0%
 ```

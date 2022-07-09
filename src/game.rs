@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use log::{debug};
 
 use crate::card::{CardType, Zone, CardRef};
 use crate::deck::Deck;
@@ -275,7 +276,7 @@ impl GameState {
         if let Some(land) = lands_in_hand.pop() {
             let mut card = land.borrow_mut();
 
-            println!(
+            debug!(
                 "[Turn {turn:002}][Action]: Playing land: \"{land}\"",
                 turn = self.turn,
                 land = card.name
@@ -337,7 +338,7 @@ impl GameState {
             None => "".to_owned(),
         };
 
-        println!("[Turn {turn:002}][Action]: Casting spell \"{card_name}\"{target_str} with mana sources: {mana_sources}",
+        debug!("[Turn {turn:002}][Action]: Casting spell \"{card_name}\"{target_str} with mana sources: {mana_sources}",
             turn = self.turn);
 
         card.zone = match card.card_type {
@@ -386,7 +387,7 @@ impl GameState {
             self.draw_n(7);
             self.print_hand();
             if self.is_keepable_hand(mulligan_count) {
-                println!(
+                debug!(
                     "[Turn {turn:002}][Action]: Keeping a hand of {cards} cards.",
                     turn = self.turn,
                     cards = 7 - mulligan_count
@@ -399,7 +400,7 @@ impl GameState {
                         .map(|card| card.borrow().name.clone())
                         .collect::<Vec<_>>()
                         .join(", ");
-                    println!("[Turn {turn:002}][Action]: Putting {count} cards on bottom: {bottomed_str}",
+                    debug!("[Turn {turn:002}][Action]: Putting {count} cards on bottom: {bottomed_str}",
                         count = bottomed.len(),
                         turn = self.turn);
                 }
@@ -428,7 +429,7 @@ impl GameState {
                 self.deck.shuffle();
             }
             mulligan_count += 1;
-            println!(
+            debug!(
                 "[Turn {turn:002}][Action]: Taking a mulligan number {mulligan_count}.",
                 turn = self.turn
             );
@@ -607,7 +608,7 @@ impl GameState {
             .map(|card| card.borrow().name.clone())
             .collect::<Vec<_>>()
             .join(", ");
-        println!(
+        debug!(
             "[Turn {turn:002}][Battlefield]: {battlefield_str}",
             turn = self.turn
         );
@@ -621,14 +622,14 @@ impl GameState {
             .map(|card| card.borrow().name.clone())
             .collect::<Vec<_>>()
             .join(", ");
-        println!(
+        debug!(
             "[Turn {turn:002}][Graveyard]: {battlefield_str}",
             turn = self.turn
         );
     }
 
     fn print_library(&self) {
-        println!(
+        debug!(
             "[Turn {turn:002}][Library]: {deck} cards remaining.",
             turn = self.turn,
             deck = self.deck.len()
@@ -643,7 +644,7 @@ impl GameState {
             .map(|card| card.borrow().name.clone())
             .collect::<Vec<_>>()
             .join(", ");
-        println!("[Turn {turn:002}][Hand]: {hand_str}", turn = self.turn);
+        debug!("[Turn {turn:002}][Hand]: {hand_str}", turn = self.turn);
     }
 }
 

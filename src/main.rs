@@ -3,7 +3,14 @@ use std::collections::HashMap;
 use goldfisher::deck::create_deck;
 use goldfisher::game::GameState;
 
+#[macro_use]
+extern crate log;
+
+use env_logger::Env;
+
 fn main() {
+    init_logger();
+
     let deck = create_deck(vec![
         ("Birds of Paradise", 4),
         ("Llanowar Elves", 3),
@@ -38,12 +45,16 @@ fn main() {
     let simulated_games = 100;
 
     for _ in 0..simulated_games {
+        debug!("====================[ START OF GAME ]=======================");
         let mut game = GameState::new(deck.clone());
 
         game.find_starting_hand();
 
         loop {
-            println!("========================================");
+            debug!(
+                "======================[ TURN {turn:002} ]===========================",
+                turn = game.turn
+            );
 
             game.advance_turn();
             game.untap();
@@ -67,9 +78,9 @@ fn main() {
 
             // Do we have it?
             if game.is_win_condition_met() {
-                println!("========================================");
-                println!(" Won the game on turn {turn}!", turn = game.turn);
-                println!("========================================");
+                debug!("=====================[ END OF GAME ]========================");
+                debug!(" Won the game on turn {turn}!", turn = game.turn);
+                debug!("============================================================");
                 game.print_game_state();
 
                 *win_statistics.entry(game.turn).or_insert(0) += 1;
@@ -79,21 +90,30 @@ fn main() {
             // If not, take another turn
             game.cleanup();
         }
-        println!("");
     }
 
     let mut wins_by_turn = win_statistics.iter().collect::<Vec<_>>();
     wins_by_turn.sort();
 
-    println!("========================================");
-    println!("Wins per turn after {simulated_games} games:");
+    info!("=======================[ RESULTS ]==========================");
+    info!("Wins per turn after {simulated_games} games:");
+    info!("============================================================");
 
     let mut cumulative = 0.0;
     for (turn, wins) in wins_by_turn {
         let win_percentage = 100.0 * *wins as f32 / simulated_games as f32;
         cumulative += win_percentage;
-        println!(
-            "Turn {turn:002}: {wins} wins ({win_percentage:.1}%) - cumulative {cumulative:.1}%"
-        );
+        info!("Turn {turn:002}: {wins} wins ({win_percentage:.1}%) - cumulative {cumulative:.1}%");
     }
+}
+
+fn init_logger() {
+    env_logger::Builder::from_env(
+        Env::default()
+            .filter_or("LOG_LEVEL", "debug")
+            .write_style_or("LOG_STYLE", "always"),
+    )
+    .format_timestamp(None)
+    .format_module_path(false)
+    .init();
 }
