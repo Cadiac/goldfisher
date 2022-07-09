@@ -4,6 +4,8 @@ use std::cell::{RefCell};
 
 use crate::mana::{Mana};
 
+pub type CardRef = Rc<RefCell<Card>>;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum CardType {
     Creature,
@@ -45,5 +47,5 @@ pub struct Card {
     pub is_pattern: bool,
     pub is_summoning_sick: bool,
     pub is_tapped: bool,
-    pub attached_to: Option<Rc<RefCell<Card>>>,
+    pub attached_to: Option<CardRef>,
 }

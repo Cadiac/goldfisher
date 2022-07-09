@@ -1,9 +1,8 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::vec;
 
-use crate::card::Card;
+use crate::card::{Card, CardRef};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Mana {
@@ -19,8 +18,8 @@ const COLORS: [Mana; 5] = [Mana::White, Mana::Blue, Mana::Black, Mana::Red, Mana
 
 pub fn find_payment_for(
     card: &Card,
-    mana_sources: &[Rc<RefCell<Card>>],
-) -> Option<(Vec<Rc<RefCell<Card>>>, usize)> {
+    mana_sources: &[CardRef],
+) -> Option<(Vec<CardRef>, usize)> {
     if card.cost.is_empty() {
         return Some((vec![], 0));
     }
@@ -132,6 +131,7 @@ pub fn find_payment_for(
 #[rustfmt::skip]
 mod tests {
     use super::*;
+    use std::cell::{RefCell};
 
     #[test]
     fn it_finds_payment_no_mana_sources() {

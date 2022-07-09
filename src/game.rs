@@ -1,15 +1,15 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::card::{Card, CardType, Zone};
+use crate::card::{CardType, Zone, CardRef};
 use crate::deck::Deck;
 use crate::mana::find_payment_for;
 
 pub struct GameState {
-    pub deck: Deck,
     pub turn: usize,
-    pub game_objects: Vec<Rc<RefCell<Card>>>,
-    pub is_first_player: bool,
+    deck: Deck,
+    game_objects: Vec<CardRef>,
+    is_first_player: bool,
 }
 
 impl GameState {
@@ -107,39 +107,6 @@ impl GameState {
         }
     }
 
-    pub fn cast_redundant_creatures(&self) {
-        let castable = self.find_castable();
-
-        let mut creatures = castable
-            .iter()
-            .filter(|(card, _)| card.borrow().card_type == CardType::Creature)
-            .collect::<Vec<_>>();
-
-        // Cast the cheapest creatures first
-        creatures.sort_by(|(a, _), (b, _)| sort_by_cmc(a, b));
-
-        if let Some((card_ref, payment)) = creatures.first() {
-            self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
-        }
-    }
-
-    pub fn cast_others(&self) {
-        loop {
-            let mut castable = self.find_castable();
-
-            if castable.is_empty() {
-                return;
-            }
-
-            // Cast the cheapest first
-            castable.sort_by(|(a, _), (b, _)| sort_by_cmc(a, b));
-
-            if let Some((card_ref, payment)) = castable.first() {
-                self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
-            }
-        }
-    }
-
     pub fn cast_sac_outlets(&self) {
         let castable = self.find_castable();
 
@@ -213,7 +180,40 @@ impl GameState {
         }
     }
 
-    fn find_castable(&self) -> Vec<(Rc<RefCell<Card>>, Option<(Vec<Rc<RefCell<Card>>>, usize)>)> {
+    pub fn cast_redundant_creatures(&self) {
+        let castable = self.find_castable();
+
+        let mut creatures = castable
+            .iter()
+            .filter(|(card, _)| card.borrow().card_type == CardType::Creature)
+            .collect::<Vec<_>>();
+
+        // Cast the cheapest creatures first
+        creatures.sort_by(|(a, _), (b, _)| sort_by_cmc(a, b));
+
+        if let Some((card_ref, payment)) = creatures.first() {
+            self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
+        }
+    }
+
+    pub fn cast_others(&self) {
+        loop {
+            let mut castable = self.find_castable();
+
+            if castable.is_empty() {
+                return;
+            }
+
+            // Cast the cheapest first
+            castable.sort_by(|(a, _), (b, _)| sort_by_cmc(a, b));
+
+            if let Some((card_ref, payment)) = castable.first() {
+                self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
+            }
+        }
+    }
+
+    fn find_castable(&self) -> Vec<(CardRef, Option<(Vec<CardRef>, usize)>)> {
         let nonlands_in_hand = self.game_objects.iter().filter(|card| {
             let card = card.borrow();
             card.zone == Zone::Hand && card.card_type != CardType::Land
@@ -261,6 +261,7 @@ impl GameState {
             })
             .map(|card| card)
             .collect::<Vec<_>>();
+
         lands_in_hand.sort_by(|a, b| {
             a.borrow()
                 .produced_mana
@@ -268,6 +269,7 @@ impl GameState {
                 .partial_cmp(&b.borrow().produced_mana.len())
                 .unwrap()
         });
+
         // Play the one that produces most colors
         // TODO: Play the one that produces most cards that could be played
         if let Some(land) = lands_in_hand.pop() {
@@ -315,58 +317,11 @@ impl GameState {
         self.print_graveyard();
     }
 
-    pub fn print_battlefield(&self) {
-        let battlefield_str = self
-            .game_objects
-            .iter()
-            .filter(|card| card.borrow().zone == Zone::Battlefield)
-            .map(|card| card.borrow().name.clone())
-            .collect::<Vec<_>>()
-            .join(", ");
-        println!(
-            "[Turn {turn:002}][Battlefield]: {battlefield_str}",
-            turn = self.turn
-        );
-    }
-
-    pub fn print_graveyard(&self) {
-        let battlefield_str = self
-            .game_objects
-            .iter()
-            .filter(|card| card.borrow().zone == Zone::Graveyard)
-            .map(|card| card.borrow().name.clone())
-            .collect::<Vec<_>>()
-            .join(", ");
-        println!(
-            "[Turn {turn:002}][Graveyard]: {battlefield_str}",
-            turn = self.turn
-        );
-    }
-
-    pub fn print_library(&self) {
-        println!(
-            "[Turn {turn:002}][Library]: {deck} cards remaining.",
-            turn = self.turn,
-            deck = self.deck.len()
-        );
-    }
-
-    pub fn print_hand(&self) {
-        let hand_str = self
-            .game_objects
-            .iter()
-            .filter(|card| card.borrow().zone == Zone::Hand)
-            .map(|card| card.borrow().name.clone())
-            .collect::<Vec<_>>()
-            .join(", ");
-        println!("[Turn {turn:002}][Hand]: {hand_str}", turn = self.turn);
-    }
-
     pub fn cast_spell(
         &self,
-        card_ref: &Rc<RefCell<Card>>,
-        (payment, _floating): &(Vec<Rc<RefCell<Card>>>, usize),
-        attach_to: Option<Rc<RefCell<Card>>>,
+        card_ref: &CardRef,
+        (payment, _floating): &(Vec<CardRef>, usize),
+        attach_to: Option<CardRef>,
     ) {
         let mut card = card_ref.borrow_mut();
 
@@ -564,7 +519,7 @@ impl GameState {
         false
     }
 
-    fn select_worst_cards(&self, hand_size: usize) -> Vec<Rc<RefCell<Card>>> {
+    fn select_worst_cards(&self, hand_size: usize) -> Vec<CardRef> {
         let mut ordered_hand = Vec::new();
         let mut lands = Vec::with_capacity(7);
         let mut patterns_or_rectors = Vec::with_capacity(7);
@@ -643,9 +598,56 @@ impl GameState {
             .map(|card| Rc::clone(card))
             .collect()
     }
+
+    fn print_battlefield(&self) {
+        let battlefield_str = self
+            .game_objects
+            .iter()
+            .filter(|card| card.borrow().zone == Zone::Battlefield)
+            .map(|card| card.borrow().name.clone())
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!(
+            "[Turn {turn:002}][Battlefield]: {battlefield_str}",
+            turn = self.turn
+        );
+    }
+
+    fn print_graveyard(&self) {
+        let battlefield_str = self
+            .game_objects
+            .iter()
+            .filter(|card| card.borrow().zone == Zone::Graveyard)
+            .map(|card| card.borrow().name.clone())
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!(
+            "[Turn {turn:002}][Graveyard]: {battlefield_str}",
+            turn = self.turn
+        );
+    }
+
+    fn print_library(&self) {
+        println!(
+            "[Turn {turn:002}][Library]: {deck} cards remaining.",
+            turn = self.turn,
+            deck = self.deck.len()
+        );
+    }
+
+    fn print_hand(&self) {
+        let hand_str = self
+            .game_objects
+            .iter()
+            .filter(|card| card.borrow().zone == Zone::Hand)
+            .map(|card| card.borrow().name.clone())
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!("[Turn {turn:002}][Hand]: {hand_str}", turn = self.turn);
+    }
 }
 
-fn sort_by_produced_mana(a: &Rc<RefCell<Card>>, b: &Rc<RefCell<Card>>) -> std::cmp::Ordering {
+fn sort_by_produced_mana(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
     b.borrow()
         .produced_mana
         .len()
@@ -653,7 +655,7 @@ fn sort_by_produced_mana(a: &Rc<RefCell<Card>>, b: &Rc<RefCell<Card>>) -> std::c
         .unwrap()
 }
 
-fn sort_by_cmc(a: &Rc<RefCell<Card>>, b: &Rc<RefCell<Card>>) -> std::cmp::Ordering {
+fn sort_by_cmc(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
     a.borrow()
         .cost
         .values()
