@@ -1,5 +1,7 @@
-use goldfisher::deck::{create_deck};
-use goldfisher::game::{GameState};
+use std::collections::HashMap;
+
+use goldfisher::deck::create_deck;
+use goldfisher::game::GameState;
 
 fn main() {
     let deck = create_deck(vec![
@@ -20,7 +22,6 @@ fn main() {
         ("Worship", 1),
         ("Goblin Bombardment", 1),
         ("Cabal Therapy", 4),
-
         ("City of Brass", 4),
         ("Llanowar Wastes", 4),
         ("Yavimaya Coast", 2),
@@ -33,43 +34,63 @@ fn main() {
         ("Plains", 1),
     ]);
 
-    let mut game = GameState::new(deck);
+    let mut win_statistics: HashMap<usize, usize> = HashMap::new();
+    let simulated_games = 100;
 
-    game.find_starting_hand();
+    for _ in 0..simulated_games {
+        let mut game = GameState::new(deck.clone());
 
-    loop {
-        println!("========================================");
+        game.find_starting_hand();
 
-        game.advance_turn();
-        game.untap();
-        game.draw();
-        game.print_game_state();
-
-        game.play_land();
-
-        game.cast_pattern_of_rebirths();
-        game.cast_rectors();
-
-        if game.mana_sources_count() >= 4 {
-            game.cast_sac_outlets();
-            game.cast_mana_dorks();
-        } else {
-            game.cast_mana_dorks();
-            game.cast_sac_outlets();
-        }
-        game.cast_redundant_creatures();
-        game.cast_others();
-
-        // Do we have it?
-        if game.is_win_condition_met() {
+        loop {
             println!("========================================");
-            println!(" Won the game on turn {turn}!", turn = game.turn);
-            println!("========================================");
+
+            game.advance_turn();
+            game.untap();
+            game.draw();
             game.print_game_state();
-            return;
-        }
 
-        // If not, take another turn
-        game.cleanup();
+            game.play_land();
+
+            game.cast_pattern_of_rebirths();
+            game.cast_rectors();
+
+            if game.mana_sources_count() >= 4 {
+                game.cast_sac_outlets();
+                game.cast_mana_dorks();
+            } else {
+                game.cast_mana_dorks();
+                game.cast_sac_outlets();
+            }
+            game.cast_redundant_creatures();
+            game.cast_others();
+
+            // Do we have it?
+            if game.is_win_condition_met() {
+                println!("========================================");
+                println!(" Won the game on turn {turn}!", turn = game.turn);
+                println!("========================================");
+                game.print_game_state();
+
+                *win_statistics.entry(game.turn).or_insert(0) += 1;
+                break;
+            }
+
+            // If not, take another turn
+            game.cleanup();
+        }
+        println!("");
+    }
+
+    let mut wins_by_turn = win_statistics.iter().collect::<Vec<_>>();
+    wins_by_turn.sort();
+
+    println!("========================================");
+    println!("Wins per turn after {simulated_games} games:");
+    for (turn, wins) in wins_by_turn {
+        println!(
+            "Turn {turn:002}: {wins} wins ({percentage:.1}%).",
+            percentage = 100.0 * *wins as f32 / simulated_games as f32
+        );
     }
 }
