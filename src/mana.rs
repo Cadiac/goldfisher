@@ -454,4 +454,61 @@ mod tests {
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&mountain_1, source)));
         assert_eq!(true, is_empty_mana_pool(floating));
     }
+
+    #[test]
+    fn it_finds_payment_1cmc_exact_floating_mana() {
+        let birds_of_paradise = Card { cost: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
+        let forest = Card { produced_mana: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
+        let forest_ref = Rc::new(RefCell::new(forest));
+
+        let payment = find_payment_for(
+            &birds_of_paradise,
+            &vec![forest_ref.clone()],
+            HashMap::from([(Mana::Green, 1)])
+        );
+
+        assert_eq!(true, payment.is_some());
+        let (payment, floating) = payment.unwrap();
+        assert_eq!(true, payment.is_empty());
+        assert_eq!(true, is_empty_mana_pool(floating));
+    }
+
+    #[test]
+    fn it_finds_payment_1cmc_execss_floating_mana() {
+        let birds_of_paradise = Card { cost: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
+        let forest = Card { produced_mana: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
+        let forest_ref = Rc::new(RefCell::new(forest));
+
+        let payment = find_payment_for(
+            &birds_of_paradise,
+            &vec![forest_ref.clone()],
+            HashMap::from([(Mana::Green, 2), (Mana::Red, 1)])
+        );
+
+        assert_eq!(true, payment.is_some());
+        let (payment, floating) = payment.unwrap();
+        assert_eq!(true, payment.is_empty());
+        assert_eq!(1, *floating.get(&Mana::Green).unwrap());
+        assert_eq!(1, *floating.get(&Mana::Red).unwrap());
+    }
+
+    #[test]
+    fn it_finds_payment_2cmc_floating_mana_for_colorless() {
+        let grizzly_bear = Card { cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 1)]), ..Default::default() };
+        let forest = Card { produced_mana: HashMap::from([(Mana::Green, 1)]), ..Default::default() };
+        let forest_ref = Rc::new(RefCell::new(forest));
+
+        let payment = find_payment_for(
+            &grizzly_bear,
+            &vec![forest_ref.clone()],
+            HashMap::from([(Mana::Red, 2)])
+        );
+
+        assert_eq!(true, payment.is_some());
+        let (payment, floating) = payment.unwrap();
+        assert_eq!(1, payment.len());
+        assert_eq!(true, Rc::ptr_eq(&forest_ref, &payment[0]));
+        assert_eq!(1, *floating.get(&Mana::Red).unwrap());
+        assert_eq!(0, *floating.get(&Mana::Green).unwrap());
+    }
 }

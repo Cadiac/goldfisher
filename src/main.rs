@@ -42,7 +42,7 @@ fn main() {
     ]);
 
     let mut win_statistics: HashMap<usize, usize> = HashMap::new();
-    let simulated_games = 100;
+    let simulated_games = 500_000;
 
     for _ in 0..simulated_games {
         debug!("====================[ START OF GAME ]=======================");
@@ -111,7 +111,7 @@ fn main() {
 fn init_logger() {
     env_logger::Builder::from_env(
         Env::default()
-            .filter_or("LOG_LEVEL", "debug")
+            .filter_or("LOG_LEVEL", "info")
             .write_style_or("LOG_STYLE", "always"),
     )
     .format_timestamp(None)
