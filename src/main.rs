@@ -42,7 +42,7 @@ fn main() {
     ]);
 
     let mut win_statistics: HashMap<usize, usize> = HashMap::new();
-    let simulated_games = 500_000;
+    let simulated_games = 100;
 
     for _ in 0..simulated_games {
         debug!("====================[ START OF GAME ]=======================");
