@@ -38,8 +38,9 @@ fn main() {
     game.find_starting_hand();
 
     loop {
-        game.advance_turn();
         println!("========================================");
+
+        game.advance_turn();
         game.untap();
         game.draw();
         game.print_game_state();
@@ -57,6 +58,7 @@ fn main() {
             game.cast_sac_outlets();
         }
         game.cast_redundant_creatures();
+        game.cast_others();
 
         // Do we have it?
         if game.is_win_condition_met() {

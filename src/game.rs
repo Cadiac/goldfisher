@@ -119,6 +119,19 @@ impl GameState {
         }
     }
 
+    pub fn cast_others(&self) {
+        loop {
+            let castable = self.find_castable();
+
+            if castable.is_empty() {
+                return
+            }
+
+            let (card_ref, payment) = castable.first().unwrap();
+            self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
+        }
+    }
+
     pub fn cast_sac_outlets(&self) {
         let castable = self.find_castable();
 
@@ -355,17 +368,10 @@ impl GameState {
     }
 
     pub fn cleanup(&self) {
-        let cards_in_hand = self
-            .game_objects
-            .iter()
-            .filter(|card| card.borrow().zone == Zone::Hand)
-            .enumerate();
+        let cards_to_discard = self.select_worst_cards(7);
 
-        for (index, card) in cards_in_hand {
-            if index >= 7 {
-                // TODO: Select the cards to discard by priority
-                card.borrow_mut().zone = Zone::Graveyard;
-            }
+        for card in cards_to_discard {
+            card.borrow_mut().zone = Zone::Graveyard;
         }
     }
 
