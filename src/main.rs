@@ -51,12 +51,13 @@ fn main() {
         game.find_starting_hand();
 
         loop {
+            game.advance_turn();
+
             debug!(
                 "======================[ TURN {turn:002} ]===========================",
                 turn = game.turn
             );
 
-            game.advance_turn();
             game.untap();
             game.draw();
             game.print_game_state();

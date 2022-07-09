@@ -29,14 +29,14 @@ $ ./goldfisher
 [DEBUG] [Turn 00][Hand]: Cabal Therapy, Llanowar Wastes, Academy Rector, Llanowar Elves, Karmic Guide, City of Brass, Llanowar Elves
 [DEBUG] [Turn 00][Action]: Keeping a hand of 6 cards.
 [DEBUG] [Turn 00][Action]: Putting 1 cards on bottom: Karmic Guide
-[DEBUG] ======================[ TURN 00 ]===========================
+[DEBUG] ======================[ TURN 01 ]===========================
 [DEBUG] [Turn 01][Library]: 54 cards remaining.
 [DEBUG] [Turn 01][Hand]: Cabal Therapy, Llanowar Wastes, Academy Rector, Llanowar Elves, City of Brass, Llanowar Elves
 [DEBUG] [Turn 01][Battlefield]: 
 [DEBUG] [Turn 01][Graveyard]: 
 [DEBUG] [Turn 01][Action]: Playing land: "City of Brass"
 [DEBUG] [Turn 01][Action]: Casting spell "Llanowar Elves" with mana sources: City of Brass
-[DEBUG] ======================[ TURN 01 ]===========================
+[DEBUG] ======================[ TURN 02 ]===========================
 [DEBUG] [Turn 02][Library]: 53 cards remaining.
 [DEBUG] [Turn 02][Hand]: Cabal Therapy, Llanowar Wastes, Academy Rector, Llanowar Elves, Goblin Bombardment
 [DEBUG] [Turn 02][Battlefield]: Llanowar Elves, City of Brass
@@ -44,7 +44,7 @@ $ ./goldfisher
 [DEBUG] [Turn 02][Action]: Playing land: "Llanowar Wastes"
 [DEBUG] [Turn 02][Action]: Casting spell "Llanowar Elves" with mana sources: Llanowar Elves
 [DEBUG] [Turn 02][Action]: Casting spell "Goblin Bombardment" with mana sources: City of Brass, Llanowar Wastes
-[DEBUG] ======================[ TURN 02 ]===========================
+[DEBUG] ======================[ TURN 03 ]===========================
 [DEBUG] [Turn 03][Library]: 52 cards remaining.
 [DEBUG] [Turn 03][Hand]: Cabal Therapy, Academy Rector, Worship
 [DEBUG] [Turn 03][Battlefield]: Llanowar Wastes, Llanowar Elves, City of Brass, Llanowar Elves, Goblin Bombardment
