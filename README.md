@@ -13,10 +13,16 @@ Follow [Rust](https://www.rust-lang.org/en-US/install.html) installation instruc
 
 ## Usage
 
-You can run develop builds of the tool by
+You can run the tool with
 
 ```console
 $ cargo run
+```
+
+For fast longer simulations adjust the `simulated_games` variable in `main.rs` and run executable as release build:
+
+```console
+$ cargo run --release
 ```
 
 ## Example game
