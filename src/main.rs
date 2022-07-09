@@ -2,7 +2,7 @@ use goldfisher::deck::{create_deck};
 use goldfisher::game::{GameState};
 
 fn main() {
-    let mut deck = create_deck(vec![
+    let deck = create_deck(vec![
         ("Birds of Paradise", 4),
         ("Llanowar Elves", 3),
         ("Carrion Feeder", 4),
@@ -33,15 +33,13 @@ fn main() {
         ("Plains", 1),
     ]);
 
-    deck.shuffle();
-
     let mut game = GameState::new(deck);
 
-    // Take the opening 7
-    game.draw_n(7);
+    game.find_starting_hand();
 
     loop {
         game.advance_turn();
+        println!("========================================");
         game.untap();
         game.draw();
         game.print_game_state();

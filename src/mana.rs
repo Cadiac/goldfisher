@@ -355,7 +355,7 @@ mod tests {
         let mountain_1 = Rc::new(RefCell::new(mountain.clone()));
         let taiga_1 = Rc::new(RefCell::new(taiga.clone()));
         let city_of_brass_1 = Rc::new(RefCell::new(city_of_brass.clone()));
-        let city_of_brass_2 = Rc::new(RefCell::new(city_of_brass.clone()));2
+        let city_of_brass_2 = Rc::new(RefCell::new(city_of_brass.clone()));
 
         // Note: These must be provided in ascending order by mana produced or else this won't work
         let payment = find_payment_for(&jungle_troll, &vec![

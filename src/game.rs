@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::card::{Card, CardType, Zone};
 use crate::deck::Deck;
-use crate::mana::find_payment_for;
+use crate::mana::{find_payment_for};
 
 pub struct GameState {
     pub deck: Deck,
@@ -13,7 +13,9 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn new(deck: Deck) -> Self {
+    pub fn new(mut deck: Deck) -> Self {
+        deck.shuffle();
+
         Self {
             deck,
             turn: 0,
@@ -99,12 +101,7 @@ impl GameState {
             .collect::<Vec<_>>();
 
         // Pick the one that produces most colors
-        mana_dorks.sort_by(|(a, _), (b, _)| b.borrow()
-            .produced_mana
-            .len()
-            .partial_cmp(&a.borrow().produced_mana.len())
-            .unwrap()
-        );
+        mana_dorks.sort_by(|(a, _), (b, _)| sort_by_produced_mana(a,b));
 
         if let Some((card_ref, payment)) = mana_dorks.first() {
             self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
@@ -188,7 +185,7 @@ impl GameState {
         }
     }
 
-    pub fn find_castable(
+    fn find_castable(
         &self,
     ) -> Vec<(Rc<RefCell<Card>>, Option<(Vec<Rc<RefCell<Card>>>, usize)>)> {
         let nonlands_in_hand = self.game_objects.iter().filter(|card| {
@@ -284,13 +281,12 @@ impl GameState {
     }
 
     pub fn print_game_state(&self) {
-        let hand_str = self
-            .game_objects
-            .iter()
-            .filter(|card| card.borrow().zone == Zone::Hand)
-            .map(|card| card.borrow().name.clone())
-            .collect::<Vec<_>>()
-            .join(", ");
+        self.print_library();
+        self.print_hand();
+        self.print_battlefield();
+    }
+
+    pub fn print_battlefield(&self) {
         let battlefield_str = self
             .game_objects
             .iter()
@@ -298,17 +294,29 @@ impl GameState {
             .map(|card| card.borrow().name.clone())
             .collect::<Vec<_>>()
             .join(", ");
+        println!(
+            "[Turn {turn:002}][Battlefield]: {battlefield_str}",
+            turn = self.turn
+        );
+    }
 
+    pub fn print_library(&self) {
         println!(
             "[Turn {turn:002}][Library]: {deck} cards remaining.",
             turn = self.turn,
             deck = self.deck.len()
         );
+    }    
+
+    pub fn print_hand(&self) {
+        let hand_str = self
+            .game_objects
+            .iter()
+            .filter(|card| card.borrow().zone == Zone::Hand)
+            .map(|card| card.borrow().name.clone())
+            .collect::<Vec<_>>()
+            .join(", ");
         println!("[Turn {turn:002}][Hand]: {hand_str}", turn = self.turn);
-        println!(
-            "[Turn {turn:002}][Battlefield]: {battlefield_str}",
-            turn = self.turn
-        );
     }
 
     pub fn cast_spell(
@@ -326,9 +334,13 @@ impl GameState {
             .collect::<Vec<_>>()
             .join(", ");
 
-        println!("[Turn {turn:002}][Action]: Casting spell \"{card_name}\" on target: {target:?} with: {mana_sources}",
-            turn = self.turn,
-            target = attach_to.as_ref().map(|card| card.borrow().name.clone()));
+        let target_str = match attach_to.as_ref() {
+            Some(target) => format!(" on target \"{}\"", target.borrow().name.clone()),
+            None => "".to_owned()
+        };
+
+        println!("[Turn {turn:002}][Action]: Casting spell \"{card_name}\"{target_str} with mana sources: {mana_sources}",
+            turn = self.turn);
 
         card.attached_to = attach_to;
         card.zone = Zone::Battlefield;
@@ -370,4 +382,225 @@ impl GameState {
             })
             .count()
     }
+
+    pub fn find_starting_hand(&mut self) {
+        let mut mulligan_count = 0;
+
+        loop {
+            // Draw the starting hand
+            self.draw_n(7);
+            self.print_hand();
+            if self.is_keepable_hand(mulligan_count) {
+                println!("[Turn {turn:002}][Action]: Keeping a hand of {cards} cards.", turn = self.turn, cards = 7 - mulligan_count);
+                let bottomed = self.select_worst_cards(7 - mulligan_count);
+                
+                if bottomed.len() > 0 {
+                    let bottomed_str = bottomed.iter()
+                        .map(|card| card.borrow().name.clone())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    println!("[Turn {turn:002}][Action]: Putting {count} cards on bottom: {bottomed_str}",
+                        count = bottomed.len(),
+                        turn = self.turn);
+                }
+
+                for card in bottomed {
+                    // Remove the cards from game objects
+                    self.game_objects.retain(|game_object| !Rc::ptr_eq(&card, game_object));
+                    self.deck.put_bottom(card.borrow().clone())
+                }
+                break;
+            } else {
+                let hand = self.game_objects.iter()
+                    .filter(|card| card.borrow().zone == Zone::Hand)
+                    .map(Rc::clone)
+                    .collect::<Vec<_>>();
+
+                for card in hand {
+                    self.deck.put_bottom(card.borrow().clone());
+                    self.game_objects.retain(|game_object| !Rc::ptr_eq(game_object, &card));
+                }
+
+                self.deck.shuffle();
+            }
+            mulligan_count += 1;
+            println!("[Turn {turn:002}][Action]: Taking a mulligan number {mulligan_count}.", turn = self.turn);
+        }
+    }
+
+    fn is_keepable_hand(&self, mulligan_count: usize) -> bool {
+        if mulligan_count >= 3 {
+            // Just keep the hand with 4 cards
+            return true
+        }
+
+        let hand = self.game_objects
+            .iter()
+            .filter(|card| card.borrow().zone == Zone::Hand);
+
+        let mut is_pattern_in_hand = false;
+        let mut is_rector_in_hand = false;
+        let mut is_sac_outlet_in_hand = false;
+
+        let mut creatures_count = 0;
+        let mut lands_count = 0;
+        let mut mana_dorks_count = 0;
+
+        for card in hand {
+            let card = card.borrow();
+
+            if card.is_pattern {
+                is_pattern_in_hand = true;
+            }
+
+            if card.is_rector {
+                is_rector_in_hand = true;
+            }
+
+            if card.is_sac_outlet {
+                is_sac_outlet_in_hand = true;
+            }
+
+            if card.card_type == CardType::Creature {
+                creatures_count += 1;
+            }
+
+            if card.card_type == CardType::Land {
+                lands_count += 1;
+            }
+
+            if card.card_type == CardType::Creature && !card.produced_mana.is_empty() {
+                mana_dorks_count += 1;
+            }
+        }
+
+        if lands_count == 0 {
+            // Always mulligan zero land hands
+            return false;
+        }
+
+        if lands_count >= 6 {
+            // Also mulligan too land heavy hands
+            return false;
+        }
+
+        if lands_count == 1 && mana_dorks_count <= 1 {
+            // One landers with just max one mana dork get automatically mulliganed too
+            return false;
+        }
+
+        // Having a rector/pattern and sac outlet in hand is always good
+        if (is_pattern_in_hand || is_rector_in_hand) && is_sac_outlet_in_hand {
+            return true;
+        }
+
+        
+        if (is_pattern_in_hand || is_rector_in_hand || is_sac_outlet_in_hand) && creatures_count > 0 {
+            // If we have already taken any mulligans this should be good enough
+            if mulligan_count > 0 {
+                return true;
+            }
+            
+            // At full hand one of the combo pieces with reasonable mana is a keep
+            if lands_count + mana_dorks_count >= 3 {
+                return true;
+            }
+        }
+
+        // Otherwise take a mulligan
+        false
+    }
+
+    fn select_worst_cards(&self, hand_size: usize) -> Vec<Rc<RefCell<Card>>> {
+        let mut ordered_hand = Vec::new();
+        let mut lands = Vec::with_capacity(7);
+        let mut patterns_or_rectors = Vec::with_capacity(7);
+        let mut mana_dorks = Vec::with_capacity(7);
+        let mut sac_outlets = Vec::with_capacity(7);
+        let mut redundant_cards = Vec::with_capacity(7);
+
+        let hand = self.game_objects
+            .iter()
+            .filter(|card| card.borrow().zone == Zone::Hand);
+
+        for card in hand {
+            let c = card.borrow();
+
+            if c.card_type == CardType::Land {
+                lands.push(card.clone());
+            } else if c.is_pattern || c.is_rector {
+                patterns_or_rectors.push(card.clone());
+            } else if c.is_sac_outlet {
+                sac_outlets.push(card.clone());
+            } else if c.card_type == CardType::Creature && !c.produced_mana.is_empty() {
+                mana_dorks.push(card.clone());
+            } else {
+                redundant_cards.push(card.clone());
+            }
+        }
+
+        lands.sort_by(sort_by_produced_mana);
+        sac_outlets.sort_by(sort_by_cmc);
+
+        // First take a balanced mix of lands and combo pieces
+        let mut lands_iter = lands.iter();
+        for _ in 0..2 {
+            if let Some(card) = lands_iter.next() {
+                ordered_hand.push(card);
+            }
+        }
+
+        let mut patterns_or_rectors_iter = patterns_or_rectors.iter();
+        for _ in 0..1 {
+            if let Some(card) = patterns_or_rectors_iter.next() {
+                ordered_hand.push(card);
+            }
+        }
+
+        let mut sac_outlets_iter = sac_outlets.iter();
+        for _ in 0..1 {
+            if let Some(card) = sac_outlets_iter.next() {
+                ordered_hand.push(card);
+            }
+        }
+
+        // Take all mana dorks over extra lands for quick kills
+        for card in mana_dorks.iter() {
+            ordered_hand.push(card);
+        }
+
+        // Then take the rest of the cards, still in priority order
+        for card in lands_iter {
+            ordered_hand.push(card);
+        }
+        for card in patterns_or_rectors_iter {
+            ordered_hand.push(card);
+        }
+        for card in sac_outlets_iter {
+            ordered_hand.push(card);
+        }
+        for card in redundant_cards.iter() {
+            ordered_hand.push(card);
+        }
+        
+        ordered_hand.iter()
+            .skip(hand_size)
+            .map(|card| Rc::clone(card))
+            .collect()
+    }
+}
+
+fn sort_by_produced_mana(a: &Rc<RefCell<Card>>, b: &Rc<RefCell<Card>>) -> std::cmp::Ordering {
+    b.borrow()
+        .produced_mana
+        .len()
+        .partial_cmp(&a.borrow().produced_mana.len())
+        .unwrap()
+}
+
+fn sort_by_cmc(a: &Rc<RefCell<Card>>, b: &Rc<RefCell<Card>>) -> std::cmp::Ordering {
+    a.borrow()
+        .cost.values().sum::<usize>()
+        .partial_cmp(&b.borrow().cost.values().sum())
+        .unwrap()
 }
