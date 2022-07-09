@@ -87,10 +87,13 @@ fn main() {
 
     println!("========================================");
     println!("Wins per turn after {simulated_games} games:");
+
+    let mut cumulative = 0.0;
     for (turn, wins) in wins_by_turn {
+        let win_percentage = 100.0 * *wins as f32 / simulated_games as f32;
+        cumulative += win_percentage;
         println!(
-            "Turn {turn:002}: {wins} wins ({percentage:.1}%).",
-            percentage = 100.0 * *wins as f32 / simulated_games as f32
+            "Turn {turn:002}: {wins} wins ({win_percentage:.1}%) - cumulative {cumulative:.1}%"
         );
     }
 }
