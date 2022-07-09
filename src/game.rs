@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::card::{Card, CardType, Zone};
 use crate::deck::Deck;
-use crate::mana::{find_payment_for};
+use crate::mana::find_payment_for;
 
 pub struct GameState {
     pub deck: Deck,
@@ -33,7 +33,7 @@ impl GameState {
                 card.zone == Zone::Battlefield && card.card_type == CardType::Creature
             })
             .collect::<Vec<_>>();
-        
+
         let sac_outlets = self
             .game_objects
             .iter()
@@ -85,8 +85,7 @@ impl GameState {
 
         // TODO: Check for more wincons involving Cabal Therapy and Phyrexian Tower
 
-        return false
-
+        return false;
     }
 
     pub fn cast_mana_dorks(&self) {
@@ -100,8 +99,8 @@ impl GameState {
             })
             .collect::<Vec<_>>();
 
-        // Pick the one that produces most colors
-        mana_dorks.sort_by(|(a, _), (b, _)| sort_by_produced_mana(a,b));
+        // Cast the one that produces most colors
+        mana_dorks.sort_by(|(a, _), (b, _)| sort_by_produced_mana(a, b));
 
         if let Some((card_ref, payment)) = mana_dorks.first() {
             self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
@@ -111,32 +110,48 @@ impl GameState {
     pub fn cast_redundant_creatures(&self) {
         let castable = self.find_castable();
 
-        let creature = castable
+        let mut creatures = castable
             .iter()
-            .find(|(card, _)| card.borrow().card_type == CardType::Creature);
-        if let Some((card_ref, payment)) = creature {
+            .filter(|(card, _)| card.borrow().card_type == CardType::Creature)
+            .collect::<Vec<_>>();
+
+        // Cast the cheapest creatures first
+        creatures.sort_by(|(a, _), (b, _)| sort_by_cmc(a, b));
+
+        if let Some((card_ref, payment)) = creatures.first() {
             self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
         }
     }
 
     pub fn cast_others(&self) {
         loop {
-            let castable = self.find_castable();
+            let mut castable = self.find_castable();
 
             if castable.is_empty() {
-                return
+                return;
             }
 
-            let (card_ref, payment) = castable.first().unwrap();
-            self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
+            // Cast the cheapest first
+            castable.sort_by(|(a, _), (b, _)| sort_by_cmc(a, b));
+
+            if let Some((card_ref, payment)) = castable.first() {
+                self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
+            }
         }
     }
 
     pub fn cast_sac_outlets(&self) {
         let castable = self.find_castable();
 
-        let sac_outlet = castable.iter().find(|(card, _)| card.borrow().is_sac_outlet);
-        if let Some((card_ref, payment)) = sac_outlet {
+        let mut sac_outlets = castable
+            .iter()
+            .filter(|(card, _)| card.borrow().is_sac_outlet)
+            .collect::<Vec<_>>();
+
+        // Cast the cheapest first
+        sac_outlets.sort_by(|(a, _), (b, _)| sort_by_cmc(a, b));
+            
+        if let Some((card_ref, payment)) = sac_outlets.first() {
             self.cast_spell(card_ref, payment.as_ref().unwrap(), None);
         }
     }
@@ -198,9 +213,7 @@ impl GameState {
         }
     }
 
-    fn find_castable(
-        &self,
-    ) -> Vec<(Rc<RefCell<Card>>, Option<(Vec<Rc<RefCell<Card>>>, usize)>)> {
+    fn find_castable(&self) -> Vec<(Rc<RefCell<Card>>, Option<(Vec<Rc<RefCell<Card>>>, usize)>)> {
         let nonlands_in_hand = self.game_objects.iter().filter(|card| {
             let card = card.borrow();
             card.zone == Zone::Hand && card.card_type != CardType::Land
@@ -297,6 +310,7 @@ impl GameState {
         self.print_library();
         self.print_hand();
         self.print_battlefield();
+        self.print_graveyard();
     }
 
     pub fn print_battlefield(&self) {
@@ -313,13 +327,27 @@ impl GameState {
         );
     }
 
+    pub fn print_graveyard(&self) {
+        let battlefield_str = self
+            .game_objects
+            .iter()
+            .filter(|card| card.borrow().zone == Zone::Graveyard)
+            .map(|card| card.borrow().name.clone())
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!(
+            "[Turn {turn:002}][Graveyard]: {battlefield_str}",
+            turn = self.turn
+        );
+    }
+
     pub fn print_library(&self) {
         println!(
             "[Turn {turn:002}][Library]: {deck} cards remaining.",
             turn = self.turn,
             deck = self.deck.len()
         );
-    }    
+    }
 
     pub fn print_hand(&self) {
         let hand_str = self
@@ -349,14 +377,18 @@ impl GameState {
 
         let target_str = match attach_to.as_ref() {
             Some(target) => format!(" on target \"{}\"", target.borrow().name.clone()),
-            None => "".to_owned()
+            None => "".to_owned(),
         };
 
         println!("[Turn {turn:002}][Action]: Casting spell \"{card_name}\"{target_str} with mana sources: {mana_sources}",
             turn = self.turn);
 
+        card.zone = match card.card_type {
+            CardType::Creature | CardType::Enchantment | CardType::Land => Zone::Battlefield,
+            CardType::Sorcery => Zone::Graveyard,
+        };
+
         card.attached_to = attach_to;
-        card.zone = Zone::Battlefield;
 
         if card.card_type == CardType::Creature {
             card.is_summoning_sick = true;
@@ -397,11 +429,16 @@ impl GameState {
             self.draw_n(7);
             self.print_hand();
             if self.is_keepable_hand(mulligan_count) {
-                println!("[Turn {turn:002}][Action]: Keeping a hand of {cards} cards.", turn = self.turn, cards = 7 - mulligan_count);
+                println!(
+                    "[Turn {turn:002}][Action]: Keeping a hand of {cards} cards.",
+                    turn = self.turn,
+                    cards = 7 - mulligan_count
+                );
                 let bottomed = self.select_worst_cards(7 - mulligan_count);
-                
+
                 if bottomed.len() > 0 {
-                    let bottomed_str = bottomed.iter()
+                    let bottomed_str = bottomed
+                        .iter()
                         .map(|card| card.borrow().name.clone())
                         .collect::<Vec<_>>()
                         .join(", ");
@@ -412,35 +449,43 @@ impl GameState {
 
                 for card in bottomed {
                     // Remove the cards from game objects
-                    self.game_objects.retain(|game_object| !Rc::ptr_eq(&card, game_object));
+                    self.game_objects
+                        .retain(|game_object| !Rc::ptr_eq(&card, game_object));
                     self.deck.put_bottom(card.borrow().clone())
                 }
                 break;
             } else {
-                let hand = self.game_objects.iter()
+                let hand = self
+                    .game_objects
+                    .iter()
                     .filter(|card| card.borrow().zone == Zone::Hand)
                     .map(Rc::clone)
                     .collect::<Vec<_>>();
 
                 for card in hand {
                     self.deck.put_bottom(card.borrow().clone());
-                    self.game_objects.retain(|game_object| !Rc::ptr_eq(game_object, &card));
+                    self.game_objects
+                        .retain(|game_object| !Rc::ptr_eq(game_object, &card));
                 }
 
                 self.deck.shuffle();
             }
             mulligan_count += 1;
-            println!("[Turn {turn:002}][Action]: Taking a mulligan number {mulligan_count}.", turn = self.turn);
+            println!(
+                "[Turn {turn:002}][Action]: Taking a mulligan number {mulligan_count}.",
+                turn = self.turn
+            );
         }
     }
 
     fn is_keepable_hand(&self, mulligan_count: usize) -> bool {
         if mulligan_count >= 3 {
             // Just keep the hand with 4 cards
-            return true
+            return true;
         }
 
-        let hand = self.game_objects
+        let hand = self
+            .game_objects
             .iter()
             .filter(|card| card.borrow().zone == Zone::Hand);
 
@@ -500,13 +545,13 @@ impl GameState {
             return true;
         }
 
-        
-        if (is_pattern_in_hand || is_rector_in_hand || is_sac_outlet_in_hand) && creatures_count > 0 {
+        if (is_pattern_in_hand || is_rector_in_hand || is_sac_outlet_in_hand) && creatures_count > 0
+        {
             // If we have already taken any mulligans this should be good enough
             if mulligan_count > 0 {
                 return true;
             }
-            
+
             // At full hand one of the combo pieces with reasonable mana is a keep
             if lands_count + mana_dorks_count >= 3 {
                 return true;
@@ -525,7 +570,8 @@ impl GameState {
         let mut sac_outlets = Vec::with_capacity(7);
         let mut redundant_cards = Vec::with_capacity(7);
 
-        let hand = self.game_objects
+        let hand = self
+            .game_objects
             .iter()
             .filter(|card| card.borrow().zone == Zone::Hand);
 
@@ -588,8 +634,9 @@ impl GameState {
         for card in redundant_cards.iter() {
             ordered_hand.push(card);
         }
-        
-        ordered_hand.iter()
+
+        ordered_hand
+            .iter()
             .skip(hand_size)
             .map(|card| Rc::clone(card))
             .collect()
@@ -606,7 +653,9 @@ fn sort_by_produced_mana(a: &Rc<RefCell<Card>>, b: &Rc<RefCell<Card>>) -> std::c
 
 fn sort_by_cmc(a: &Rc<RefCell<Card>>, b: &Rc<RefCell<Card>>) -> std::cmp::Ordering {
     a.borrow()
-        .cost.values().sum::<usize>()
+        .cost
+        .values()
+        .sum::<usize>()
         .partial_cmp(&b.borrow().cost.values().sum())
         .unwrap()
 }
