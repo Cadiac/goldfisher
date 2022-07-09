@@ -294,6 +294,8 @@ impl GameState {
             if let Some(mut card) = self.deck.draw() {
                 card.zone = Zone::Hand;
                 self.game_objects.push(Rc::new(RefCell::new(card)))
+            } else {
+                panic!("empty library!");
             }
         }
     }
