@@ -5,6 +5,8 @@ use crate::card::{CardType, Zone, CardRef};
 use crate::deck::Deck;
 use crate::mana::find_payment_for;
 
+type PaymentAndFloating = (Vec<CardRef>, usize);
+
 pub struct GameState {
     pub turn: usize,
     deck: Deck,
@@ -32,7 +34,7 @@ impl GameState {
                 let card = card.borrow();
                 card.zone == Zone::Battlefield && card.card_type == CardType::Creature
             })
-            .collect::<Vec<_>>();
+            .count();
 
         let sac_outlets = self
             .game_objects
@@ -50,7 +52,7 @@ impl GameState {
                 let card = card.borrow();
                 card.zone == Zone::Battlefield && card.is_rector
             })
-            .collect::<Vec<_>>();
+            .count();
 
         let is_pattern_attached_to_redundant_creature = self.game_objects.iter().any(|card| {
             let card = card.borrow();
@@ -79,13 +81,12 @@ impl GameState {
         }
 
         // 2) Sac outlet + Academy Rector + any redundant creature
-        if !sac_outlets.is_empty() && !rectors.is_empty() && creatures.len() >= 3 {
+        if !sac_outlets.is_empty() && rectors > 0 && creatures >= 3 {
             return true;
         }
 
         // TODO: Check for more wincons involving Cabal Therapy and Phyrexian Tower
-
-        return false;
+        false
     }
 
     pub fn cast_mana_dorks(&self) {
@@ -213,7 +214,7 @@ impl GameState {
         }
     }
 
-    fn find_castable(&self) -> Vec<(CardRef, Option<(Vec<CardRef>, usize)>)> {
+    fn find_castable(&self) -> Vec<(CardRef, Option<PaymentAndFloating>)> {
         let nonlands_in_hand = self.game_objects.iter().filter(|card| {
             let card = card.borrow();
             card.zone == Zone::Hand && card.card_type != CardType::Land
@@ -259,7 +260,6 @@ impl GameState {
                 let card = card.borrow();
                 card.zone == Zone::Hand && card.card_type == CardType::Land
             })
-            .map(|card| card)
             .collect::<Vec<_>>();
 
         lands_in_hand.sort_by(|a, b| {
@@ -320,7 +320,7 @@ impl GameState {
     pub fn cast_spell(
         &self,
         card_ref: &CardRef,
-        (payment, _floating): &(Vec<CardRef>, usize),
+        (payment, _floating): &PaymentAndFloating,
         attach_to: Option<CardRef>,
     ) {
         let mut card = card_ref.borrow_mut();
@@ -393,7 +393,7 @@ impl GameState {
                 );
                 let bottomed = self.select_worst_cards(7 - mulligan_count);
 
-                if bottomed.len() > 0 {
+                if !bottomed.is_empty() {
                     let bottomed_str = bottomed
                         .iter()
                         .map(|card| card.borrow().name.clone())

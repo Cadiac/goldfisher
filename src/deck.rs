@@ -24,6 +24,10 @@ impl Deck {
         self.0.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.0.len() > 0
+    }
+
     pub fn shuffle(&mut self) {
         let mut deck = Vec::from(self.0.clone());
         deck.shuffle(&mut thread_rng());

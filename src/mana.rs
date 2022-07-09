@@ -36,7 +36,7 @@ pub fn find_payment_for(
                         .borrow()
                         .produced_mana
                         .get(color)
-                        .and_then(|amount| Some((source, *amount)))
+                        .map(|amount|(source, *amount))
                 })
                 .collect();
 
@@ -89,7 +89,7 @@ pub fn find_payment_for(
         // If floating mana wasn't enough loop through remaining sources to pay for the colorless
         if paid < *colorless_cost {
             let mut remaining_sources = mana_sources
-                .into_iter()
+                .iter()
                 .filter(|source| {
                     !used_sources.iter().any(|used| Rc::ptr_eq(used, source))
                 })
@@ -109,7 +109,7 @@ pub fn find_payment_for(
                 let borrowed = source.borrow();
                 if let Some(mana) = borrowed.produced_mana.values().max() {
                     paid += mana;
-                    used_sources.push(Rc::clone(&source));
+                    used_sources.push(Rc::clone(source));
     
                     if paid >= *colorless_cost {
                         floating = paid - colorless_cost;
@@ -124,7 +124,7 @@ pub fn find_payment_for(
         }
     }
 
-    return Some((used_sources, floating));
+    Some((used_sources, floating))
 }
 
 #[cfg(test)]
