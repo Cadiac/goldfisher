@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use goldfisher::deck::create_deck;
 use goldfisher::game::GameState;
 
 #[macro_use]
@@ -11,7 +10,7 @@ use env_logger::Env;
 fn main() {
     init_logger();
 
-    let deck = create_deck(vec![
+    let decklist = vec![
         ("Birds of Paradise", 4),
         ("Llanowar Elves", 3),
         ("Carrion Feeder", 4),
@@ -39,14 +38,14 @@ fn main() {
         ("Forest", 2),
         ("Swamp", 1),
         ("Plains", 1),
-    ]);
+    ];
 
     let mut win_statistics: HashMap<usize, usize> = HashMap::new();
     let simulated_games = 500_000;
 
     for _ in 0..simulated_games {
         debug!("====================[ START OF GAME ]=======================");
-        let mut game = GameState::new(deck.clone());
+        let mut game = GameState::new(decklist.clone());
 
         game.find_starting_hand();
 
@@ -113,7 +112,7 @@ fn main() {
         }
 
         debug!("=====================[ END OF GAME ]========================");
-        debug!(" Won the game on turn {turn}!", turn = game.turn);
+        debug!("              Won the game on turn {turn}!", turn = game.turn);
         debug!("============================================================");
         game.print_game_state();
 
@@ -124,7 +123,7 @@ fn main() {
     wins_by_turn.sort();
 
     info!("=======================[ RESULTS ]==========================");
-    info!("Wins per turn after {simulated_games} games:");
+    info!("              Wins per turn after {simulated_games} games:");
     info!("============================================================");
 
     let mut cumulative = 0.0;
@@ -138,7 +137,7 @@ fn main() {
 fn init_logger() {
     env_logger::Builder::from_env(
         Env::default()
-            .filter_or("LOG_LEVEL", "info")
+            .filter_or("LOG_LEVEL", "debug")
             .write_style_or("LOG_STYLE", "always"),
     )
     .format_timestamp(None)

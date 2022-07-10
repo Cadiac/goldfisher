@@ -1,10 +1,9 @@
 use log::debug;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::card::{CardRef, CardType, Zone};
-use crate::deck::Deck;
+use crate::deck::{Deck};
 use crate::mana::find_payment_for;
 use crate::mana::{Mana, PaymentAndFloating};
 
@@ -17,13 +16,20 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn new(mut deck: Deck) -> Self {
+    pub fn new(decklist: Vec<(&str, usize)>) -> Self {
+        let mut deck = Deck::new(decklist);
+
+        let mut game_objects = Vec::with_capacity(deck.len());
+        for card in deck.iter() {
+            game_objects.push(card.clone())
+        }
+
         deck.shuffle();
 
         Self {
             deck,
+            game_objects,
             turn: 0,
-            game_objects: Vec::with_capacity(60),
             floating_mana: HashMap::new(),
             is_first_player: true,
         }
@@ -292,9 +298,8 @@ impl GameState {
 
     pub fn draw(&mut self) {
         if self.turn == 0 || (self.turn == 1 && !self.is_first_player) || self.turn > 1 {
-            if let Some(mut card) = self.deck.draw() {
-                card.zone = Zone::Hand;
-                self.game_objects.push(Rc::new(RefCell::new(card)))
+            if let Some(card) = self.deck.draw() {
+                card.borrow_mut().zone = Zone::Hand;
             } else {
                 panic!("empty library!");
             }
@@ -410,10 +415,9 @@ impl GameState {
                 }
 
                 for card in bottomed {
-                    // Remove the cards from game objects
-                    self.game_objects
-                        .retain(|game_object| !Rc::ptr_eq(&card, game_object));
-                    self.deck.put_bottom(card.borrow().clone())
+                    // Return the cards to library
+                    card.borrow_mut().zone = Zone::Library;
+                    self.deck.put_bottom(card.clone())
                 }
                 break;
             } else {
@@ -425,9 +429,8 @@ impl GameState {
                     .collect::<Vec<_>>();
 
                 for card in hand {
-                    self.deck.put_bottom(card.borrow().clone());
-                    self.game_objects
-                        .retain(|game_object| !Rc::ptr_eq(game_object, &card));
+                    card.borrow_mut().zone = Zone::Library;
+                    self.deck.put_bottom(card.clone());
                 }
 
                 self.deck.shuffle();
