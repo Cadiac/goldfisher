@@ -13,22 +13,32 @@ Follow [Rust](https://www.rust-lang.org/en-US/install.html) installation instruc
 
 ## Usage
 
-You can run the tool with
-
 ```console
-$ cargo run
+USAGE:
+    goldfisher [OPTIONS]
+
+OPTIONS:
+    -g, --games <GAMES>    Number of games to simulate [default: 100]
+    -h, --help             Print help information
+    -v, --verbose          
+    -V, --version          Print version information
 ```
 
-For fast longer simulations adjust the `simulated_games` variable in `main.rs` and run executable as release build:
+You can run debug builds of the tool with
 
 ```console
-$ cargo run --release
+$ cargo run -- --games 10 -v
+```
+
+For faster simulations adjust the `simulated_games` variable in `main.rs` and run executable as release build:
+
+```console
+$ cargo run --release --games 100000
 ```
 
 ## Example game
 
 ```
-$ ./goldfisher
 [DEBUG] ====================[ START OF GAME ]=======================
 [DEBUG] [Turn 00][Hand]: Pattern of Rebirth, Phyrexian Tower, Llanowar Elves, Nantuko Husk, Worship, Nantuko Husk, Goblin Bombardment
 [DEBUG] [Turn 00][Action]: Taking a mulligan number 1.
