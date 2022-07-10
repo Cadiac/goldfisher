@@ -18,7 +18,8 @@ fn main() {
         ("Phyrexian Ghoul", 1),
         ("Pattern of Rebirth", 4),
         ("Academy Rector", 4),
-        ("Mesmeric Fiend", 3),
+        ("Worldly Tutor", 3),
+        // ("Mesmeric Fiend", 3),
         ("Iridescent Drake", 1),
         ("Karmic Guide", 2),
         ("Caller of the Claw", 1),
@@ -112,7 +113,7 @@ fn main() {
         }
 
         debug!("=====================[ END OF GAME ]========================");
-        debug!("              Won the game on turn {turn}!", turn = game.turn);
+        debug!("                 Won the game on turn {turn}!", turn = game.turn);
         debug!("============================================================");
         game.print_game_state();
 

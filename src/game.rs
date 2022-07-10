@@ -2,7 +2,7 @@ use log::debug;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::card::{CardRef, CardType, Zone};
+use crate::card::{CardRef, CardType, Zone, Effect};
 use crate::deck::{Deck};
 use crate::mana::find_payment_for;
 use crate::mana::{Mana, PaymentAndFloating};
@@ -159,7 +159,7 @@ impl GameState {
             .iter()
             .any(|card| is_battlefield(&card) && is_pattern(&card));
 
-        let pattern_of_rebirth = castable.iter().find(|(card, _)| card.borrow().is_pattern);
+        let pattern_of_rebirth = castable.iter().find(|(card, _)| is_pattern(&card));
 
         if let Some((card_ref, payment)) = pattern_of_rebirth {
             if payment.is_some() && is_creature_on_battlefield && !is_pattern_on_battlefield {
@@ -188,7 +188,7 @@ impl GameState {
     pub fn cast_rectors(&mut self) {
         let castable = self.find_castable();
 
-        let rector = castable.iter().find(|(card, _)| card.borrow().is_rector);
+        let rector = castable.iter().find(|(card, _)| is_rector(&card));
         let is_pattern_on_battlefield = self
             .game_objects
             .iter()
@@ -299,7 +299,14 @@ impl GameState {
     pub fn draw(&mut self) {
         if self.turn == 0 || (self.turn == 1 && !self.is_first_player) || self.turn > 1 {
             if let Some(card) = self.deck.draw() {
-                card.borrow_mut().zone = Zone::Hand;
+                let mut card = card.borrow_mut();
+
+                card.zone = Zone::Hand;
+                debug!(
+                    "[Turn {turn:002}][Action]: Drew card \"{land}\".",
+                    turn = self.turn,
+                    land = card.name
+                );
             } else {
                 panic!("empty library!");
             }
@@ -344,11 +351,34 @@ impl GameState {
         debug!("[Turn {turn:002}][Action]: Casting spell \"{card_name}\"{target_str} with mana sources: {mana_sources}",
             turn = self.turn);
 
+        if let Some(effect) = &card.on_resolve {
+            match effect {
+                Effect::SearchAndPutTopOfLibrary(card_type) => {
+                    let tutored = match card_type {
+                        // TODO: Figure out the card we need and search for that
+                        Some(CardType::Creature) => self.deck.tutor("Academy Rector"),
+                        _ => unimplemented!()
+                    };
+                    match tutored {
+                        Some(found) => {
+                            debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it on top of the library.",
+                                turn = self.turn,
+                                card_name = found.borrow().name);
+                            self.deck.shuffle();
+                            self.deck.put_top(found)
+                        },
+                        None => debug!("[Turn {turn:002}][Action]: Failed to find.", turn = self.turn)
+                    }
+                },
+                _ => unimplemented!()
+            };
+        }
+
         card.zone = match card.card_type {
             CardType::Creature | CardType::Enchantment | CardType::Land | CardType::Artifact => {
                 Zone::Battlefield
             }
-            CardType::Sorcery => Zone::Graveyard,
+            CardType::Sorcery | CardType::Instant => Zone::Graveyard,
         };
 
         card.attached_to = attach_to;
@@ -462,11 +492,11 @@ impl GameState {
         for card in hand {
             let card = card.borrow();
 
-            if card.is_pattern {
+            if card.name == "Pattern of Rebirth" {
                 is_pattern_in_hand = true;
             }
 
-            if card.is_rector {
+            if card.name == "Academy Rector" {
                 is_rector_in_hand = true;
             }
 
@@ -539,7 +569,7 @@ impl GameState {
 
             if c.card_type == CardType::Land {
                 lands.push(card.clone());
-            } else if c.is_pattern || c.is_rector {
+            } else if c.name == "Pattern of Rebirth" || c.name == "Academy Rector" {
                 patterns_or_rectors.push(card.clone());
             } else if c.is_sac_outlet {
                 sac_outlets.push(card.clone());
@@ -673,11 +703,11 @@ fn is_land(card: &&CardRef) -> bool {
 }
 
 fn is_rector(card: &&CardRef) -> bool {
-    card.borrow().is_rector
+    card.borrow().name == "Academy Rector"
 }
 
 fn is_pattern(card: &&CardRef) -> bool {
-    card.borrow().is_pattern
+    card.borrow().name == "Pattern of Rebirth"
 }
 
 fn is_sac_outlet(card: &&CardRef) -> bool {
