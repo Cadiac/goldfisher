@@ -50,7 +50,7 @@ impl Deck {
         self.0 = VecDeque::from(deck);
     }
 
-    pub fn tutor(&mut self, card_name: &str) -> Option<CardRef> {
+    pub fn search(&mut self, card_name: &str) -> Option<CardRef> {
         self.0
             .iter()
             .position(|card| card.borrow().name == card_name)

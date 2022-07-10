@@ -330,13 +330,10 @@ impl GameState {
 
     pub fn cast_spell(
         &mut self,
-        card_ref: &CardRef,
+        card: &CardRef,
         (payment, floating): &PaymentAndFloating,
         attach_to: Option<CardRef>,
     ) {
-        let mut card = card_ref.borrow_mut();
-
-        let card_name = &card.name;
         let mana_sources = payment
             .iter()
             .map(|source| source.borrow().name.clone())
@@ -349,14 +346,37 @@ impl GameState {
         };
 
         debug!("[Turn {turn:002}][Action]: Casting spell \"{card_name}\"{target_str} with mana sources: {mana_sources}",
-            turn = self.turn);
+            turn = self.turn,
+            card_name = card.borrow().name);
 
-        if let Some(effect) = &card.on_resolve {
+        let new_zone = match card.borrow().card_type {
+            CardType::Creature | CardType::Enchantment | CardType::Land | CardType::Artifact => {
+                Zone::Battlefield
+            }
+            CardType::Sorcery | CardType::Instant => Zone::Graveyard,
+        };
+
+        card.borrow_mut().zone = new_zone;
+        card.borrow_mut().attached_to = attach_to;
+
+        if card.borrow().card_type == CardType::Creature {
+            card.borrow_mut().is_summoning_sick = true;
+        }
+
+        for mana_source in payment {
+            mana_source.borrow_mut().is_tapped = true;
+        }
+
+        self.floating_mana = floating.to_owned();
+
+        if let Some(effect) = card.borrow().on_resolve.clone() {
             match effect {
                 Effect::SearchAndPutTopOfLibrary(card_type) => {
                     let tutored = match card_type {
-                        // TODO: Figure out the card we need and search for that
-                        Some(CardType::Creature) => self.deck.tutor("Academy Rector"),
+                        Some(CardType::Creature) => {
+                            let creature_name = self.find_creature_to_search().to_owned();
+                            self.deck.search(&creature_name)
+                        },
                         _ => unimplemented!()
                     };
                     match tutored {
@@ -373,25 +393,6 @@ impl GameState {
                 _ => unimplemented!()
             };
         }
-
-        card.zone = match card.card_type {
-            CardType::Creature | CardType::Enchantment | CardType::Land | CardType::Artifact => {
-                Zone::Battlefield
-            }
-            CardType::Sorcery | CardType::Instant => Zone::Graveyard,
-        };
-
-        card.attached_to = attach_to;
-
-        if card.card_type == CardType::Creature {
-            card.is_summoning_sick = true;
-        }
-
-        for mana_source in payment {
-            mana_source.borrow_mut().is_tapped = true;
-        }
-
-        self.floating_mana = floating.to_owned();
     }
 
     pub fn cleanup(&mut self) {
@@ -632,6 +633,80 @@ impl GameState {
             .collect()
     }
 
+    fn find_creature_to_search(&self) -> &str {
+        let creatures = self
+            .game_objects
+            .iter()
+            .filter(|card| (is_battlefield(card) || is_hand(card)) && is_creature(card))
+            .count();
+
+        let rectors = self
+            .game_objects
+            .iter()
+            .filter(|card| (is_battlefield(card) || is_hand(card)) && is_rector(card))
+            .count();
+
+        let sac_outlets = self
+            .game_objects
+            .iter()
+            .filter(|card| (is_battlefield(card) || is_hand(card)) && is_sac_outlet(card))
+            .count();
+
+        let patterns = self
+            .game_objects
+            .iter()
+            .filter(|card| (is_battlefield(card) || is_hand(card)) && is_pattern(card))
+            .count();
+
+        let mana_sources = self
+            .game_objects
+            .iter()
+            .filter(|card| (is_battlefield(card) || is_hand(card)) && is_mana_source(card))
+            .count();
+
+        let is_pattern_attached_to_redundant_creature = self.game_objects.iter().any(|card| {
+            if is_battlefield(&card) && is_pattern(&card) {
+                let card = card.borrow();
+
+                match &card.attached_to {
+                    Some(target) => {
+                        if target.borrow().is_sac_outlet {
+                            // Make sure we have a redundant sac outlet if pattern is attached to one
+                            sac_outlets > 1
+                        } else {
+                            true
+                        }
+                    }
+                    None => false,
+                }
+            } else {
+                false
+            }
+        });
+
+        if is_pattern_attached_to_redundant_creature {
+            return "Carrion Feeder";
+        }
+
+        if sac_outlets >= 1 && creatures >= 2 && (rectors == 0 && patterns == 0) {
+            return "Academy Rector";
+        }
+
+        if rectors == 0 && patterns == 0 {
+            return "Academy Rector";
+        }
+
+        if sac_outlets == 0 {
+            return "Carrion Feeder";
+        }
+
+        if mana_sources < 4 {
+            return "Birds of Paradise";
+        }
+
+        return "Academy Rector";
+    }
+
     fn print_battlefield(&self) {
         let battlefield_str = self
             .game_objects
@@ -717,6 +792,10 @@ fn is_sac_outlet(card: &&CardRef) -> bool {
 fn is_mana_dork(card: &&CardRef) -> bool {
     let card = card.borrow();
     card.card_type == CardType::Creature && !card.produced_mana.is_empty()
+}
+
+fn is_mana_source(card: &&CardRef) -> bool {
+    !card.borrow().produced_mana.is_empty()
 }
 
 fn is_named(card: &&CardRef, name: &str) -> bool {
