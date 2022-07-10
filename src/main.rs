@@ -30,6 +30,7 @@ fn main() {
         ("Phyrexian Ghoul", 1),
         ("Pattern of Rebirth", 4),
         ("Academy Rector", 4),
+        // ("Enlightened Tutor", 3),
         ("Worldly Tutor", 3),
         // ("Mesmeric Fiend", 3),
         ("Iridescent Drake", 1),

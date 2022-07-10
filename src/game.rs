@@ -2,7 +2,7 @@ use log::debug;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::card::{CardRef, CardType, Zone, Effect};
+use crate::card::{CardRef, CardType, Zone, Effect, SearchFilter};
 use crate::deck::{Deck};
 use crate::mana::find_payment_for;
 use crate::mana::{Mana, PaymentAndFloating};
@@ -369,29 +369,32 @@ impl GameState {
 
         self.floating_mana = floating.to_owned();
 
-        if let Some(effect) = card.borrow().on_resolve.clone() {
-            match effect {
-                Effect::SearchAndPutTopOfLibrary(card_type) => {
-                    let tutored = match card_type {
-                        Some(CardType::Creature) => {
-                            let creature_name = self.select_best_creature_to_search().to_owned();
-                            self.deck.search(&creature_name)
-                        },
-                        _ => unimplemented!()
-                    };
-                    match tutored {
-                        Some(found) => {
-                            debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it on top of the library.",
-                                turn = self.turn,
-                                card_name = found.borrow().name);
-                            self.deck.shuffle();
-                            self.deck.put_top(found)
-                        },
-                        None => debug!("[Turn {turn:002}][Action]: Failed to find.", turn = self.turn)
-                    }
-                },
-                _ => unimplemented!()
-            };
+        let effect = match card.borrow().on_resolve.clone() {
+            Some(it) => it,
+            _ => return,
+        };
+
+        match effect {
+            Effect::SearchAndPutTopOfLibrary(card_filter) => {
+                let tutored = match card_filter {
+                    Some(card_filter) => {
+                        let creature_name = self.best_card_to_search(card_filter).to_owned();
+                        self.deck.search(&creature_name)
+                    },
+                    _ => unimplemented!()
+                };
+                match tutored {
+                    Some(found) => {
+                        debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it on top of the library.",
+                            turn = self.turn,
+                            card_name = found.borrow().name);
+                        self.deck.shuffle();
+                        self.deck.put_top(found)
+                    },
+                    None => debug!("[Turn {turn:002}][Action]: Failed to find.", turn = self.turn)
+                }
+            },
+            _ => unimplemented!()
         }
     }
 
@@ -633,7 +636,7 @@ impl GameState {
             .collect()
     }
 
-    fn select_best_creature_to_search(&self) -> &str {
+    fn best_card_to_search(&self, card_filter: SearchFilter) -> &str {
         let creatures = self
             .game_objects
             .iter()
@@ -684,27 +687,50 @@ impl GameState {
             }
         });
 
-        if is_pattern_attached_to_redundant_creature {
-            return "Carrion Feeder";
+        match card_filter {
+            SearchFilter::Creature => {
+                if is_pattern_attached_to_redundant_creature {
+                    return "Carrion Feeder";
+                }
+        
+                if sac_outlets >= 1 && creatures >= 2 && (rectors == 0 && patterns == 0) {
+                    return "Academy Rector";
+                }
+        
+                if rectors == 0 && patterns == 0 {
+                    return "Academy Rector";
+                }
+        
+                if sac_outlets == 0 {
+                    return "Carrion Feeder";
+                }
+        
+                if mana_sources < 4 {
+                    return "Birds of Paradise";
+                }
+        
+                return "Academy Rector";
+            }
+            SearchFilter::EnchantmentArtifact => {
+                if is_pattern_attached_to_redundant_creature {
+                    return "Goblin Bombardment";
+                }
+        
+                if sac_outlets >= 1 && creatures >= 2 && (rectors == 0 && patterns == 0) {
+                    return "Pattern of Rebirth";
+                }
+        
+                if rectors == 0 && patterns == 0 {
+                    return "Pattern of Rebirth";
+                }
+        
+                if sac_outlets == 0 {
+                    return "Goblin Bombardment";
+                }
+        
+                return "Pattern of Rebirth";
+            }
         }
-
-        if sac_outlets >= 1 && creatures >= 2 && (rectors == 0 && patterns == 0) {
-            return "Academy Rector";
-        }
-
-        if rectors == 0 && patterns == 0 {
-            return "Academy Rector";
-        }
-
-        if sac_outlets == 0 {
-            return "Carrion Feeder";
-        }
-
-        if mana_sources < 4 {
-            return "Birds of Paradise";
-        }
-
-        return "Academy Rector";
     }
 
     fn print_battlefield(&self) {

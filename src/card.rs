@@ -1,8 +1,8 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::cell::{RefCell};
 
-use crate::mana::{Mana};
+use crate::mana::Mana;
 
 pub type CardRef = Rc<RefCell<Card>>;
 
@@ -28,7 +28,7 @@ pub enum Zone {
     Hand,
     Battlefield,
     Graveyard,
-    Exile
+    Exile,
 }
 
 impl Default for Zone {
@@ -38,10 +38,16 @@ impl Default for Zone {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum SearchFilter {
+    Creature,
+    EnchantmentArtifact,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Effect {
-    SearchAndPutHand(Option<CardType>),
-    SearchAndPutTopOfLibrary(Option<CardType>),
-    SearchAndPutBattlefield(Option<CardType>),
+    SearchAndPutHand(Option<SearchFilter>),
+    SearchAndPutTopOfLibrary(Option<SearchFilter>),
+    SearchAndPutBattlefield(Option<SearchFilter>),
 }
 
 #[derive(Clone, Debug, Default)]
@@ -199,7 +205,14 @@ impl Card {
                 name: "Worldly Tutor".to_owned(),
                 card_type: CardType::Instant,
                 cost: HashMap::from([(Mana::Green, 1)]),
-                on_resolve: Some(Effect::SearchAndPutTopOfLibrary(Some(CardType::Creature))),
+                on_resolve: Some(Effect::SearchAndPutTopOfLibrary(Some(SearchFilter::Creature))),
+                ..Default::default()
+            },
+            "Enlightened Tutor" => Card {
+                name: "Enlightened Tutor".to_owned(),
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::White, 1)]),
+                on_resolve: Some(Effect::SearchAndPutTopOfLibrary(Some(SearchFilter::EnchantmentArtifact))),
                 ..Default::default()
             },
             "City of Brass" => Card {
