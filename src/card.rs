@@ -10,6 +10,7 @@ pub type CardRef = Rc<RefCell<Card>>;
 pub enum CardType {
     Creature,
     Enchantment,
+    Artifact,
     Sorcery,
     Land,
 }

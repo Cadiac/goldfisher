@@ -51,6 +51,13 @@ pub fn create_deck(cards: Vec<(&str, usize)>) -> Deck {
                 produced_mana: HashMap::from([(Mana::Green, 1)]),
                 ..Default::default()
             },
+            "Fyndhorn Elves" => Card {
+                name: "Fyndhorn Elves".to_owned(),
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Green, 1)]),
+                produced_mana: HashMap::from([(Mana::Green, 1)]),
+                ..Default::default()
+            },
             "Birds of Paradise" => Card {
                 name: "Birds of Paradise".to_owned(),
                 card_type: CardType::Creature,
@@ -154,8 +161,21 @@ pub fn create_deck(cards: Vec<(&str, usize)>) -> Deck {
                 is_sac_outlet: true,
                 ..Default::default()
             },
+            "Altar of Dementia" => Card {
+                name: "Altar of Dementia".to_owned(),
+                card_type: CardType::Artifact,
+                cost: HashMap::from([(Mana::Colorless, 2)]),
+                is_sac_outlet: true,
+                ..Default::default()
+            },
             "Cabal Therapy" => Card {
                 name: "Cabal Therapy".to_owned(),
+                card_type: CardType::Sorcery,
+                cost: HashMap::from([(Mana::Black, 1)]),
+                ..Default::default()
+            },
+            "Duress" => Card {
+                name: "Duress".to_owned(),
                 card_type: CardType::Sorcery,
                 cost: HashMap::from([(Mana::Black, 1)]),
                 ..Default::default()
@@ -163,7 +183,6 @@ pub fn create_deck(cards: Vec<(&str, usize)>) -> Deck {
             "City of Brass" => Card {
                 name: "City of Brass".to_owned(),
                 card_type: CardType::Land,
-                // TODO: max number of uses
                 produced_mana: HashMap::from([(Mana::White, 1), (Mana::Blue, 1), (Mana::Black, 1), (Mana::Red, 1), (Mana::Green, 1)]),
                 ..Default::default()
             },
@@ -171,6 +190,12 @@ pub fn create_deck(cards: Vec<(&str, usize)>) -> Deck {
                 name: "Llanowar Wastes".to_owned(),
                 card_type: CardType::Land,
                 produced_mana: HashMap::from([(Mana::Black, 1), (Mana::Green, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Brushland" => Card {
+                name: "Brushland".to_owned(),
+                card_type: CardType::Land,
+                produced_mana: HashMap::from([(Mana::White, 1), (Mana::Green, 1), (Mana::Colorless, 1)]),
                 ..Default::default()
             },
             "Yavimaya Coast" => Card {
@@ -222,6 +247,18 @@ pub fn create_deck(cards: Vec<(&str, usize)>) -> Deck {
                 name: "Plains".to_owned(),
                 card_type: CardType::Land,
                 produced_mana: HashMap::from([(Mana::White, 1)]),
+                ..Default::default()
+            },
+            "Ancient Tomb" => Card {
+                name: "Ancient Tomb".to_owned(),
+                card_type: CardType::Land,
+                produced_mana: HashMap::from([(Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Wall of Roots" => Card {
+                name: "Wall of Roots".to_owned(),
+                card_type: CardType::Creature,
+                produced_mana: HashMap::from([(Mana::Green, 1)]),
                 ..Default::default()
             },
             name => unimplemented!("{}", name),

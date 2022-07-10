@@ -157,9 +157,10 @@ impl GameState {
         let castable = self.find_castable();
 
         let rector = castable.iter().find(|(card, _)| card.borrow().is_rector);
-        let is_pattern_on_battlefield = self.game_objects.iter().any(|card| {
-            is_battlefield(&card) && is_pattern(&card)
-        });
+        let is_pattern_on_battlefield = self
+            .game_objects
+            .iter()
+            .any(|card| is_battlefield(&card) && is_pattern(&card));
 
         if let Some((card_ref, payment)) = rector {
             if payment.is_some() && !is_pattern_on_battlefield {
@@ -313,7 +314,9 @@ impl GameState {
             turn = self.turn);
 
         card.zone = match card.card_type {
-            CardType::Creature | CardType::Enchantment | CardType::Land => Zone::Battlefield,
+            CardType::Creature | CardType::Enchantment | CardType::Land | CardType::Artifact => {
+                Zone::Battlefield
+            }
             CardType::Sorcery => Zone::Graveyard,
         };
 
