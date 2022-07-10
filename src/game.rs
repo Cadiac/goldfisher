@@ -374,7 +374,7 @@ impl GameState {
                 Effect::SearchAndPutTopOfLibrary(card_type) => {
                     let tutored = match card_type {
                         Some(CardType::Creature) => {
-                            let creature_name = self.find_creature_to_search().to_owned();
+                            let creature_name = self.select_best_creature_to_search().to_owned();
                             self.deck.search(&creature_name)
                         },
                         _ => unimplemented!()
@@ -633,7 +633,7 @@ impl GameState {
             .collect()
     }
 
-    fn find_creature_to_search(&self) -> &str {
+    fn select_best_creature_to_search(&self) -> &str {
         let creatures = self
             .game_objects
             .iter()

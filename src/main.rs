@@ -1,3 +1,5 @@
+use clap::Parser;
+use env_logger::Env;
 use std::collections::HashMap;
 
 use goldfisher::game::GameState;
@@ -5,10 +7,20 @@ use goldfisher::game::GameState;
 #[macro_use]
 extern crate log;
 
-use env_logger::Env;
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// Number of games to simulate
+    #[clap(short, long, value_parser, default_value_t = 100)]
+    games: u32,
+
+    #[clap(short, long, action)]
+    verbose: bool,
+}
 
 fn main() {
-    init_logger();
+    let cli = Args::parse();
+    init_logger(cli.verbose);
 
     let decklist = vec![
         ("Birds of Paradise", 4),
@@ -42,7 +54,7 @@ fn main() {
     ];
 
     let mut win_statistics: HashMap<usize, usize> = HashMap::new();
-    let simulated_games = 500_000;
+    let simulated_games = cli.games;
 
     for _ in 0..simulated_games {
         debug!("====================[ START OF GAME ]=======================");
@@ -113,7 +125,10 @@ fn main() {
         }
 
         debug!("=====================[ END OF GAME ]========================");
-        debug!("                 Won the game on turn {turn}!", turn = game.turn);
+        debug!(
+            "                 Won the game on turn {turn}!",
+            turn = game.turn
+        );
         debug!("============================================================");
         game.print_game_state();
 
@@ -135,10 +150,12 @@ fn main() {
     }
 }
 
-fn init_logger() {
+fn init_logger(verbose: bool) {
+    let default_level = if verbose { "debug" } else { "info" };
+
     env_logger::Builder::from_env(
         Env::default()
-            .filter_or("LOG_LEVEL", "debug")
+            .filter_or("LOG_LEVEL", default_level)
             .write_style_or("LOG_STYLE", "always"),
     )
     .format_timestamp(None)
