@@ -42,7 +42,7 @@ fn main() {
     ]);
 
     let mut win_statistics: HashMap<usize, usize> = HashMap::new();
-    let simulated_games = 100;
+    let simulated_games = 500_000;
 
     for _ in 0..simulated_games {
         debug!("====================[ START OF GAME ]=======================");
@@ -63,34 +63,61 @@ fn main() {
             game.print_game_state();
 
             game.play_land();
-
-            game.cast_pattern_of_rebirths();
-            game.cast_rectors();
-
-            if game.mana_sources_count() >= 4 {
-                game.cast_sac_outlets();
-                game.cast_mana_dorks();
-            } else {
-                game.cast_mana_dorks();
-                game.cast_sac_outlets();
-            }
-            game.cast_redundant_creatures();
-            game.cast_others();
-
-            // Do we have it?
             if game.is_win_condition_met() {
-                debug!("=====================[ END OF GAME ]========================");
-                debug!(" Won the game on turn {turn}!", turn = game.turn);
-                debug!("============================================================");
-                game.print_game_state();
-
-                *win_statistics.entry(game.turn).or_insert(0) += 1;
                 break;
             }
 
-            // If not, take another turn
+            game.cast_pattern_of_rebirths();
+            if game.is_win_condition_met() {
+                break;
+            }
+
+            game.cast_rectors();
+            if game.is_win_condition_met() {
+                break;
+            }
+
+            if game.mana_sources_count() >= 4 {
+                game.cast_sac_outlets();
+                if game.is_win_condition_met() {
+                    break;
+                }
+
+                game.cast_mana_dorks();
+                if game.is_win_condition_met() {
+                    break;
+                }
+            } else {
+                game.cast_mana_dorks();
+                if game.is_win_condition_met() {
+                    break;
+                }
+
+                game.cast_sac_outlets();
+                if game.is_win_condition_met() {
+                    break;
+                }
+            }
+
+            game.cast_redundant_creatures();
+            if game.is_win_condition_met() {
+                break;
+            }
+
+            game.cast_others();
+            if game.is_win_condition_met() {
+                break;
+            }
+
             game.cleanup();
         }
+
+        debug!("=====================[ END OF GAME ]========================");
+        debug!(" Won the game on turn {turn}!", turn = game.turn);
+        debug!("============================================================");
+        game.print_game_state();
+
+        *win_statistics.entry(game.turn).or_insert(0) += 1;
     }
 
     let mut wins_by_turn = win_statistics.iter().collect::<Vec<_>>();

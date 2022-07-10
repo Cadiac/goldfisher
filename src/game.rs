@@ -48,10 +48,22 @@ impl GameState {
             .filter(|card| is_battlefield(card) && is_sac_outlet(card))
             .count();
 
-        let is_pattern_attached_to_redundant_creature = self.game_objects.iter().any(|card| {
-            let card = card.borrow();
+        let cabal_therapies_in_graveyard = self
+            .game_objects
+            .iter()
+            .filter(|card| is_graveyard(card) && is_named(card, "Cabal Therapy"))
+            .count();
 
-            if card.zone == Zone::Battlefield && card.is_pattern {
+        let patterns = self
+            .game_objects
+            .iter()
+            .filter(|card| is_battlefield(card) && is_pattern(card))
+            .count();
+
+        let is_pattern_attached_to_redundant_creature = self.game_objects.iter().any(|card| {
+            if is_battlefield(&card) && is_pattern(&card) {
+                let card = card.borrow();
+
                 match &card.attached_to {
                     Some(target) => {
                         if target.borrow().is_sac_outlet {
@@ -68,6 +80,10 @@ impl GameState {
             }
         });
 
+        let untapped_phyrexian_tower = self.game_objects.iter().any(|card| {
+            is_battlefield(&card) && is_named(&card, "Phyrexian Tower") && !is_tapped(&card)
+        });
+
         // Winning combinations:
         // 1) Sac outlet + any redundant creature + Pattern of Rebirth on that creature
         if sac_outlets >= 1 && is_pattern_attached_to_redundant_creature {
@@ -79,7 +95,17 @@ impl GameState {
             return true;
         }
 
-        // TODO: Check for more wincons involving Cabal Therapy and Phyrexian Tower
+        // 3) At least one Academy Rector + Pattern of Rebirth on a creature + Cabal Therapy in graveyard / Phyrexian Tower
+        // TODO: Make sure we still have Goblin Bombardment in library
+        if rectors >= 1 && patterns >= 1 && (cabal_therapies_in_graveyard >= 1 || untapped_phyrexian_tower) {
+            return true;
+        }
+
+        // 4) At least two Academy Rectors + Cabal Therapy in graveyard / Phyrexian Tower + at least three creatures total
+        if rectors >= 2 && creatures >= 3 && (cabal_therapies_in_graveyard >= 1 || untapped_phyrexian_tower) {
+            return true;
+        }
+
         false
     }
 
@@ -658,6 +684,14 @@ fn is_sac_outlet(card: &&CardRef) -> bool {
 fn is_mana_dork(card: &&CardRef) -> bool {
     let card = card.borrow();
     card.card_type == CardType::Creature && !card.produced_mana.is_empty()
+}
+
+fn is_named(card: &&CardRef, name: &str) -> bool {
+    card.borrow().name == name
+}
+
+fn is_tapped(card: &&CardRef) -> bool {
+    card.borrow().is_tapped
 }
 
 fn sort_by_produced_mana(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
