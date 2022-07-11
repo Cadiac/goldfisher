@@ -3,6 +3,7 @@ use env_logger::Env;
 use std::collections::HashMap;
 
 use goldfisher::game::GameState;
+use goldfisher::strategy::pattern_rector::PatternRector;
 
 #[macro_use]
 extern crate log;
@@ -31,8 +32,8 @@ fn main() {
         ("Pattern of Rebirth", 4),
         ("Academy Rector", 4),
         // ("Enlightened Tutor", 3),
-        ("Worldly Tutor", 3),
-        // ("Mesmeric Fiend", 3),
+        // ("Worldly Tutor", 3),
+        ("Mesmeric Fiend", 3),
         ("Iridescent Drake", 1),
         ("Karmic Guide", 2),
         ("Caller of the Claw", 1),
@@ -56,15 +57,16 @@ fn main() {
 
     let mut win_statistics: HashMap<usize, usize> = HashMap::new();
     let simulated_games = cli.games;
+    let strategy = PatternRector {};
 
     for _ in 0..simulated_games {
         debug!("====================[ START OF GAME ]=======================");
         let mut game = GameState::new(decklist.clone());
 
-        game.find_starting_hand();
+        game.find_starting_hand(&strategy);
 
         loop {
-            game.advance_turn();
+            game.begin_turn();
 
             debug!(
                 "======================[ TURN {turn:002} ]===========================",
@@ -75,54 +77,12 @@ fn main() {
             game.draw();
             game.print_game_state();
 
-            game.play_land();
-            if game.is_win_condition_met() {
+            // Take game actions until we no longer can or the game has ended
+            if game.take_game_actions(&strategy) {
                 break;
             }
 
-            game.cast_pattern_of_rebirths();
-            if game.is_win_condition_met() {
-                break;
-            }
-
-            game.cast_rectors();
-            if game.is_win_condition_met() {
-                break;
-            }
-
-            if game.mana_sources_count() >= 4 {
-                game.cast_sac_outlets();
-                if game.is_win_condition_met() {
-                    break;
-                }
-
-                game.cast_mana_dorks();
-                if game.is_win_condition_met() {
-                    break;
-                }
-            } else {
-                game.cast_mana_dorks();
-                if game.is_win_condition_met() {
-                    break;
-                }
-
-                game.cast_sac_outlets();
-                if game.is_win_condition_met() {
-                    break;
-                }
-            }
-
-            game.cast_redundant_creatures();
-            if game.is_win_condition_met() {
-                break;
-            }
-
-            game.cast_others();
-            if game.is_win_condition_met() {
-                break;
-            }
-
-            game.cleanup();
+            game.cleanup(&strategy);
         }
 
         debug!("=====================[ END OF GAME ]========================");
