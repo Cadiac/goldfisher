@@ -5,10 +5,21 @@ use crate::game::GameState;
 use crate::strategy::Strategy;
 use crate::utils::*;
 
+struct ComboStatus {
+    mana_sources: usize,
+    lands: usize,
+    creatures: usize,
+    academy_rectors: usize,
+    multi_use_sac_outlets: usize,
+    single_use_sac_outlets: usize,
+    patterns: usize,
+    pattern_on_sac_outlet: bool,
+}
+
 pub struct PatternRector {}
 
 impl PatternRector {
-    pub fn best_land_in_hand(&self, game: &GameState) -> Option<CardRef> {
+    fn best_land_in_hand(&self, game: &GameState) -> Option<CardRef> {
         let mut lands_in_hand = game
             .game_objects
             .iter()
@@ -22,7 +33,7 @@ impl PatternRector {
         lands_in_hand.last().map(|card| (*card).clone())
     }
 
-    pub fn play_land(&self, game: &mut GameState) -> bool {
+    fn play_land(&self, game: &mut GameState) -> bool {
         if game.available_land_drops > 0 {
             if let Some(land) = self.best_land_in_hand(game) {
                 game.play_land(land);
@@ -32,7 +43,7 @@ impl PatternRector {
         false
     }
 
-    pub fn cast_pattern_of_rebirth(&self, game: &mut GameState) -> bool {
+    fn cast_pattern_of_rebirth(&self, game: &mut GameState) -> bool {
         let castable = game.find_castable();
 
         let is_creature_on_battlefield = game
@@ -74,7 +85,7 @@ impl PatternRector {
         false
     }
 
-    pub fn cast_academy_rector(&self, game: &mut GameState) -> bool {
+    fn cast_academy_rector(&self, game: &mut GameState) -> bool {
         let castable = game.find_castable();
 
         let rector = castable.iter().find(|(card, _)| is_rector(&card));
@@ -93,7 +104,7 @@ impl PatternRector {
         false
     }
 
-    pub fn cast_mana_dork(&self, game: &mut GameState) -> bool {
+    fn cast_mana_dork(&self, game: &mut GameState) -> bool {
         let castable = game.find_castable();
 
         let mut mana_dorks = castable
@@ -112,7 +123,7 @@ impl PatternRector {
         false
     }
 
-    pub fn cast_sac_outlet(&self, game: &mut GameState) -> bool {
+    fn cast_sac_outlet(&self, game: &mut GameState) -> bool {
         let castable = game.find_castable();
 
         let mut sac_outlets = castable
@@ -131,7 +142,7 @@ impl PatternRector {
         false
     }
 
-    pub fn cast_other_creature(&self, game: &mut GameState) -> bool {
+    fn cast_other_creature(&self, game: &mut GameState) -> bool {
         let castable = game.find_castable();
 
         let mut creatures = castable
@@ -150,7 +161,7 @@ impl PatternRector {
         false
     }
 
-    pub fn cast_others(&self, game: &mut GameState) -> bool {
+    fn cast_others(&self, game: &mut GameState) -> bool {
         let mut castable = game.find_castable();
 
         // Cast the cheapest first
@@ -163,53 +174,35 @@ impl PatternRector {
 
         return false;
     }
-}
 
-impl Strategy for PatternRector {
-    fn is_win_condition_met(&self, game: &GameState) -> bool {
-        let creatures = game
-            .game_objects
-            .iter()
-            .filter(|card| is_battlefield(card) && is_creature(card))
-            .count();
+    fn combo_status(
+        &self,
+        game: &GameState,
+        include_hand: bool,
+        include_battlefield: bool,
+    ) -> ComboStatus {
+        let game_objects = game.game_objects.iter().filter(|card| {
+            (include_hand && is_hand(card)) || (include_battlefield && is_battlefield(card))
+        });
 
-        let rectors = game
-            .game_objects
-            .iter()
-            .filter(|card| is_battlefield(card) && is_rector(card))
-            .count();
+        let creatures = game_objects.clone().filter(is_creature).count();
 
-        let sac_outlets = game
-            .game_objects
-            .iter()
-            .filter(|card| is_battlefield(card) && is_sac_outlet(card))
-            .count();
+        let academy_rectors = game_objects.clone().filter(is_rector).count();
 
-        let cabal_therapies_in_graveyard = game
-            .game_objects
-            .iter()
-            .filter(|card| is_graveyard(card) && is_named(card, "Cabal Therapy"))
-            .count();
+        let multi_use_sac_outlets = game_objects.clone().filter(is_sac_outlet).count();
 
-        let patterns = game
-            .game_objects
-            .iter()
-            .filter(|card| is_battlefield(card) && is_pattern(card))
-            .count();
+        let patterns = game_objects.clone().filter(is_pattern).count();
 
-        let is_pattern_attached_to_redundant_creature = game.game_objects.iter().any(|card| {
+        let lands = game_objects.clone().filter(is_land).count();
+
+        let mana_sources = game_objects.clone().filter(is_mana_source).count();
+
+        let pattern_on_sac_outlet = game.game_objects.iter().any(|card| {
             if is_battlefield(&card) && is_pattern(&card) {
                 let card = card.borrow();
 
                 match &card.attached_to {
-                    Some(target) => {
-                        if target.borrow().is_sac_outlet {
-                            // Make sure we have a redundant sac outlet if pattern is attached to one
-                            sac_outlets > 1
-                        } else {
-                            true
-                        }
-                    }
+                    Some(target) => return target.borrow().is_sac_outlet,
                     None => false,
                 }
             } else {
@@ -217,35 +210,80 @@ impl Strategy for PatternRector {
             }
         });
 
-        let untapped_phyrexian_tower = game.game_objects.iter().any(|card| {
-            is_battlefield(&card) && is_named(&card, "Phyrexian Tower") && !is_tapped(&card)
-        });
+        let cabal_therapies_in_graveyard = game
+            .game_objects
+            .iter()
+            .filter(|card| is_graveyard(card) && is_named(card, "Cabal Therapy"))
+            .count();
+
+        let untapped_phyrexian_towers = game
+            .game_objects
+            .iter()
+            .filter(|card| {
+                is_battlefield(&card) && is_named(&card, "Phyrexian Tower") && !is_tapped(&card)
+            })
+            .count();
+
+        let single_use_sac_outlets = cabal_therapies_in_graveyard + untapped_phyrexian_towers;
+
+        ComboStatus {
+            lands,
+            mana_sources,
+            creatures,
+            academy_rectors,
+            multi_use_sac_outlets,
+            single_use_sac_outlets,
+            patterns,
+            pattern_on_sac_outlet,
+        }
+    }
+}
+
+impl Strategy for PatternRector {
+    fn is_win_condition_met(&self, game: &GameState) -> bool {
+        // TODO: Make sure we still have the required combo pieces in library
+
+        let status = self.combo_status(game, false, true);
 
         // Winning combinations:
-        // 1) Sac outlet + any redundant creature + Pattern of Rebirth on that creature
-        if sac_outlets >= 1 && is_pattern_attached_to_redundant_creature {
-            return true;
-        }
 
-        // 2) Sac outlet + Academy Rector + any redundant creature
-        if sac_outlets >= 1 && rectors >= 1 && creatures >= 3 {
-            return true;
-        }
-
-        // 3) At least one Academy Rector + Pattern of Rebirth on a creature + Cabal Therapy in graveyard / Phyrexian Tower
-        // TODO: Make sure we still have Goblin Bombardment in library
-        if rectors >= 1
-            && patterns >= 1
-            && (cabal_therapies_in_graveyard >= 1 || untapped_phyrexian_tower)
+        // 1) At least one sac outlet + Pattern of Rebirth on another
+        if status.multi_use_sac_outlets >= 1
+            && status.patterns >= 1
+            && !status.pattern_on_sac_outlet
         {
             return true;
         }
 
-        // 4) At least two Academy Rectors + Cabal Therapy in graveyard / Phyrexian Tower + at least three creatures total
-        if rectors >= 2
-            && creatures >= 3
-            && (cabal_therapies_in_graveyard >= 1 || untapped_phyrexian_tower)
+        // 2) One sac outlet with pattern + one sac outlet without + Pattern of Rebirth on a sac outlet
+        if status.multi_use_sac_outlets >= 2 && status.patterns >= 1 && status.pattern_on_sac_outlet
         {
+            return true;
+        }
+
+        // 3) Sac outlet + Academy Rector + any redundant creature
+        if status.multi_use_sac_outlets >= 1 && status.academy_rectors >= 1 && status.creatures >= 3
+        {
+            return true;
+        }
+
+        // 4) At least one Academy Rector + Pattern of Rebirth on a creature + Cabal Therapy in graveyard / Phyrexian Tower
+        if status.academy_rectors >= 1 && status.patterns >= 1 && status.single_use_sac_outlets >= 1
+        {
+            return true;
+        }
+
+        // 5) At least two Academy Rectors + at least one single use sac outlet + at least three creatures total
+        if status.academy_rectors >= 2
+            && status.single_use_sac_outlets >= 1
+            && status.creatures >= 3
+        {
+            return true;
+        }
+
+        // 6) At least two Academy Rectors + at least two single use sac outlets available
+        // Sac first, get Pattern on second, sac the second, get Drake + Bombardment
+        if status.academy_rectors >= 2 && status.single_use_sac_outlets >= 2 {
             return true;
         }
 
@@ -258,65 +296,34 @@ impl Strategy for PatternRector {
             return true;
         }
 
-        let hand = game.game_objects.iter().filter(is_hand);
+        let status = self.combo_status(game, true, false);
 
-        let mut is_pattern_in_hand = false;
-        let mut is_rector_in_hand = false;
-        let mut is_sac_outlet_in_hand = false;
-
-        let mut creatures_count = 0;
-        let mut lands_count = 0;
-        let mut mana_dorks_count = 0;
-
-        for card in hand {
-            let card = card.borrow();
-
-            if card.name == "Pattern of Rebirth" {
-                is_pattern_in_hand = true;
-            }
-
-            if card.name == "Academy Rector" {
-                is_rector_in_hand = true;
-            }
-
-            if card.is_sac_outlet {
-                is_sac_outlet_in_hand = true;
-            }
-
-            if card.card_type == CardType::Creature {
-                creatures_count += 1;
-            }
-
-            if card.card_type == CardType::Land {
-                lands_count += 1;
-            }
-
-            if card.card_type == CardType::Creature && !card.produced_mana.is_empty() {
-                mana_dorks_count += 1;
-            }
-        }
-
-        if lands_count == 0 {
+        if status.lands == 0 {
             // Always mulligan zero land hands
             return false;
         }
 
-        if lands_count >= 6 {
-            // Also mulligan too land heavy hands
+        if status.mana_sources >= 6 {
+            // Also mulligan too mana source heavy hands
             return false;
         }
 
-        if lands_count == 1 && mana_dorks_count <= 1 {
+        if status.lands == 1 && status.mana_sources <= 2 {
             // One landers with just max one mana dork get automatically mulliganed too
             return false;
         }
 
         // Having a rector/pattern and sac outlet in hand is always good
-        if (is_pattern_in_hand || is_rector_in_hand) && is_sac_outlet_in_hand {
+        if (status.patterns >= 1 || status.academy_rectors >= 1)
+            && status.multi_use_sac_outlets >= 1
+        {
             return true;
         }
 
-        if (is_pattern_in_hand || is_rector_in_hand || is_sac_outlet_in_hand) && creatures_count > 0
+        if (status.patterns >= 1
+            || status.academy_rectors >= 1
+            || status.multi_use_sac_outlets >= 1)
+            && status.creatures > 0
         {
             // If we have already taken any mulligans this should be good enough
             if mulligan_count > 0 {
@@ -324,7 +331,7 @@ impl Strategy for PatternRector {
             }
 
             // At full hand one of the combo pieces with reasonable mana is a keep
-            if lands_count + mana_dorks_count >= 3 {
+            if status.mana_sources >= 3 {
                 return true;
             }
         }
@@ -334,35 +341,7 @@ impl Strategy for PatternRector {
     }
 
     fn best_card_to_draw(&self, game: &GameState, search_filter: Option<SearchFilter>) -> &str {
-        let creatures = game
-            .game_objects
-            .iter()
-            .filter(|card| (is_battlefield(card) || is_hand(card)) && is_creature(card))
-            .count();
-
-        let rectors = game
-            .game_objects
-            .iter()
-            .filter(|card| (is_battlefield(card) || is_hand(card)) && is_rector(card))
-            .count();
-
-        let sac_outlets = game
-            .game_objects
-            .iter()
-            .filter(|card| (is_battlefield(card) || is_hand(card)) && is_sac_outlet(card))
-            .count();
-
-        let patterns = game
-            .game_objects
-            .iter()
-            .filter(|card| (is_battlefield(card) || is_hand(card)) && is_pattern(card))
-            .count();
-
-        let mana_sources = game
-            .game_objects
-            .iter()
-            .filter(|card| (is_battlefield(card) || is_hand(card)) && is_mana_source(card))
-            .count();
+        let status = self.combo_status(game, true, true);
 
         let is_pattern_attached_to_redundant_creature = game.game_objects.iter().any(|card| {
             if is_battlefield(&card) && is_pattern(&card) {
@@ -372,7 +351,7 @@ impl Strategy for PatternRector {
                     Some(target) => {
                         if target.borrow().is_sac_outlet {
                             // Make sure we have a redundant sac outlet if pattern is attached to one
-                            sac_outlets > 1
+                            status.multi_use_sac_outlets >= 2
                         } else {
                             true
                         }
@@ -390,19 +369,15 @@ impl Strategy for PatternRector {
                     return "Carrion Feeder";
                 }
 
-                if sac_outlets >= 1 && creatures >= 2 && (rectors == 0 && patterns == 0) {
+                if status.academy_rectors == 0 && status.patterns == 0 {
                     return "Academy Rector";
                 }
 
-                if rectors == 0 && patterns == 0 {
-                    return "Academy Rector";
-                }
-
-                if sac_outlets == 0 {
+                if status.multi_use_sac_outlets == 0 {
                     return "Carrion Feeder";
                 }
 
-                if mana_sources < 4 {
+                if status.mana_sources < 4 {
                     return "Birds of Paradise";
                 }
 
@@ -413,15 +388,11 @@ impl Strategy for PatternRector {
                     return "Goblin Bombardment";
                 }
 
-                if sac_outlets >= 1 && creatures >= 2 && (rectors == 0 && patterns == 0) {
+                if status.academy_rectors == 0 && status.patterns == 0 {
                     return "Pattern of Rebirth";
                 }
 
-                if rectors == 0 && patterns == 0 {
-                    return "Pattern of Rebirth";
-                }
-
-                if sac_outlets == 0 {
+                if status.multi_use_sac_outlets == 0 {
                     return "Goblin Bombardment";
                 }
 
@@ -460,7 +431,7 @@ impl Strategy for PatternRector {
         lands.sort_by(sort_by_produced_mana);
         sac_outlets.sort_by(sort_by_cmc);
 
-        // First take a balanced mix of lands and combo pieces
+        // First keep a balanced mix of lands and combo pieces
         // Prefer lands that produce the most colors of mana (sorted to the end of the iter)
         let mut lands_iter = lands.iter().rev();
         for _ in 0..2 {
