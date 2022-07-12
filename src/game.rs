@@ -2,11 +2,11 @@ use log::debug;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::card::{CardRef, CardType, Zone, Effect};
-use crate::deck::{Deck};
+use crate::card::{CardRef, CardType, Effect, Zone};
+use crate::deck::Deck;
 use crate::mana::find_payment_for;
 use crate::mana::{Mana, PaymentAndFloating};
-use crate::strategy::{Strategy};
+use crate::strategy::Strategy;
 use crate::utils::*;
 
 pub struct GameState {
@@ -35,7 +35,7 @@ impl GameState {
             turn: 0,
             floating_mana: HashMap::new(),
             is_first_player: true,
-            available_land_drops: 1
+            available_land_drops: 1,
         }
     }
 
@@ -54,6 +54,8 @@ impl GameState {
                     && !card.produced_mana.is_empty()
                     && !card.is_summoning_sick
                     && !card.is_tapped
+                    && !card.is_elvish_spirit_guide
+                    || card.zone == Zone::Hand && card.is_elvish_spirit_guide
             })
             .map(Rc::clone)
             .collect();
@@ -63,7 +65,7 @@ impl GameState {
             .map(|card| {
                 (
                     card.clone(),
-                    find_payment_for(&card.borrow(), &mana_sources, self.floating_mana.clone()),
+                    find_payment_for(card.clone(), &mana_sources, self.floating_mana.clone()),
                 )
             })
             .filter(|(_, payment)| payment.is_some());
@@ -81,7 +83,7 @@ impl GameState {
                 turn = self.turn,
                 name = card.name
             );
-    
+
             card.zone = Zone::Battlefield;
         }
     }
@@ -186,11 +188,14 @@ impl GameState {
                             card_name = found.borrow().name);
                         self.deck.shuffle();
                         self.deck.put_top(found)
-                    },
-                    None => debug!("[Turn {turn:002}][Action]: Failed to find.", turn = self.turn)
+                    }
+                    None => debug!(
+                        "[Turn {turn:002}][Action]: Failed to find.",
+                        turn = self.turn
+                    ),
                 }
-            },
-            _ => unimplemented!()
+            }
+            _ => unimplemented!(),
         }
     }
 

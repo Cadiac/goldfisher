@@ -172,7 +172,7 @@ impl PatternRector {
             return true;
         }
 
-        return false;
+        false
     }
 
     fn combo_status(
@@ -220,7 +220,7 @@ impl PatternRector {
             .game_objects
             .iter()
             .filter(|card| {
-                is_battlefield(&card) && is_named(&card, "Phyrexian Tower") && !is_tapped(&card)
+                is_battlefield(card) && is_named(card, "Phyrexian Tower") && !is_tapped(card)
             })
             .count();
 
@@ -381,7 +381,7 @@ impl Strategy for PatternRector {
                     return "Birds of Paradise";
                 }
 
-                return "Academy Rector";
+                "Academy Rector"
             }
             Some(SearchFilter::EnchantmentArtifact) => {
                 if is_pattern_attached_to_redundant_creature {
@@ -396,7 +396,7 @@ impl Strategy for PatternRector {
                     return "Goblin Bombardment";
                 }
 
-                return "Pattern of Rebirth";
+                "Pattern of Rebirth"
             }
             _ => unimplemented!(),
         }

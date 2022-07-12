@@ -50,6 +50,10 @@ pub fn is_tapped(card: &&CardRef) -> bool {
 }
 
 pub fn sort_by_produced_mana(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
+    if a.borrow().is_elvish_spirit_guide {
+        return std::cmp::Ordering::Greater;
+    }
+
     a.borrow()
         .produced_mana
         .len()

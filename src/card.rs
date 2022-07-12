@@ -57,6 +57,7 @@ pub struct Card {
     pub zone: Zone,
     pub cost: HashMap<Mana, usize>,
     pub produced_mana: HashMap<Mana, usize>,
+    pub is_elvish_spirit_guide: bool,
     pub is_sac_outlet: bool,
     pub is_summoning_sick: bool,
     pub is_tapped: bool,
@@ -66,23 +67,25 @@ pub struct Card {
 
 impl Card {
     pub fn new(card_name: &str) -> Card {
-        match card_name {
+        let name = card_name.to_owned();
+
+        match name.as_str() {
             "Llanowar Elves" => Card {
-                name: "Llanowar Elves".to_owned(),
+                name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Green, 1)]),
                 produced_mana: HashMap::from([(Mana::Green, 1)]),
                 ..Default::default()
             },
             "Fyndhorn Elves" => Card {
-                name: "Fyndhorn Elves".to_owned(),
+                name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Green, 1)]),
                 produced_mana: HashMap::from([(Mana::Green, 1)]),
                 ..Default::default()
             },
             "Birds of Paradise" => Card {
-                name: "Birds of Paradise".to_owned(),
+                name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Green, 1)]),
                 produced_mana: HashMap::from([
@@ -95,128 +98,169 @@ impl Card {
                 ..Default::default()
             },
             "Carrion Feeder" => Card {
-                name: "Carrion Feeder".to_owned(),
+                name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Black, 1)]),
                 is_sac_outlet: true,
                 ..Default::default()
             },
             "Nantuko Husk" => Card {
-                name: "Nantuko Husk".to_owned(),
+                name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 2)]),
                 is_sac_outlet: true,
                 ..Default::default()
             },
             "Phyrexian Ghoul" => Card {
-                name: "Phyrexian Ghoul".to_owned(),
+                name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 2)]),
                 is_sac_outlet: true,
                 ..Default::default()
             },
             "Pattern of Rebirth" => Card {
-                name: "Pattern of Rebirth".to_owned(),
+                name,
                 card_type: CardType::Enchantment,
                 cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 3)]),
                 ..Default::default()
             },
             "Academy Rector" => Card {
-                name: "Academy Rector".to_owned(),
+                name: card_name.to_owned(),
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::White, 1), (Mana::Colorless, 3)]),
                 ..Default::default()
             },
             "Mesmeric Fiend" => Card {
-                name: "Mesmeric Fiend".to_owned(),
+                name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 1)]),
                 ..Default::default()
             },
             "Iridescent Drake" => Card {
-                name: "Iridescent Drake".to_owned(),
+                name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 3)]),
                 ..Default::default()
             },
             "Karmic Guide" => Card {
-                name: "Karmic Guide".to_owned(),
+                name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::White, 2), (Mana::Colorless, 3)]),
                 ..Default::default()
             },
             "Volrath's Shapeshifter" => Card {
-                name: "Volrath's Shapeshifter".to_owned(),
+                name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Blue, 2), (Mana::Colorless, 1)]),
                 ..Default::default()
             },
             "Caller of the Claw" => Card {
-                name: "Caller of the Claw".to_owned(),
+                name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 2)]),
                 ..Default::default()
             },
             "Body Snatcher" => Card {
-                name: "Body Snatcher".to_owned(),
+                name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 3)]),
                 ..Default::default()
             },
             "Akroma, Angel of Wrath" => Card {
-                name: "Akroma, Angel of Wrath".to_owned(),
+                name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::White, 3), (Mana::Colorless, 5)]),
                 ..Default::default()
             },
             "Worship" => Card {
-                name: "Worship".to_owned(),
+                name,
                 card_type: CardType::Enchantment,
                 cost: HashMap::from([(Mana::White, 1), (Mana::Colorless, 3)]),
                 ..Default::default()
             },
             "Goblin Bombardment" => Card {
-                name: "Goblin Bombardment".to_owned(),
+                name,
                 card_type: CardType::Enchantment,
                 cost: HashMap::from([(Mana::Red, 1), (Mana::Colorless, 1)]),
                 is_sac_outlet: true,
                 ..Default::default()
             },
             "Altar of Dementia" => Card {
-                name: "Altar of Dementia".to_owned(),
+                name,
                 card_type: CardType::Artifact,
                 cost: HashMap::from([(Mana::Colorless, 2)]),
                 is_sac_outlet: true,
                 ..Default::default()
             },
             "Cabal Therapy" => Card {
-                name: "Cabal Therapy".to_owned(),
+                name,
                 card_type: CardType::Sorcery,
                 cost: HashMap::from([(Mana::Black, 1)]),
                 ..Default::default()
             },
             "Duress" => Card {
-                name: "Duress".to_owned(),
+                name,
                 card_type: CardType::Sorcery,
                 cost: HashMap::from([(Mana::Black, 1)]),
                 ..Default::default()
             },
             "Worldly Tutor" => Card {
-                name: "Worldly Tutor".to_owned(),
+                name,
                 card_type: CardType::Instant,
                 cost: HashMap::from([(Mana::Green, 1)]),
-                on_resolve: Some(Effect::SearchAndPutTopOfLibrary(Some(SearchFilter::Creature))),
+                on_resolve: Some(Effect::SearchAndPutTopOfLibrary(Some(
+                    SearchFilter::Creature,
+                ))),
                 ..Default::default()
             },
             "Enlightened Tutor" => Card {
-                name: "Enlightened Tutor".to_owned(),
+                name,
                 card_type: CardType::Instant,
                 cost: HashMap::from([(Mana::White, 1)]),
-                on_resolve: Some(Effect::SearchAndPutTopOfLibrary(Some(SearchFilter::EnchantmentArtifact))),
+                on_resolve: Some(Effect::SearchAndPutTopOfLibrary(Some(
+                    SearchFilter::EnchantmentArtifact,
+                ))),
+                ..Default::default()
+            },
+            "Eladamri's Call" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::White, 1), (Mana::Green, 1)]),
+                on_resolve: Some(Effect::SearchAndPutHand(Some(
+                    SearchFilter::Creature,
+                ))),
+                ..Default::default()
+            },
+            "Vindicate" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::White, 1), (Mana::Black, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Rofellos, Llanowar Emissary" => Card {
+                name,
+                card_type: CardType::Creature,
+                produced_mana: HashMap::from([(Mana::Green, 1)]),
+                cost: HashMap::from([(Mana::Green, 2)]),
+                ..Default::default()
+            },
+            "Wall of Roots" => Card {
+                name,
+                card_type: CardType::Creature,
+                produced_mana: HashMap::from([(Mana::Green, 1)]),
+                cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Elvish Spirit Guide" => Card {
+                name,
+                card_type: CardType::Creature,
+                produced_mana: HashMap::from([(Mana::Green, 1)]),
+                cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 2)]),
+                is_elvish_spirit_guide: true,
                 ..Default::default()
             },
             "City of Brass" => Card {
-                name: "City of Brass".to_owned(),
+                name,
                 card_type: CardType::Land,
                 produced_mana: HashMap::from([
                     (Mana::White, 1),
@@ -228,7 +272,7 @@ impl Card {
                 ..Default::default()
             },
             "Llanowar Wastes" => Card {
-                name: "Llanowar Wastes".to_owned(),
+                name,
                 card_type: CardType::Land,
                 produced_mana: HashMap::from([
                     (Mana::Black, 1),
@@ -238,7 +282,7 @@ impl Card {
                 ..Default::default()
             },
             "Brushland" => Card {
-                name: "Brushland".to_owned(),
+                name,
                 card_type: CardType::Land,
                 produced_mana: HashMap::from([
                     (Mana::White, 1),
@@ -248,7 +292,7 @@ impl Card {
                 ..Default::default()
             },
             "Yavimaya Coast" => Card {
-                name: "Yavimaya Coast".to_owned(),
+                name,
                 card_type: CardType::Land,
                 produced_mana: HashMap::from([
                     (Mana::Blue, 1),
@@ -258,7 +302,7 @@ impl Card {
                 ..Default::default()
             },
             "Caves of Koilos" => Card {
-                name: "Caves of Koilos".to_owned(),
+                name,
                 card_type: CardType::Land,
                 produced_mana: HashMap::from([
                     (Mana::White, 1),
@@ -268,7 +312,7 @@ impl Card {
                 ..Default::default()
             },
             "Gemstone Mine" => Card {
-                name: "Gemstone Mine".to_owned(),
+                name,
                 card_type: CardType::Land,
                 // TODO: max number of uses
                 produced_mana: HashMap::from([
@@ -281,7 +325,7 @@ impl Card {
                 ..Default::default()
             },
             "Reflecting Pool" => Card {
-                name: "Reflecting Pool".to_owned(),
+                name,
                 card_type: CardType::Land,
                 // TODO: dynamically figure out what mana this produces
                 produced_mana: HashMap::from([
@@ -294,43 +338,71 @@ impl Card {
                 ..Default::default()
             },
             "Phyrexian Tower" => Card {
-                name: "Phyrexian Tower".to_owned(),
+                name,
                 card_type: CardType::Land,
                 // TODO: the black mana from sac
                 produced_mana: HashMap::from([(Mana::Colorless, 1)]),
                 ..Default::default()
             },
-            "Forest" => Card {
-                name: "Forest".to_owned(),
-                card_type: CardType::Land,
-                produced_mana: HashMap::from([(Mana::Green, 1)]),
-                ..Default::default()
-            },
-            "Swamp" => Card {
-                name: "Swamp".to_owned(),
-                card_type: CardType::Land,
-                produced_mana: HashMap::from([(Mana::Black, 1)]),
-                ..Default::default()
-            },
             "Plains" => Card {
-                name: "Plains".to_owned(),
+                name,
                 card_type: CardType::Land,
                 produced_mana: HashMap::from([(Mana::White, 1)]),
                 ..Default::default()
             },
+            "Island" => Card {
+                name,
+                card_type: CardType::Land,
+                produced_mana: HashMap::from([(Mana::White, 1)]),
+                ..Default::default()
+            },
+            "Swamp" => Card {
+                name,
+                card_type: CardType::Land,
+                produced_mana: HashMap::from([(Mana::Black, 1)]),
+                ..Default::default()
+            },
+            "Mountain" => Card {
+                name,
+                card_type: CardType::Land,
+                produced_mana: HashMap::from([(Mana::Black, 1)]),
+                ..Default::default()
+            },
+            "Forest" => Card {
+                name,
+                card_type: CardType::Land,
+                produced_mana: HashMap::from([(Mana::Green, 1)]),
+                ..Default::default()
+            },
             "Ancient Tomb" => Card {
-                name: "Ancient Tomb".to_owned(),
+                name,
                 card_type: CardType::Land,
                 produced_mana: HashMap::from([(Mana::Colorless, 2)]),
                 ..Default::default()
             },
-            "Wall of Roots" => Card {
-                name: "Wall of Roots".to_owned(),
-                card_type: CardType::Creature,
-                produced_mana: HashMap::from([(Mana::Green, 1)]),
+            "Hickory Woodlot" => Card {
+                name,
+                card_type: CardType::Land,
+                produced_mana: HashMap::from([(Mana::Green, 2)]),
+                ..Default::default()
+            },
+            "Taiga" => Card {
+                name,
+                card_type: CardType::Land,
+                produced_mana: HashMap::from([(Mana::Green, 1), (Mana::Red, 1)]),
+                ..Default::default()
+            },
+            "Scrubland" => Card {
+                name,
+                card_type: CardType::Land,
+                produced_mana: HashMap::from([(Mana::White, 1), (Mana::Black, 1)]),
                 ..Default::default()
             },
             name => unimplemented!("{}", name),
         }
+    }
+
+    pub fn new_as_ref(name: &str) -> CardRef {
+        Rc::new(RefCell::new(Card::new(name)))
     }
 }
