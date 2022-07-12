@@ -33,6 +33,7 @@ fn main() {
         ("Academy Rector", 4),
         // ("Enlightened Tutor", 3),
         ("Worldly Tutor", 3),
+        // ("Elvish Spirit Guide", 3),
         // ("Mesmeric Fiend", 3),
         ("Iridescent Drake", 1),
         ("Karmic Guide", 2),

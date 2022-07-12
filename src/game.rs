@@ -168,7 +168,13 @@ impl GameState {
         }
 
         for mana_source in payment {
-            mana_source.borrow_mut().is_tapped = true;
+            let mut source = mana_source.borrow_mut();
+
+            if source.is_elvish_spirit_guide {
+                source.zone = Zone::Exile;
+            } else {
+                source.is_tapped = true;
+            }
         }
 
         self.floating_mana = floating.to_owned();
@@ -301,7 +307,7 @@ impl GameState {
     }
 
     fn print_graveyard(&self) {
-        let battlefield_str = self
+        let graveyard_str = self
             .game_objects
             .iter()
             .filter(is_graveyard)
@@ -309,9 +315,24 @@ impl GameState {
             .collect::<Vec<_>>()
             .join(", ");
         debug!(
-            "[Turn {turn:002}][Graveyard]: {battlefield_str}",
+            "[Turn {turn:002}][Graveyard]: {graveyard_str}",
             turn = self.turn
         );
+
+        let exile_str = self
+            .game_objects
+            .iter()
+            .filter(is_exile)
+            .map(|card| card.borrow().name.clone())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        if !exile_str.is_empty() {
+            debug!(
+                "[Turn {turn:002}][Exile]: {exile_str}",
+                turn = self.turn
+            );
+        }
     }
 
     fn print_library(&self) {

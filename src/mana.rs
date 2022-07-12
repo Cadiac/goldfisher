@@ -34,7 +34,8 @@ pub fn find_payment_for(
         if let Some(cost) = card.borrow().cost.get(color) {
             let available_sources: Vec<_> = mana_sources
                 .iter()
-                // TODO: check if we're trying to pay for ESG with itself
+                // Prevent doing something like paying for Elvish Spirit Guide with itself
+                .filter(|source| !Rc::ptr_eq(*source, &card))
                 .flat_map(|source| {
                     source
                         .borrow()

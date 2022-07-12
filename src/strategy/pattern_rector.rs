@@ -186,16 +186,15 @@ impl PatternRector {
         });
 
         let creatures = game_objects.clone().filter(is_creature).count();
-
         let academy_rectors = game_objects.clone().filter(is_rector).count();
-
         let multi_use_sac_outlets = game_objects.clone().filter(is_sac_outlet).count();
-
         let patterns = game_objects.clone().filter(is_pattern).count();
-
         let lands = game_objects.clone().filter(is_land).count();
 
-        let mana_sources = game_objects.clone().filter(is_mana_source).count();
+        let mana_sources = game_objects
+            .clone()
+            .filter(|card| is_mana_source(card) && !is_single_use_mana(card))
+            .count();
 
         let pattern_on_sac_outlet = game.game_objects.iter().any(|card| {
             if is_battlefield(&card) && is_pattern(&card) {

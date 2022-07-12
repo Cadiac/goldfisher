@@ -12,6 +12,10 @@ pub fn is_graveyard(card: &&CardRef) -> bool {
     card.borrow().zone == Zone::Graveyard
 }
 
+pub fn is_exile(card: &&CardRef) -> bool {
+    card.borrow().zone == Zone::Exile
+}
+
 pub fn is_creature(card: &&CardRef) -> bool {
     card.borrow().card_type == CardType::Creature
 }
@@ -39,6 +43,10 @@ pub fn is_mana_dork(card: &&CardRef) -> bool {
 
 pub fn is_mana_source(card: &&CardRef) -> bool {
     !card.borrow().produced_mana.is_empty()
+}
+
+pub fn is_single_use_mana(card: &&CardRef) -> bool {
+    !card.borrow().is_elvish_spirit_guide
 }
 
 pub fn is_named(card: &&CardRef, name: &str) -> bool {
