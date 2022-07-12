@@ -57,7 +57,7 @@ pub struct Card {
     pub zone: Zone,
     pub cost: HashMap<Mana, usize>,
     pub produced_mana: HashMap<Mana, usize>,
-    pub is_elvish_spirit_guide: bool,
+    pub remaining_uses: Option<usize>,
     pub is_sac_outlet: bool,
     pub is_summoning_sick: bool,
     pub is_tapped: bool,
@@ -226,9 +226,7 @@ impl Card {
                 name,
                 card_type: CardType::Instant,
                 cost: HashMap::from([(Mana::White, 1), (Mana::Green, 1)]),
-                on_resolve: Some(Effect::SearchAndPutHand(Some(
-                    SearchFilter::Creature,
-                ))),
+                on_resolve: Some(Effect::SearchAndPutHand(Some(SearchFilter::Creature))),
                 ..Default::default()
             },
             "Vindicate" => Card {
@@ -256,7 +254,21 @@ impl Card {
                 card_type: CardType::Creature,
                 produced_mana: HashMap::from([(Mana::Green, 1)]),
                 cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 2)]),
-                is_elvish_spirit_guide: true,
+                remaining_uses: Some(1),
+                ..Default::default()
+            },
+            "Lotus Petal" => Card {
+                name,
+                card_type: CardType::Artifact,
+                produced_mana: HashMap::from([
+                    (Mana::White, 1),
+                    (Mana::Blue, 1),
+                    (Mana::Black, 1),
+                    (Mana::Red, 1),
+                    (Mana::Green, 1),
+                ]),
+                cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 2)]),
+                remaining_uses: Some(1),
                 ..Default::default()
             },
             "City of Brass" => Card {
@@ -384,6 +396,7 @@ impl Card {
                 name,
                 card_type: CardType::Land,
                 produced_mana: HashMap::from([(Mana::Green, 2)]),
+                is_tapped: true,
                 ..Default::default()
             },
             "Taiga" => Card {

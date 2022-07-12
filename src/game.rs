@@ -54,8 +54,8 @@ impl GameState {
                     && !card.produced_mana.is_empty()
                     && !card.is_summoning_sick
                     && !card.is_tapped
-                    && !card.is_elvish_spirit_guide
-                    || card.zone == Zone::Hand && card.is_elvish_spirit_guide
+                    && card.name != "Elvish Spirit Guide"
+                    || (card.name == "Elvish Spirit Guide" && card.zone == Zone::Hand)
             })
             .map(Rc::clone)
             .collect();
@@ -170,8 +170,18 @@ impl GameState {
         for mana_source in payment {
             let mut source = mana_source.borrow_mut();
 
-            if source.is_elvish_spirit_guide {
-                source.zone = Zone::Exile;
+            if let Some(uses) = source.remaining_uses {
+                if uses > 1 {
+                    source.remaining_uses = Some(uses - 1);
+                    source.is_tapped = true;
+                } else {
+                    source.remaining_uses = Some(0);
+                    if source.name == "Elvish Spirit Guide" {
+                        source.zone = Zone::Exile;
+                    } else {
+                        source.zone = Zone::Graveyard;
+                    }
+                }
             } else {
                 source.is_tapped = true;
             }

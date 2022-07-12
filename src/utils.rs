@@ -46,7 +46,10 @@ pub fn is_mana_source(card: &&CardRef) -> bool {
 }
 
 pub fn is_single_use_mana(card: &&CardRef) -> bool {
-    !card.borrow().is_elvish_spirit_guide
+    match card.borrow().remaining_uses {
+        Some(uses) => uses == 1,
+        None => false
+    }
 }
 
 pub fn is_named(card: &&CardRef, name: &str) -> bool {
@@ -58,9 +61,11 @@ pub fn is_tapped(card: &&CardRef) -> bool {
 }
 
 pub fn sort_by_produced_mana(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
-    if a.borrow().is_elvish_spirit_guide {
-        return std::cmp::Ordering::Greater;
-    }
+    // Changing how to prioritize spirit guides has affect on quick kills,
+    // but lets leave that out for now
+    // if a.borrow().is_elvish_spirit_guide {
+    //     return std::cmp::Ordering::Less;
+    // }
 
     a.borrow()
         .produced_mana

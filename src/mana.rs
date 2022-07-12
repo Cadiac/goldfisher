@@ -254,6 +254,7 @@ mod tests {
     fn it_finds_payment_1cmc_excess_mana() {
         let birds_of_paradise = Card::new_as_ref("Birds of Paradise");
         let hickory_woodlot = Card::new_as_ref("Hickory Woodlot");
+        hickory_woodlot.borrow_mut().is_tapped = false;
 
         let payment = find_payment_for(
             birds_of_paradise,
