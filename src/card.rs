@@ -238,6 +238,7 @@ impl Card {
             "Rofellos, Llanowar Emissary" => Card {
                 name,
                 card_type: CardType::Creature,
+                // TODO: Actual produced mana
                 produced_mana: HashMap::from([(Mana::Green, 1)]),
                 cost: HashMap::from([(Mana::Green, 2)]),
                 ..Default::default()
@@ -246,6 +247,7 @@ impl Card {
                 name,
                 card_type: CardType::Creature,
                 produced_mana: HashMap::from([(Mana::Green, 1)]),
+                remaining_uses: Some(5),
                 cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 1)]),
                 ..Default::default()
             },
@@ -326,7 +328,7 @@ impl Card {
             "Gemstone Mine" => Card {
                 name,
                 card_type: CardType::Land,
-                // TODO: max number of uses
+                remaining_uses: Some(3),
                 produced_mana: HashMap::from([
                     (Mana::White, 1),
                     (Mana::Blue, 1),
@@ -397,6 +399,7 @@ impl Card {
                 card_type: CardType::Land,
                 produced_mana: HashMap::from([(Mana::Green, 2)]),
                 is_tapped: true,
+                remaining_uses: Some(2),
                 ..Default::default()
             },
             "Taiga" => Card {

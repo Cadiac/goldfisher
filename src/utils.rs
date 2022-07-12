@@ -1,4 +1,4 @@
-use crate::card::{CardRef, Zone, CardType};
+use crate::card::{CardRef, CardType, Zone};
 
 pub fn is_battlefield(card: &&CardRef) -> bool {
     card.borrow().zone == Zone::Battlefield
@@ -48,7 +48,7 @@ pub fn is_mana_source(card: &&CardRef) -> bool {
 pub fn is_single_use_mana(card: &&CardRef) -> bool {
     match card.borrow().remaining_uses {
         Some(uses) => uses == 1,
-        None => false
+        None => false,
     }
 }
 
@@ -61,16 +61,22 @@ pub fn is_tapped(card: &&CardRef) -> bool {
 }
 
 pub fn sort_by_produced_mana(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
-    // Changing how to prioritize spirit guides has affect on quick kills,
-    // but lets leave that out for now
-    // if a.borrow().name == "Elvish Spirit Guide" {
-    //     return std::cmp::Ordering::Greater;
-    // }
+    let a = a.borrow();
+    let b = b.borrow();
 
-    a.borrow()
-        .produced_mana
+    if a.produced_mana.len() == b.produced_mana.len() {
+        // Try to save the mana sources with limited uses
+        if a.remaining_uses.is_some() {
+            return std::cmp::Ordering::Greater;
+        }
+        if b.remaining_uses.is_some() {
+            return std::cmp::Ordering::Less;
+        }
+    }
+
+    a.produced_mana
         .len()
-        .partial_cmp(&b.borrow().produced_mana.len())
+        .partial_cmp(&b.produced_mana.len())
         .unwrap()
 }
 

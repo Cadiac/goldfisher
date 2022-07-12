@@ -366,3 +366,54 @@ impl GameState {
         debug!("[Turn {turn:002}][Hand]: {hand_str}", turn = self.turn);
     }
 }
+
+
+#[cfg(test)]
+#[rustfmt::skip]
+mod tests {
+    use super::*;
+    use crate::card::{Card, CardRef};
+    use rand::seq::SliceRandom;
+    use rand::thread_rng;
+
+    #[test]
+    fn it_avoids_using_limited_use_lands() {
+        let llanowar_elves = Card::new_as_ref("Llanowar Elves");
+        let gemstone_mine = Card::new_as_ref("Gemstone Mine");
+        let city_of_brass = Card::new_as_ref("City of Brass");
+
+        llanowar_elves.borrow_mut().zone = Zone::Hand;
+
+        gemstone_mine.borrow_mut().zone = Zone::Battlefield;
+        city_of_brass.borrow_mut().zone = Zone::Battlefield;
+
+        let mut game_objects = vec![
+            gemstone_mine.clone(),
+            city_of_brass.clone(),
+            gemstone_mine.clone(),
+            city_of_brass.clone(),
+            llanowar_elves,
+        ];
+
+        // Should work in any order
+        game_objects.shuffle(&mut thread_rng());
+
+        let game = GameState {
+            deck: Deck::new(vec![]),
+            game_objects,
+            turn: 0,
+            floating_mana: HashMap::new(),
+            is_first_player: true,
+            available_land_drops: 1,
+        };
+
+        let castable = game.find_castable();
+
+        assert_eq!(1, castable.len());
+        assert_eq!(true, castable[0].1.is_some());
+
+        let payment: &Vec<CardRef> = &castable.first().as_ref().unwrap().1.as_ref().unwrap().0;
+        assert_eq!(1, payment.len());
+        assert_eq!("City of Brass", payment[0].borrow().name);
+    }
+}
