@@ -324,15 +324,16 @@ impl Strategy for PatternRector {
             || status.multi_use_sac_outlets >= 1)
             && status.creatures > 0
         {
-            // If we have already taken any mulligans this should be good enough
-            if mulligan_count > 0 {
+            // If we have already taken two mulligans this should be good enough
+            if mulligan_count > 1 {
                 return true;
             }
 
-            // At full hand one of the combo pieces with reasonable mana is a keep
-            if status.mana_sources >= 3 {
-                return true;
-            }
+            // At full hand with one of the combo pieces with is only a keep with fast mana
+            // NOTE: Apparently it is better to just mulligan these hands always
+            // if status.mana_sources >= 3 && status.fast_mana > 0 {
+            //     return true;
+            // }
         }
 
         // Otherwise take a mulligan

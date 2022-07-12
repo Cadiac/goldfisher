@@ -50,12 +50,17 @@ impl GameState {
             .iter()
             .filter(|card| {
                 let card = card.borrow();
-                card.zone == Zone::Battlefield
+                let is_untapped_mana_source = card.zone == Zone::Battlefield
                     && !card.produced_mana.is_empty()
                     && !card.is_summoning_sick
                     && !card.is_tapped
-                    && card.name != "Elvish Spirit Guide"
-                    || (card.name == "Elvish Spirit Guide" && card.zone == Zone::Hand)
+                    && card.name != "Elvish Spirit Guide";
+
+                if is_untapped_mana_source {
+                    return true;
+                }
+
+                return card.name == "Elvish Spirit Guide" && card.zone == Zone::Hand;
             })
             .map(Rc::clone)
             .collect();
@@ -338,10 +343,7 @@ impl GameState {
             .join(", ");
 
         if !exile_str.is_empty() {
-            debug!(
-                "[Turn {turn:002}][Exile]: {exile_str}",
-                turn = self.turn
-            );
+            debug!("[Turn {turn:002}][Exile]: {exile_str}", turn = self.turn);
         }
     }
 
