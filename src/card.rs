@@ -269,7 +269,7 @@ impl Card {
                     (Mana::Red, 1),
                     (Mana::Green, 1),
                 ]),
-                cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 2)]),
+                cost: HashMap::new(),
                 remaining_uses: Some(1),
                 ..Default::default()
             },

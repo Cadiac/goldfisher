@@ -27,6 +27,8 @@ impl GameState {
             game_objects.push(card.clone())
         }
 
+        debug!("Deck size: {deck_size}", deck_size = deck.len());
+
         deck.shuffle();
 
         Self {

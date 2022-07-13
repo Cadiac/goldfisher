@@ -396,6 +396,10 @@ impl Strategy for PatternRector {
                     return "Goblin Bombardment";
                 }
 
+                if status.mana_sources < 4 {
+                    return "Lotus Petal";
+                }
+
                 "Pattern of Rebirth"
             }
             _ => unimplemented!(),
