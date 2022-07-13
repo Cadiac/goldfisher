@@ -66,12 +66,10 @@ pub fn sort_by_produced_mana(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
 
     if a.produced_mana.len() == b.produced_mana.len() {
         // Try to save the mana sources with limited uses
-        if a.remaining_uses.is_some() {
-            return std::cmp::Ordering::Greater;
-        }
-        if b.remaining_uses.is_some() {
-            return std::cmp::Ordering::Less;
-        }
+        return a.remaining_uses
+            .unwrap_or(usize::MAX)
+            .partial_cmp(&b.remaining_uses.unwrap_or(usize::MAX))
+            .unwrap()
     }
 
     a.produced_mana

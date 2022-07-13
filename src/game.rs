@@ -13,9 +13,9 @@ pub struct GameState {
     pub turn: usize,
     pub game_objects: Vec<CardRef>,
     pub available_land_drops: usize,
-    deck: Deck,
-    floating_mana: HashMap<Mana, usize>,
-    is_first_player: bool,
+    pub deck: Deck,
+    pub floating_mana: HashMap<Mana, usize>,
+    pub is_first_player: bool,
 }
 
 impl GameState {
@@ -380,21 +380,12 @@ mod tests {
 
     #[test]
     fn it_avoids_using_limited_use_lands() {
-        let llanowar_elves = Card::new_as_ref("Llanowar Elves");
-        let gemstone_mine = Card::new_as_ref("Gemstone Mine");
-        let city_of_brass = Card::new_as_ref("City of Brass");
-
-        llanowar_elves.borrow_mut().zone = Zone::Hand;
-
-        gemstone_mine.borrow_mut().zone = Zone::Battlefield;
-        city_of_brass.borrow_mut().zone = Zone::Battlefield;
-
         let mut game_objects = vec![
-            gemstone_mine.clone(),
-            city_of_brass.clone(),
-            gemstone_mine.clone(),
-            city_of_brass.clone(),
-            llanowar_elves,
+            Card::new_with_zone("Gemstone Mine", Zone::Battlefield),
+            Card::new_with_zone("Gemstone Mine", Zone::Battlefield),
+            Card::new_with_zone("City of Brass", Zone::Battlefield),
+            Card::new_with_zone("City of Brass", Zone::Battlefield),
+            Card::new_with_zone("Llanowar Elves", Zone::Hand),
         ];
 
         // Should work in any order

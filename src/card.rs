@@ -421,4 +421,10 @@ impl Card {
     pub fn new_as_ref(name: &str) -> CardRef {
         Rc::new(RefCell::new(Card::new(name)))
     }
+
+    pub fn new_with_zone(name: &str, zone: Zone) -> CardRef {
+        let mut card = Card::new(name);
+        card.zone = zone;
+        Rc::new(RefCell::new(card))
+    }
 }
