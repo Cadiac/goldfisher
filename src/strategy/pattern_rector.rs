@@ -24,13 +24,14 @@ impl PatternRector {
             .game_objects
             .iter()
             .filter(|card| is_hand(card) && is_land(card))
+            .cloned()
             .collect::<Vec<_>>();
 
-        lands_in_hand.sort_by(|a, b| sort_by_produced_mana(a, b));
+        lands_in_hand.sort_by(sort_by_best_mana_to_play);
 
         // Play the one that produces most colors
         // TODO: Play the one that produces most cards that could be played
-        lands_in_hand.first().map(|card| (*card).clone())
+        lands_in_hand.last().map(|card| (*card).clone())
     }
 
     fn play_land(&self, game: &mut GameState) -> bool {
@@ -113,7 +114,7 @@ impl PatternRector {
             .collect::<Vec<_>>();
 
         // Cast the one that produces most colors
-        mana_dorks.sort_by(|(a, _), (b, _)| sort_by_produced_mana(a, b));
+        mana_dorks.sort_by(|(a, _), (b, _)| sort_by_best_mana_to_play(a, b));
 
         if let Some((card_ref, payment)) = mana_dorks.last() {
             game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
@@ -432,7 +433,7 @@ impl Strategy for PatternRector {
             }
         }
 
-        lands.sort_by(sort_by_produced_mana);
+        lands.sort_by(sort_by_best_mana_to_play);
         sac_outlets.sort_by(sort_by_cmc);
 
         // First keep a balanced mix of lands and combo pieces

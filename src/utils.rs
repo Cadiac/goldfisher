@@ -60,15 +60,33 @@ pub fn is_tapped(card: &&CardRef) -> bool {
     card.borrow().is_tapped
 }
 
-pub fn sort_by_produced_mana(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
+pub fn sort_by_best_mana_to_play(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
     let a = a.borrow();
     let b = b.borrow();
 
     if a.produced_mana.len() == b.produced_mana.len() {
-        // Try to save the mana sources with limited uses
+        // Play the mana source with most uses
         return a.remaining_uses
             .unwrap_or(usize::MAX)
             .partial_cmp(&b.remaining_uses.unwrap_or(usize::MAX))
+            .unwrap()
+    }
+
+    a.produced_mana
+        .len()
+        .partial_cmp(&b.produced_mana.len())
+        .unwrap()
+}
+
+pub fn sort_by_best_mana_to_use(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
+    let a = a.borrow();
+    let b = b.borrow();
+
+    if a.produced_mana.len() == b.produced_mana.len() {
+        // Try to save the mana sources with least uses
+        return b.remaining_uses
+            .unwrap_or(usize::MAX)
+            .partial_cmp(&a.remaining_uses.unwrap_or(usize::MAX))
             .unwrap()
     }
 

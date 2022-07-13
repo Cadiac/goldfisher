@@ -67,7 +67,7 @@ impl GameState {
             .map(Rc::clone)
             .collect();
 
-        mana_sources.sort_by(sort_by_produced_mana);
+        mana_sources.sort_by(sort_by_best_mana_to_use);
         let castable = nonlands_in_hand
             .map(|card| {
                 (
@@ -369,21 +369,22 @@ impl GameState {
     }
 }
 
-
 #[cfg(test)]
 #[rustfmt::skip]
 mod tests {
     use super::*;
-    use crate::card::{Card, CardRef};
+    use crate::card::{Card};
     use rand::seq::SliceRandom;
     use rand::thread_rng;
 
     #[test]
     fn it_avoids_using_limited_use_lands() {
         let mut game_objects = vec![
+            Card::new_with_zone("Forest", Zone::Battlefield),
+            Card::new_with_zone("Elvish Spirit Guide", Zone::Hand),
+            Card::new_with_zone("Lotus Petal", Zone::Battlefield),
+            Card::new_with_zone("Llanowar Wastes", Zone::Battlefield),
             Card::new_with_zone("Gemstone Mine", Zone::Battlefield),
-            Card::new_with_zone("Gemstone Mine", Zone::Battlefield),
-            Card::new_with_zone("City of Brass", Zone::Battlefield),
             Card::new_with_zone("City of Brass", Zone::Battlefield),
             Card::new_with_zone("Llanowar Elves", Zone::Hand),
         ];
@@ -400,13 +401,36 @@ mod tests {
             available_land_drops: 1,
         };
 
-        let castable = game.find_castable();
+        let expected_order = [
+            "Forest",
+            "Elvish Spirit Guide",
+            "Llanowar Wastes",
+            "City of Brass",
+            "Gemstone Mine",
+            "Lotus Petal",
+        ];
 
-        assert_eq!(1, castable.len());
-        assert_eq!(true, castable[0].1.is_some());
+        for expected_source in expected_order {
+            let castable = game.find_castable();
+            let expected_cast = castable
+                .iter()
+                .find(|payment| payment.0.borrow().name == "Llanowar Elves");
 
-        let payment: &Vec<CardRef> = &castable.first().as_ref().unwrap().1.as_ref().unwrap().0;
-        assert_eq!(1, payment.len());
-        assert_eq!("City of Brass", payment[0].borrow().name);
+            assert_eq!(true, expected_cast.is_some());
+
+            let payment = &expected_cast.unwrap().1.as_ref().unwrap().0;
+
+            assert_eq!(1, payment.len());
+            assert_eq!(expected_source, payment[0].borrow().name);
+
+            // Make this source spent and see what would be used next
+            let mut spent = payment[0].borrow_mut();
+
+            if spent.name == "Elvish Spirit Guide" {
+                spent.zone = Zone::Exile;
+            } else {
+                spent.is_tapped = true;
+            }
+        }
     }
 }
