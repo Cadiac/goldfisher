@@ -2,7 +2,7 @@ use std::{collections::HashMap, hash::Hash};
 use std::rc::Rc;
 use std::vec;
 
-use crate::card::{CardRef};
+use crate::card::{CardRef, CardType};
 
 pub type PaymentAndFloating = (Vec<CardRef>, HashMap<Mana, usize>);
 
@@ -21,9 +21,14 @@ const COLORS: [Mana; 5] = [Mana::White, Mana::Blue, Mana::Black, Mana::Red, Mana
 pub fn find_payment_for(
     card: CardRef,
     mana_sources: &[CardRef],
-    mut floating: HashMap<Mana, usize>
+    mut floating: HashMap<Mana, usize>,
+    is_aluren: bool,
 ) -> Option<PaymentAndFloating> {
     if card.borrow().cost.is_empty() {
+        return Some((vec![], HashMap::new()));
+    }
+
+    if is_aluren && card.borrow().card_type == CardType::Creature && card.borrow().cost.values().sum::<usize>() <= 3 {
         return Some((vec![], HashMap::new()));
     }
 
@@ -174,7 +179,7 @@ mod tests {
     fn it_finds_payment_no_mana_sources() {
         let card = Card::new_as_ref("Birds of Paradise");
 
-        let payment = find_payment_for(card, &vec![], HashMap::new());
+        let payment = find_payment_for(card, &vec![], HashMap::new(), false);
         assert_eq!(true, payment.is_none());
     }
 
@@ -186,7 +191,8 @@ mod tests {
         let payment = find_payment_for(
             birds_of_paradise,
             &vec![forest.clone()],
-            HashMap::new()
+            HashMap::new(),
+            false
         );
 
         assert_eq!(true, payment.is_some());
@@ -204,7 +210,8 @@ mod tests {
         let payment = find_payment_for(
             birds_of_paradise,
             &vec![mountain.clone()],
-            HashMap::new()
+            HashMap::new(),
+            false
         );
 
         assert_eq!(true, payment.is_none());
@@ -222,7 +229,8 @@ mod tests {
                 forest.clone(),
                 mountain.clone(),
             ],
-            HashMap::new()
+            HashMap::new(),
+            false,
         );
 
         assert_eq!(true, payment.is_some());
@@ -241,6 +249,7 @@ mod tests {
             birds_of_paradise, 
             &vec![taiga.clone()],
             HashMap::new(),
+            false,
         );
 
         assert_eq!(true, payment.is_some());
@@ -260,6 +269,7 @@ mod tests {
             birds_of_paradise,
             &vec![hickory_woodlot.clone()],
             HashMap::new(),
+            false,
         );
 
         assert_eq!(true, payment.is_some());
@@ -285,6 +295,7 @@ mod tests {
                 forest_3.clone(),
             ],
             HashMap::new(),
+            false,
         );
 
         assert_eq!(true, payment.is_some());
@@ -311,6 +322,7 @@ mod tests {
                 mountain.clone(),
             ],
             HashMap::new(),
+            false,
         );
 
         assert_eq!(true, payment.is_some());
@@ -338,6 +350,7 @@ mod tests {
                 mountain.clone()
             ],
             HashMap::new(),
+            false,
         );
 
         assert_eq!(true, payment.is_some());
@@ -363,6 +376,7 @@ mod tests {
                 mountain.clone()
             ],
             HashMap::new(),
+            false,
         );
 
         assert_eq!(true, payment.is_some());
@@ -389,6 +403,7 @@ mod tests {
                 ancient_tomb.clone()
             ],
             HashMap::new(),
+            false,
         );
 
         assert_eq!(true, payment.is_some());
@@ -420,7 +435,8 @@ mod tests {
                 city_of_brass_1.clone(),
                 city_of_brass_2.clone(),
             ],
-            HashMap::new()
+            HashMap::new(),
+            false,
         );
 
         assert_eq!(true, payment.is_some());
@@ -440,7 +456,8 @@ mod tests {
         let payment = find_payment_for(
             birds_of_paradise,
             &vec![forest.clone()],
-            HashMap::from([(Mana::Green, 1)])
+            HashMap::from([(Mana::Green, 1)]),
+            false,
         );
 
         assert_eq!(true, payment.is_some());
@@ -457,7 +474,8 @@ mod tests {
         let payment = find_payment_for(
             birds_of_paradise,
             &vec![forest.clone()],
-            HashMap::from([(Mana::Green, 2), (Mana::Red, 1)])
+            HashMap::from([(Mana::Green, 2), (Mana::Red, 1)]),
+            false,
         );
 
         assert_eq!(true, payment.is_some());
@@ -475,7 +493,8 @@ mod tests {
         let payment = find_payment_for(
             wall_of_roots,
             &vec![forest.clone()],
-            HashMap::from([(Mana::Red, 2)])
+            HashMap::from([(Mana::Red, 2)]),
+            false,
         );
 
         assert_eq!(true, payment.is_some());

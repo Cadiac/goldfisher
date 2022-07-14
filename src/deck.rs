@@ -8,64 +8,87 @@ use rand::thread_rng;
 
 use crate::card::{Card, CardRef};
 
-#[derive(Clone, Debug, Default)]
-pub struct Deck(VecDeque<CardRef>);
+pub struct Decklist {
+    pub maindeck: Vec<(&'static str, usize)>,
+    pub sideboard: Vec<(&'static str, usize)>
+}
 
-impl From<Vec<CardRef>> for Deck {
-    fn from(cards: Vec<CardRef>) -> Deck {
-        Deck(VecDeque::from(cards))
+#[derive(Clone, Debug, Default)]
+pub struct Deck {
+    maindeck: VecDeque<CardRef>,
+    sideboard: Vec<CardRef>,
+}
+
+impl From<Decklist> for Deck {
+    fn from(decklist: Decklist) -> Deck {
+        let mut maindeck = Vec::with_capacity(60);
+        let mut sideboard = Vec::with_capacity(15);
+
+        for (card_name, quantity) in decklist.maindeck {
+            let card = Card::new(card_name);
+
+            for _ in 0..quantity {
+                maindeck.push(Rc::new(RefCell::new(card.clone())));
+            }
+        }
+
+        for (card_name, quantity) in decklist.sideboard {
+            let card = Card::new(card_name);
+
+            for _ in 0..quantity {
+                sideboard.push(Rc::new(RefCell::new(card.clone())));
+            }
+        }
+
+        Deck {
+            maindeck: VecDeque::from(maindeck),
+            sideboard
+        }
     }
 }
 
 impl Deck {
-    pub fn new(decklist: Vec<(&str, usize)>) -> Self {
-        let mut deck = Vec::with_capacity(60);
-
-        for (card_name, quantity) in decklist {
-            let card = Card::new(card_name);
-
-            for _ in 0..quantity {
-                deck.push(Rc::new(RefCell::new(card.clone())));
-            }
-        }
-
-        deck.into()
-    }
-
     pub fn draw(&mut self) -> Option<CardRef> {
-        self.0.pop_back()
+        self.maindeck.pop_back()
     }
 
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.maindeck.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.0.len() > 0
+        self.maindeck.len() > 0
     }
 
     pub fn shuffle(&mut self) {
-        let mut deck = Vec::from(self.0.clone());
+        let mut deck = Vec::from(self.maindeck.clone());
         deck.shuffle(&mut thread_rng());
-        self.0 = VecDeque::from(deck);
+        self.maindeck = VecDeque::from(deck);
     }
 
     pub fn search(&mut self, card_name: &str) -> Option<CardRef> {
-        self.0
+        self.maindeck
             .iter()
             .position(|card| card.borrow().name == card_name)
-            .and_then(|index| self.0.remove(index))
+            .and_then(|index| self.maindeck.remove(index))
+    }
+
+    pub fn search_sideboard(&mut self, card_name: &str) -> Option<CardRef> {
+        self.sideboard
+            .iter()
+            .position(|card| card.borrow().name == card_name)
+            .map(|index| self.sideboard.remove(index))
     }
 
     pub fn put_bottom(&mut self, card: CardRef) {
-        self.0.push_front(card)
+        self.maindeck.push_front(card)
     }
 
     pub fn put_top(&mut self, card: CardRef) {
-        self.0.push_back(card)
+        self.maindeck.push_back(card)
     }
 
     pub fn iter(&self) -> Iter<'_, CardRef> {
-        self.0.iter()
+        self.maindeck.iter()
     }
 }

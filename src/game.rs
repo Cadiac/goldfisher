@@ -2,8 +2,8 @@ use log::debug;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::card::{CardRef, CardType, Effect, Zone};
-use crate::deck::Deck;
+use crate::card::{CardRef, CardType, Effect, SearchFilter, Zone};
+use crate::deck::{Deck, Decklist};
 use crate::mana::find_payment_for;
 use crate::mana::{Mana, PaymentAndFloating};
 use crate::strategy::Strategy;
@@ -14,13 +14,14 @@ pub struct GameState {
     pub game_objects: Vec<CardRef>,
     pub available_land_drops: usize,
     pub deck: Deck,
+    pub life_total: i32,
     pub floating_mana: HashMap<Mana, usize>,
     pub is_first_player: bool,
 }
 
 impl GameState {
-    pub fn new(decklist: Vec<(&str, usize)>) -> Self {
-        let mut deck = Deck::new(decklist);
+    pub fn new(decklist: Decklist) -> Self {
+        let mut deck: Deck = decklist.into();
 
         let mut game_objects = Vec::with_capacity(deck.len());
         for card in deck.iter() {
@@ -35,6 +36,7 @@ impl GameState {
             deck,
             game_objects,
             turn: 0,
+            life_total: 20,
             floating_mana: HashMap::new(),
             is_first_player: true,
             available_land_drops: 1,
@@ -68,11 +70,17 @@ impl GameState {
             .collect();
 
         mana_sources.sort_by(sort_by_best_mana_to_use);
+
+        let is_aluren = self
+            .game_objects
+            .iter()
+            .any(|card| is_battlefield(&card) && card.borrow().name == "Aluren");
+
         let castable = nonlands_in_hand
             .map(|card| {
                 (
                     card.clone(),
-                    find_payment_for(card.clone(), &mana_sources, self.floating_mana.clone()),
+                    find_payment_for(card.clone(), &mana_sources, self.floating_mana.clone(), is_aluren),
                 )
             })
             .filter(|(_, payment)| payment.is_some());
@@ -197,7 +205,7 @@ impl GameState {
         self.floating_mana = floating.to_owned();
 
         let effect = match card.borrow().on_resolve.clone() {
-            Some(it) => it,
+            Some(e) => e,
             _ => return,
         };
 
@@ -216,6 +224,68 @@ impl GameState {
                         "[Turn {turn:002}][Action]: Failed to find.",
                         turn = self.turn
                     ),
+                }
+            }
+            Effect::SearchAndPutHand(card_filter) => {
+                if card_filter == Some(SearchFilter::LivingWish) {
+                    let card_name = strategy.best_card_to_draw(self, card_filter).to_owned();
+
+                    match self.deck.search_sideboard(&card_name) {
+                        Some(found) => {
+                            debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" from sideboard and put it in hand.",
+                                turn = self.turn,
+                                card_name = found.borrow().name);
+
+                            found.borrow_mut().zone = Zone::Hand;
+                            self.game_objects.push(found);
+                        }
+                        None => debug!(
+                            "[Turn {turn:002}][Action]: Failed to find.",
+                            turn = self.turn
+                        ),
+                    }
+                } else {
+                    let card_name = strategy.best_card_to_draw(self, card_filter).to_owned();
+
+                    match self.deck.search(&card_name) {
+                        Some(found) => {
+                            debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it in hand.",
+                                turn = self.turn,
+                                card_name = found.borrow().name);
+                            self.deck.shuffle();
+
+                            found.borrow_mut().zone = Zone::Hand;
+                        }
+                        None => debug!(
+                            "[Turn {turn:002}][Action]: Failed to find.",
+                            turn = self.turn
+                        ),
+                    }
+                }
+            }
+            Effect::Impulse => {
+                // TODO: Proper impulse, selecting the best draw
+                self.draw()
+            }
+            Effect::UntapLands(n) => {
+                for _ in 0..n {
+                    let mut tapped_lands = self
+                        .game_objects
+                        .iter()
+                        .filter(|card| is_battlefield(card) && is_land(card) && is_tapped(card))
+                        .cloned()
+                        .collect::<Vec<_>>();
+
+                    tapped_lands.sort_by(sort_by_best_mana_to_play);
+
+                    if let Some(card) = tapped_lands.last() {
+                        debug!(
+                            "[Turn {turn:002}][Action]: Untapping \"{card_name}\".",
+                            card_name = card.borrow().name,
+                            turn = self.turn
+                        );
+                        card.borrow_mut().is_tapped = false;
+                    }
                 }
             }
             _ => unimplemented!(),
@@ -393,9 +463,10 @@ mod tests {
         game_objects.shuffle(&mut thread_rng());
 
         let game = GameState {
-            deck: Deck::new(vec![]),
+            deck: Deck::from(Decklist { maindeck: vec![], sideboard: vec![] }),
             game_objects,
             turn: 0,
+            life_total: 20,
             floating_mana: HashMap::new(),
             is_first_player: true,
             available_land_drops: 1,

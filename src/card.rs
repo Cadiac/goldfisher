@@ -40,6 +40,7 @@ impl Default for Zone {
 #[derive(Clone, Debug, PartialEq)]
 pub enum SearchFilter {
     Creature,
+    LivingWish,
     EnchantmentArtifact,
 }
 
@@ -48,6 +49,8 @@ pub enum Effect {
     SearchAndPutHand(Option<SearchFilter>),
     SearchAndPutTopOfLibrary(Option<SearchFilter>),
     SearchAndPutBattlefield(Option<SearchFilter>),
+    Impulse,
+    UntapLands(usize)
 }
 
 #[derive(Clone, Debug, Default)]
@@ -273,6 +276,131 @@ impl Card {
                 remaining_uses: Some(1),
                 ..Default::default()
             },
+            "Soul Warden" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::White, 1)]),
+                ..Default::default()
+            },
+            "Unearth" => Card {
+                name,
+                card_type: CardType::Sorcery,
+                cost: HashMap::from([(Mana::Black, 1)]),
+                ..Default::default()
+            },
+            "Cavern Harpy" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Black, 1)]),
+                ..Default::default()
+            },
+            "Cloud of Faeries" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 1)]),
+                on_resolve: Some(Effect::UntapLands(2)),
+                ..Default::default()
+            },
+            "Impulse" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 1)]),
+                on_resolve: Some(Effect::Impulse),
+                ..Default::default()
+            },
+            "Living Wish" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 1)]),
+                on_resolve: Some(Effect::SearchAndPutHand(Some(SearchFilter::LivingWish))),
+                ..Default::default()
+            },
+            "Ray of Revelation" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::White, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Intuition" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 2)]),
+                on_resolve: Some(Effect::SearchAndPutHand(None)),
+                ..Default::default()
+            },
+            "Raven Familiar" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 2)]),
+                on_resolve: Some(Effect::Impulse), // TODO: Separate effect
+                ..Default::default()
+            },
+            "Wirewood Savage" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Aluren" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Green, 2), (Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Maggot Carrier" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Auramancer" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::White, 1), (Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Monk Realist" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::White, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Plague Spitter" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Naturalize" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Crippling Fatigue" => Card {
+                name,
+                card_type: CardType::Sorcery,
+                cost: HashMap::from([(Mana::Black, 2), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Uktabi Orangutan" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Bone Shredder" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Hydroblast" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 1)]),
+                ..Default::default()
+            },
             "City of Brass" => Card {
                 name,
                 card_type: CardType::Land,
@@ -320,6 +448,16 @@ impl Card {
                 card_type: CardType::Land,
                 produced_mana: HashMap::from([
                     (Mana::White, 1),
+                    (Mana::Black, 1),
+                    (Mana::Colorless, 1),
+                ]),
+                ..Default::default()
+            },
+            "Underground River" => Card {
+                name,
+                card_type: CardType::Land,
+                produced_mana: HashMap::from([
+                    (Mana::Blue, 1),
                     (Mana::Black, 1),
                     (Mana::Colorless, 1),
                 ]),
