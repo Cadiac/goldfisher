@@ -50,6 +50,7 @@ pub enum Effect {
     SearchAndPutTopOfLibrary(Option<SearchFilter>),
     SearchAndPutBattlefield(Option<SearchFilter>),
     Impulse,
+    CavernHarpy,
     UntapLands(usize)
 }
 
@@ -292,6 +293,7 @@ impl Card {
                 name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Blue, 1), (Mana::Black, 1)]),
+                on_resolve: Some(Effect::CavernHarpy),
                 ..Default::default()
             },
             "Cloud of Faeries" => Card {

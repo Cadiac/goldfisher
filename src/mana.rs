@@ -25,11 +25,11 @@ pub fn find_payment_for(
     is_aluren: bool,
 ) -> Option<PaymentAndFloating> {
     if card.borrow().cost.is_empty() {
-        return Some((vec![], HashMap::new()));
+        return Some((vec![], floating));
     }
 
     if is_aluren && card.borrow().card_type == CardType::Creature && card.borrow().cost.values().sum::<usize>() <= 3 {
-        return Some((vec![], HashMap::new()));
+        return Some((vec![], floating));
     }
 
     let mut sources_to_pay_colors_with = HashMap::new();
@@ -50,7 +50,9 @@ pub fn find_payment_for(
                 })
                 .collect();
 
-            if *cost > available_sources.iter().map(|source| source.1).sum() {
+            let total_available: usize = available_sources.iter().map(|source| source.1).sum();
+            let total_floating = floating.get(color).unwrap_or(&0);
+            if *cost > total_available + total_floating {
                 // Not enough mana to pay for this color
                 return None;
             }

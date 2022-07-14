@@ -1,8 +1,11 @@
+use log::debug;
+use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::card::{CardRef, CardType, SearchFilter};
+use crate::card::{CardRef, CardType, Zone, SearchFilter};
 use crate::deck::Decklist;
 use crate::game::GameState;
+use crate::mana::{Mana, PaymentAndFloating};
 use crate::strategy::Strategy;
 use crate::utils::*;
 
@@ -10,11 +13,12 @@ struct ComboStatus {
     mana_sources: usize,
     lands: usize,
     alurens: usize,
+    cloud_of_faeries: usize,
     cavern_harpies: usize,
     wirewood_savages: usize,
     raven_familiars: usize,
     soul_wardens: usize,
-    maggot_carrier: bool,
+    maggot_carriers: usize,
 }
 
 pub struct Aluren {}
@@ -39,13 +43,15 @@ impl Aluren {
         false
     }
 
-    fn cast_others(&self, game: &mut GameState) -> bool {
-        let mut castable = game.find_castable();
-
-        // Cast the cheapest first
-        castable.sort_by(|(a, _), (b, _)| sort_by_cmc(a, b));
-
-        if let Some((card_ref, payment)) = castable.first() {
+    fn cast_named(
+        &self,
+        game: &mut GameState,
+        castable: Vec<(CardRef, Option<PaymentAndFloating>)>,
+        card_name: &str,
+    ) -> bool {
+        if let Some((card_ref, payment)) =
+            castable.iter().find(|(c, _)| c.borrow().name == card_name)
+        {
             game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
             return true;
         }
@@ -79,14 +85,20 @@ impl Aluren {
             .clone()
             .filter(|card| card.borrow().name == "Raven Familiar")
             .count();
+        let cloud_of_faeries = game_objects
+            .clone()
+            .filter(|card| card.borrow().name == "Cloud of Faeries")
+            .count();
+
         let soul_wardens = game_objects
             .clone()
             .filter(|card| card.borrow().name == "Soul Warden")
             .count();
 
-        let maggot_carrier = game_objects
+        let maggot_carriers = game_objects
             .clone()
-            .any(|card| card.borrow().name == "Maggot Carrier");
+            .filter(|card| card.borrow().name == "Maggot Carrier")
+            .count();
 
         let lands = game_objects.clone().filter(is_land).count();
 
@@ -100,10 +112,11 @@ impl Aluren {
             mana_sources,
             alurens,
             cavern_harpies,
+            cloud_of_faeries,
             wirewood_savages,
             raven_familiars,
             soul_wardens,
-            maggot_carrier,
+            maggot_carriers,
         }
     }
 }
@@ -155,14 +168,15 @@ impl Strategy for Aluren {
     }
 
     fn is_win_condition_met(&self, game: &GameState) -> bool {
-        let status = self.combo_status(game, false, true);
+        let hand = self.combo_status(game, true, false);
+        let battlefield = self.combo_status(game, false, true);
 
-        // Aluren on the battlefield + Cavern Harpy on the battlefield
+        // Aluren on the battlefield + Maggot Carrier + Cavern Harpy on the battlefield
         // + Soul warden on the battlefield OR life total is at least 40
-        if status.alurens >= 1
-            && status.maggot_carrier
-            && status.cavern_harpies >= 1
-            && (status.soul_wardens >= 1 || game.life_total >= 40)
+        if battlefield.alurens >= 1
+            && hand.maggot_carriers >= 1
+            && hand.cavern_harpies >= 1
+            && (battlefield.soul_wardens >= 1 || game.life_total >= 40)
         {
             return true;
         }
@@ -194,12 +208,15 @@ impl Strategy for Aluren {
         }
 
         // Having Aluren with Cavern Harpy or draw engine is always good enough
-        if status.alurens >= 1 && (status.cavern_harpies >= 1 || (status.raven_familiars >= 1 || status.wirewood_savages >= 1)) {
+        if status.alurens >= 1
+            && (status.cavern_harpies >= 1
+                || (status.raven_familiars >= 1 || status.wirewood_savages >= 1))
+        {
             return true;
         }
 
         // If we have already taken a mulligans this should be good enough
-        if  status.alurens >= 1 && mulligan_count > 0 {
+        if status.alurens >= 1 && mulligan_count > 0 {
             return true;
         }
 
@@ -277,7 +294,7 @@ impl Strategy for Aluren {
                     return "City of Brass";
                 }
 
-                "Aluren"
+                "Living Wish"
             }
             _ => unimplemented!(),
         }
@@ -389,6 +406,104 @@ impl Strategy for Aluren {
     }
 
     fn take_game_action(&self, game: &mut GameState) -> bool {
-        self.play_land(game) || self.cast_mana_dork(game) || self.cast_others(game)
+        if self.play_land(game) {
+            return true;
+        }
+
+        let is_aluren_on_battlefield = game
+            .game_objects
+            .iter()
+            .any(|card| is_battlefield(&card) && card.borrow().name == "Aluren");
+
+        if !is_aluren_on_battlefield {
+            let castable = game.find_castable();
+
+            let priority_order = [
+                "Aluren",
+                "Intuition",
+                "Living Wish",
+                "Impulse",
+                "Wirewood Savage",
+            ];
+
+            for card_name in priority_order {
+                if self.cast_named(game, castable.clone(), card_name) {
+                    return true;
+                }
+            }
+
+            if self.cast_mana_dork(game) {
+                return true;
+            }
+        } else {
+            let cavern_harpy_on_battlefield = game
+                .game_objects
+                .iter()
+                .find(|card| is_battlefield(card) && card.borrow().name == "Cavern Harpy");
+
+            if let Some(card) = cavern_harpy_on_battlefield {
+                // Return any Cavern Harpies sitting on the battlefield back to hand
+                debug!(
+                    "[Turn {turn:002}][Action]: Returning \"Cavern Harpy\" back to hand.",
+                    turn = game.turn
+                );
+                card.borrow_mut().zone = Zone::Hand;
+                return true;
+            }
+
+            let hand = self.combo_status(game, true, false);
+
+            if hand.cloud_of_faeries >= 1 && hand.cavern_harpies >= 1 {
+                // Can go for infinite mana, just fake it for now
+                game.floating_mana = HashMap::from([
+                    (Mana::White, 1000),
+                    (Mana::Blue, 1000),
+                    (Mana::Black, 1000),
+                    (Mana::Red, 1000),
+                    (Mana::Green, 1000),
+                ]);
+                debug!(
+                    "[Turn {turn:002}][Action]: Got infinite mana from Cloud of Faeries + Cavern Harpy loop.",
+                    turn = game.turn
+                );
+                game.print_game_state();
+            }
+
+            let castable = game.find_castable();
+
+            let priority_order = [
+                "Soul Warden",
+                "Maggot Carrier",
+                "Living Wish",
+                "Intuition",
+                "Wirewood Savage",
+                "Raven Familiar",
+                "Wall of Roots", // Wall of Roots produces {G}
+            ];
+
+            for card_name in priority_order {
+                if self.cast_named(game, castable.clone(), card_name) {
+                    return true;
+                }
+            }
+
+            let battlefield = self.combo_status(game, false, true);
+            let something_to_bounce = battlefield.maggot_carriers > 0
+                || battlefield.cloud_of_faeries > 0
+                || battlefield.raven_familiars > 0
+                || battlefield.wirewood_savages > 0;
+
+            if hand.cavern_harpies >= 1 && something_to_bounce {
+                if self.cast_named(game, castable.clone(), "Cavern Harpy") {
+                    return true;
+                }
+            }
+
+            if self.cast_mana_dork(game) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

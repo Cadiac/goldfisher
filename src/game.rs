@@ -71,7 +71,7 @@ impl GameState {
 
         mana_sources.sort_by(sort_by_best_mana_to_use);
 
-        let is_aluren = self
+        let is_aluren_active = self
             .game_objects
             .iter()
             .any(|card| is_battlefield(&card) && card.borrow().name == "Aluren");
@@ -80,7 +80,12 @@ impl GameState {
             .map(|card| {
                 (
                     card.clone(),
-                    find_payment_for(card.clone(), &mana_sources, self.floating_mana.clone(), is_aluren),
+                    find_payment_for(
+                        card.clone(),
+                        &mana_sources,
+                        self.floating_mana.clone(),
+                        is_aluren_active,
+                    ),
                 )
             })
             .filter(|(_, payment)| payment.is_some());
@@ -149,13 +154,13 @@ impl GameState {
     pub fn cast_spell(
         &mut self,
         strategy: &impl Strategy,
-        card: &CardRef,
+        source: &CardRef,
         (payment, floating): &PaymentAndFloating,
         attach_to: Option<CardRef>,
     ) {
         let mana_sources = payment
             .iter()
-            .map(|source| source.borrow().name.clone())
+            .map(|mana_source| mana_source.borrow().name.clone())
             .collect::<Vec<_>>()
             .join(", ");
 
@@ -164,22 +169,22 @@ impl GameState {
             None => "".to_owned(),
         };
 
-        debug!("[Turn {turn:002}][Action]: Casting spell \"{card_name}\"{target_str} with mana sources: {mana_sources}",
+        debug!("[Turn {turn:002}][Action]: Casting card \"{card_name}\"{target_str} with mana sources: {mana_sources}",
             turn = self.turn,
-            card_name = card.borrow().name);
+            card_name = source.borrow().name);
 
-        let new_zone = match card.borrow().card_type {
+        let new_zone = match source.borrow().card_type {
             CardType::Creature | CardType::Enchantment | CardType::Land | CardType::Artifact => {
                 Zone::Battlefield
             }
             CardType::Sorcery | CardType::Instant => Zone::Graveyard,
         };
 
-        card.borrow_mut().zone = new_zone;
-        card.borrow_mut().attached_to = attach_to;
+        source.borrow_mut().zone = new_zone;
+        source.borrow_mut().attached_to = attach_to;
 
-        if card.borrow().card_type == CardType::Creature {
-            card.borrow_mut().is_summoning_sick = true;
+        if source.borrow().card_type == CardType::Creature {
+            source.borrow_mut().is_summoning_sick = true;
         }
 
         for mana_source in payment {
@@ -204,7 +209,7 @@ impl GameState {
 
         self.floating_mana = floating.to_owned();
 
-        let effect = match card.borrow().on_resolve.clone() {
+        let effect = match source.borrow().on_resolve.clone() {
             Some(e) => e,
             _ => return,
         };
@@ -287,6 +292,73 @@ impl GameState {
                         card.borrow_mut().is_tapped = false;
                     }
                 }
+            }
+            Effect::CavernHarpy => {
+                let etb_draw_triggers = self
+                    .game_objects
+                    .iter()
+                    .filter(|card| {
+                        let card = card.borrow();
+                        card.zone == Zone::Battlefield && card.name == "Wirewood Savage"
+                    })
+                    .count();
+
+                for _ in 0..etb_draw_triggers {
+                    self.draw();
+                }
+
+                let maggot_carrier_to_return = self
+                    .game_objects
+                    .iter()
+                    .find(|card| {
+                        let card = card.borrow();
+                        card.zone == Zone::Battlefield && card.name == "Maggot Carrier"
+                    });
+
+                if let Some(card) = maggot_carrier_to_return {
+                    debug!(
+                        "[Turn {turn:002}][Action]: Bouncing \"Maggot Carrier\" back to hand.",
+                        turn = self.turn
+                    );
+                    card.borrow_mut().zone = Zone::Hand;
+                }
+
+
+                // TODO: Decide whether we want to untap or untap lands?
+
+                let raven_familiar_to_return = self
+                    .game_objects
+                    .iter()
+                    .find(|card| {
+                        let card = card.borrow();
+                        card.zone == Zone::Battlefield && card.name == "Raven Familiar"
+                    });
+
+                if let Some(card) = raven_familiar_to_return {
+                    debug!(
+                        "[Turn {turn:002}][Action]: Bouncing \"Raven Familiar\" back to hand.",
+                        turn = self.turn
+                    );
+                    card.borrow_mut().zone = Zone::Hand;
+                }
+
+                // let cloud_of_faeries_to_return = self
+                //     .game_objects
+                //     .iter()
+                //     .find(|card| {
+                //         let card = card.borrow();
+                //         card.zone == Zone::Battlefield && card.name == "Cloud of Faeries"
+                //     });
+
+                // if let Some(card) = cloud_of_faeries_to_return {
+                //     debug!(
+                //         "[Turn {turn:002}][Action]: Bouncing \"Cloud of Faeries\" back to hand.",
+                //         turn = self.turn
+                //     );
+                //     card.borrow_mut().zone = Zone::Hand;
+                //     should_bounce_self = true;
+                // }
+
             }
             _ => unimplemented!(),
         }
