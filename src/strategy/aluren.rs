@@ -308,6 +308,7 @@ impl Strategy for Aluren {
         let mut cavern_harpies = Vec::with_capacity(7);
         let mut draw_engines = Vec::with_capacity(7);
         let mut tutors = Vec::with_capacity(7);
+        let mut wincons = Vec::with_capacity(7);
         let mut mana_dorks = Vec::with_capacity(7);
 
         let mut other_cards = Vec::with_capacity(7);
@@ -327,6 +328,8 @@ impl Strategy for Aluren {
                 draw_engines.push(card.clone());
             } else if c.name == "Living Wish" || c.name == "Intuition" {
                 tutors.push(card.clone());
+            } else if c.name == "Maggot Carrire" || c.name == "Soul Warden" {
+                wincons.push(card.clone());
             } else if c.card_type == CardType::Creature && !c.produced_mana.is_empty() {
                 mana_dorks.push(card.clone());
             } else {
@@ -350,6 +353,11 @@ impl Strategy for Aluren {
             if let Some(card) = alurens_iter.next() {
                 ordered_hand.push(card);
             }
+        }
+
+        // Try to keep the wincons in hand
+        for card in wincons.iter() {
+            ordered_hand.push(card);
         }
 
         let mut cavern_harpies_iter = cavern_harpies.iter();
@@ -423,6 +431,9 @@ impl Strategy for Aluren {
                 "Intuition",
                 "Living Wish",
                 "Impulse",
+                "Soul Warden",
+                "Maggot Carrier",
+                "Cloud of Faeries",
                 "Wirewood Savage",
             ];
 

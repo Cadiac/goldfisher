@@ -88,8 +88,7 @@ fn init_logger(verbose: bool) {
 
     env_logger::Builder::from_env(
         Env::default()
-            // .filter_or("LOG_LEVEL", default_level)
-            .filter_or("LOG_LEVEL", "debug")
+            .filter_or("LOG_LEVEL", default_level)
             .write_style_or("LOG_STYLE", "always"),
     )
     .format_timestamp(None)

@@ -303,8 +303,15 @@ impl GameState {
                     })
                     .count();
 
-                for _ in 0..etb_draw_triggers {
-                    self.draw();
+                if etb_draw_triggers > 0 {
+                    for _ in 0..etb_draw_triggers {
+                        if self.deck.len() > 0 {
+                            self.draw();
+                        }
+                    }
+
+                    source.borrow_mut().zone = Zone::Hand;
+                    return
                 }
 
                 let maggot_carrier_to_return = self
