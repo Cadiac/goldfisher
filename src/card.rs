@@ -49,8 +49,9 @@ pub enum Effect {
     SearchAndPutHand(Option<SearchFilter>),
     SearchAndPutTopOfLibrary(Option<SearchFilter>),
     SearchAndPutBattlefield(Option<SearchFilter>),
-    Impulse,
+    Impulse(usize),
     CavernHarpy,
+    Unearth,
     UntapLands(usize)
 }
 
@@ -287,6 +288,7 @@ impl Card {
                 name,
                 card_type: CardType::Sorcery,
                 cost: HashMap::from([(Mana::Black, 1)]),
+                on_resolve: Some(Effect::Unearth),
                 ..Default::default()
             },
             "Cavern Harpy" => Card {
@@ -307,7 +309,7 @@ impl Card {
                 name,
                 card_type: CardType::Instant,
                 cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 1)]),
-                on_resolve: Some(Effect::Impulse),
+                on_resolve: Some(Effect::Impulse(4)),
                 ..Default::default()
             },
             "Living Wish" => Card {
@@ -334,7 +336,7 @@ impl Card {
                 name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 2)]),
-                on_resolve: Some(Effect::Impulse), // TODO: Separate effect
+                on_resolve: Some(Effect::Impulse(3)), // TODO: Separate effect
                 ..Default::default()
             },
             "Wirewood Savage" => Card {

@@ -1,4 +1,5 @@
-use crate::card::{CardRef, CardType, Zone};
+use std::collections::HashMap;
+use crate::card::{CardRef, CardType, Zone, self};
 
 pub fn is_battlefield(card: &&CardRef) -> bool {
     card.borrow().zone == Zone::Battlefield
@@ -103,4 +104,18 @@ pub fn sort_by_cmc(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
         .sum::<usize>()
         .partial_cmp(&b.borrow().cost.values().sum())
         .unwrap()
+}
+
+pub fn group_by_name(game_objects: Vec<CardRef>) -> HashMap<String, Vec<CardRef>> {
+    let mut cards = HashMap::new();
+
+    for game_object in game_objects.iter() {
+        let name = &game_object.borrow().name;
+        cards
+            .entry(name.clone())
+            .or_insert(vec![])
+            .push(game_object.clone());
+    }
+
+    cards
 }

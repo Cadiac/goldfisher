@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::card::{CardRef, CardType, SearchFilter};
@@ -353,6 +354,10 @@ impl Strategy for PatternRector {
 
         // Otherwise take a mulligan
         false
+    }
+
+    fn select_best_card(&self, _game: &GameState, cards: HashMap<String, Vec<CardRef>>) -> Option<CardRef> {
+        cards.values().flatten().cloned().next()
     }
 
     fn best_card_to_draw(&self, game: &GameState, search_filter: Option<SearchFilter>) -> &str {

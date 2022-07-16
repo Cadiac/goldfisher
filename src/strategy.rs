@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::deck::Decklist;
 use crate::game::{GameState};
 use crate::card::{CardRef, SearchFilter};
@@ -32,6 +34,7 @@ pub trait Strategy {
         }
         false
     }
+    fn select_best_card(&self, game: &GameState, cards: HashMap<String, Vec<CardRef>>) -> Option<CardRef>;
     fn best_card_to_draw(&self, game: &GameState, search_filter: Option<SearchFilter>) -> &str;
     fn worst_cards_in_hand(&self, game: &GameState, hand_size: usize) -> Vec<CardRef>;
     fn decklist() -> Decklist;

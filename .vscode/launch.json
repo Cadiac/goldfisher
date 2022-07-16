@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": ["--games", "1", "-v"],
             "cwd": "${workspaceFolder}"
         },
         {

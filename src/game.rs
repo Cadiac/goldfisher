@@ -268,9 +268,14 @@ impl GameState {
                     }
                 }
             }
-            Effect::Impulse => {
+            Effect::Impulse(n) => {
                 // TODO: Proper impulse, selecting the best draw
-                self.draw()
+                if self.deck.len() > 0 {
+                    self.draw()
+                }
+            }
+            Effect::Unearth => {
+                
             }
             Effect::UntapLands(n) => {
                 for _ in 0..n {
@@ -304,14 +309,22 @@ impl GameState {
                     .count();
 
                 if etb_draw_triggers > 0 {
+                    let mut some_cards_drawn = false;
                     for _ in 0..etb_draw_triggers {
                         if self.deck.len() > 0 {
                             self.draw();
+                            some_cards_drawn = true;
                         }
                     }
 
-                    source.borrow_mut().zone = Zone::Hand;
-                    return
+                    if some_cards_drawn {
+                        debug!(
+                            "[Turn {turn:002}][Action]: Bouncing \"Cavern Harpy\" back to hand.",
+                            turn = self.turn
+                        );
+                        source.borrow_mut().zone = Zone::Hand;
+                        return
+                    }
                 }
 
                 let maggot_carrier_to_return = self
@@ -328,11 +341,27 @@ impl GameState {
                         turn = self.turn
                     );
                     card.borrow_mut().zone = Zone::Hand;
+                    return;
                 }
 
+                let cloud_of_faeries_to_return = self
+                    .game_objects
+                    .iter()
+                    .find(|card| {
+                        let card = card.borrow();
+                        card.zone == Zone::Battlefield && card.name == "Cloud of Faeries"
+                    });
+
+                if let Some(card) = cloud_of_faeries_to_return {
+                    debug!(
+                        "[Turn {turn:002}][Action]: Bouncing \"Cloud of Faeries\" back to hand.",
+                        turn = self.turn
+                    );
+                    card.borrow_mut().zone = Zone::Hand;
+                    return;
+                }
 
                 // TODO: Decide whether we want to untap or untap lands?
-
                 let raven_familiar_to_return = self
                     .game_objects
                     .iter()
@@ -347,25 +376,8 @@ impl GameState {
                         turn = self.turn
                     );
                     card.borrow_mut().zone = Zone::Hand;
+                    return;
                 }
-
-                // let cloud_of_faeries_to_return = self
-                //     .game_objects
-                //     .iter()
-                //     .find(|card| {
-                //         let card = card.borrow();
-                //         card.zone == Zone::Battlefield && card.name == "Cloud of Faeries"
-                //     });
-
-                // if let Some(card) = cloud_of_faeries_to_return {
-                //     debug!(
-                //         "[Turn {turn:002}][Action]: Bouncing \"Cloud of Faeries\" back to hand.",
-                //         turn = self.turn
-                //     );
-                //     card.borrow_mut().zone = Zone::Hand;
-                //     should_bounce_self = true;
-                // }
-
             }
             _ => unimplemented!(),
         }

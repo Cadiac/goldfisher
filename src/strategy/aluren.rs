@@ -2,7 +2,7 @@ use log::debug;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::card::{CardRef, CardType, Zone, SearchFilter};
+use crate::card::{CardRef, CardType, SearchFilter, Zone};
 use crate::deck::Decklist;
 use crate::game::GameState;
 use crate::mana::{Mana, PaymentAndFloating};
@@ -224,6 +224,134 @@ impl Strategy for Aluren {
 
         // Otherwise take a mulligan
         false
+    }
+
+    fn select_best_card(
+        &self,
+        game: &GameState,
+        cards: HashMap<String, Vec<CardRef>>,
+    ) -> Option<CardRef> {
+        let status = self.combo_status(game, true, true);
+        let battlefield = self.combo_status(game, false, true);
+
+        if battlefield.alurens >= 1 {
+            if status.cavern_harpies == 0 {
+                if let Some(card) = cards.get("Cavern Harpy").and_then(|copies| copies.first()) {
+                    return Some(card.clone());
+                }
+            }
+            if status.wirewood_savages == 0 && status.raven_familiars == 0 {
+                if let Some(card) = cards
+                    .get("Wirewood Savage")
+                    .and_then(|copies| copies.first())
+                {
+                    return Some(card.clone());
+                }
+                if let Some(card) = cards
+                    .get("Raven Familiar")
+                    .and_then(|copies| copies.first())
+                {
+                    return Some(card.clone());
+                }
+            }
+
+            if status.soul_wardens == 0 {
+                if let Some(card) = cards.get("Soul Warden").and_then(|copies| copies.first()) {
+                    return Some(card.clone());
+                }
+            }
+
+            if let Some(card) = cards
+                .get("Maggot Carrier")
+                .and_then(|copies| copies.first())
+            {
+                return Some(card.clone());
+            }
+
+            if let Some(card) = cards
+                .get("Cloud of Faeries")
+                .and_then(|copies| copies.first())
+            {
+                return Some(card.clone());
+            }
+        }
+
+        if battlefield.alurens == 0 {
+            if status.alurens == 0 {
+                if let Some(card) = cards.get("Aluren").and_then(|copies| copies.first()) {
+                    return Some(card.clone());
+                }
+            }
+            if status.cavern_harpies == 0 {
+                if let Some(card) = cards.get("Cavern Harpy").and_then(|copies| copies.first()) {
+                    return Some(card.clone());
+                }
+            }
+            if status.raven_familiars == 0 {
+                if let Some(card) = cards
+                    .get("Raven Familiar")
+                    .and_then(|copies| copies.first())
+                {
+                    return Some(card.clone());
+                }
+            }
+            if status.soul_wardens == 0 {
+                if let Some(card) = cards.get("Soul Warden").and_then(|copies| copies.first()) {
+                    return Some(card.clone());
+                }
+            }
+
+            if status.mana_sources < 4 {
+                if game.available_land_drops > 0 {
+                    let mut lands: Vec<CardRef> = cards
+                        .values()
+                        .flatten()
+                        .filter(|card| is_land(card))
+                        .cloned()
+                        .collect();
+                    lands.sort_by(sort_by_best_mana_to_play);
+
+                    if let Some(best_land) = lands.last() {
+                        let name = &best_land.borrow().name;
+                        if let Some(card) =
+                            cards.get(name.as_str()).and_then(|copies| copies.first())
+                        {
+                            return Some(card.clone());
+                        }
+                    }
+                }
+                if let Some(card) = cards
+                    .get("Birds of Paradise")
+                    .and_then(|copies| copies.first())
+                {
+                    return Some(card.clone());
+                }
+                if let Some(card) = cards.get("Wall of Roots").and_then(|copies| copies.first()) {
+                    return Some(card.clone());
+                }
+            }
+        }
+
+        if let Some(card) = cards.get("Living Wish").and_then(|copies| copies.first()) {
+            return Some(card.clone());
+        }
+
+        if let Some(card) = cards.get("Intuition").and_then(|copies| copies.first()) {
+            return Some(card.clone());
+        }
+
+        if let Some(card) = cards.get("Impulse").and_then(|copies| copies.first()) {
+            return Some(card.clone());
+        }
+
+        // Otherwise just pick anything we have left
+        for copies in cards.values() {
+            if let Some(card) = copies.first() {
+                return Some(card.clone());
+            }
+        }
+
+        None
     }
 
     fn best_card_to_draw(&self, game: &GameState, search_filter: Option<SearchFilter>) -> &str {
@@ -490,6 +618,7 @@ impl Strategy for Aluren {
                 "Wirewood Savage",
                 "Raven Familiar",
                 "Wall of Roots", // Wall of Roots produces {G}
+                "Unearth",
             ];
 
             for card_name in priority_order {
@@ -499,6 +628,14 @@ impl Strategy for Aluren {
             }
 
             let battlefield = self.combo_status(game, false, true);
+            if battlefield.maggot_carriers == 0
+                && hand.maggot_carriers == 0
+                && battlefield.cloud_of_faeries == 0
+                && game.deck.len() == 0
+            {
+                panic!("can't win");
+            }
+
             let something_to_bounce = battlefield.maggot_carriers > 0
                 || battlefield.cloud_of_faeries > 0
                 || battlefield.raven_familiars > 0
@@ -516,5 +653,72 @@ impl Strategy for Aluren {
         }
 
         return false;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn setup_game(cards_and_zones: Vec<(&str, Zone)>) -> GameState {
+        let game = GameState::new(Aluren::decklist());
+
+        for (name, zone) in cards_and_zones {
+            game.game_objects
+                .iter()
+                .find(|card| card.borrow().name == name)
+                .map(|card| card.borrow_mut().zone = zone);
+        }
+
+        game
+    }
+
+    fn assert_best_card(expected: &str, cards_and_zones: Vec<(&str, Zone)>) {
+        let game = setup_game(cards_and_zones);
+        let cards = group_by_name(
+            game
+                .game_objects
+                .iter()
+                .filter(|card| card.borrow().zone == Zone::Library)
+                .cloned()
+                .collect(),
+        );
+
+        let best_card = Aluren {}.select_best_card(&game, cards);
+
+        assert_eq!(true, best_card.is_some());
+        assert_eq!(expected, best_card.unwrap().borrow().name);
+    }
+
+    #[test]
+    fn it_selects_correct_best_cards() {
+        assert_best_card("Aluren", vec![]);
+        assert_best_card("Cavern Harpy", vec![("Aluren", Zone::Hand)]);
+        assert_best_card(
+            "Raven Familiar",
+            vec![("Aluren", Zone::Hand), ("Cavern Harpy", Zone::Hand)],
+        );
+
+        assert_best_card("Cavern Harpy", vec![("Aluren", Zone::Battlefield)]);
+        assert_best_card(
+            "Wirewood Savage",
+            vec![("Aluren", Zone::Battlefield), ("Cavern Harpy", Zone::Hand)],
+        );
+        assert_best_card(
+            "Raven Familiar",
+            vec![
+                ("Aluren", Zone::Battlefield),
+                ("Cavern Harpy", Zone::Hand),
+                ("Wirewood Savage", Zone::Graveyard),
+            ],
+        );
+        assert_best_card(
+            "Soul Warden",
+            vec![
+                ("Aluren", Zone::Battlefield),
+                ("Cavern Harpy", Zone::Hand),
+                ("Raven Familiar", Zone::Battlefield),
+            ],
+        );
     }
 }
