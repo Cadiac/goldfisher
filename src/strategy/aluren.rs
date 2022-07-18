@@ -5,8 +5,8 @@ use std::rc::Rc;
 use crate::card::{CardRef, CardType, Zone};
 use crate::deck::Decklist;
 use crate::game::GameState;
-use crate::mana::{Mana, PaymentAndFloating};
-use crate::strategy::{Strategy, GameStatus};
+use crate::mana::PaymentAndFloating;
+use crate::strategy::{GameStatus, Strategy};
 use crate::utils::*;
 
 struct ComboStatus {
@@ -98,7 +98,7 @@ impl Aluren {
 
         let lands = game_objects
             .clone()
-            .filter(|card| is_card_type(card, CardType::Creature))
+            .filter(|card| is_card_type(card, CardType::Land))
             .count();
 
         let mana_sources = game_objects
@@ -167,20 +167,15 @@ impl Strategy for Aluren {
     }
 
     fn game_status(&self, game: &GameState) -> GameStatus {
+        if game.life_total <= 0 && game.damage_dealt >= 20 {
+            return GameStatus::Draw(game.turn);
+        }
+
         if game.life_total <= 0 {
             return GameStatus::Lose(game.turn);
         }
 
-        let hand = self.combo_status(game, vec![Zone::Hand]);
-        let battlefield = self.combo_status(game, vec![Zone::Battlefield]);
-
-        // Aluren on the battlefield + Maggot Carrier + Cavern Harpy on the battlefield
-        // + Soul warden on the battlefield OR life total is at least 40
-        if battlefield.alurens >= 1
-            && hand.maggot_carriers >= 1
-            && hand.cavern_harpies >= 1
-            && (battlefield.soul_wardens >= 1 || game.life_total >= 40)
-        {
+        if game.damage_dealt >= 20 {
             return GameStatus::Win(game.turn);
         }
 
@@ -526,25 +521,7 @@ impl Strategy for Aluren {
                 return true;
             }
 
-            let hand = self.combo_status(game, vec![Zone::Hand]);
-
-            if hand.cloud_of_faeries >= 1 && hand.cavern_harpies >= 1 {
-                // Can go for infinite mana, just fake it for now
-                game.floating_mana = HashMap::from([
-                    (Mana::White, 1000),
-                    (Mana::Blue, 1000),
-                    (Mana::Black, 1000),
-                    (Mana::Red, 1000),
-                    (Mana::Green, 1000),
-                ]);
-                debug!(
-                    "[Turn {turn:002}][Action]: Got infinite mana from Cloud of Faeries + Cavern Harpy loop.",
-                    turn = game.turn
-                );
-                game.print_game_state();
-            }
-
-            let castable = game.find_castable();
+            let mut castable = game.find_castable();
 
             // Cast any mana dorks for free
             if self.cast_mana_dork(game) {
@@ -568,6 +545,29 @@ impl Strategy for Aluren {
             // If there's still deck left to cast Raven Familiars and still pass the turn
             if game.deck.len() > 1 && self.cast_named(game, castable.clone(), "Raven Familiar") {
                 return true;
+            }
+
+            let hand = self.combo_status(game, vec![Zone::Hand]);
+
+            let land_count = game
+                .game_objects
+                .iter()
+                .filter(|card| is_card_type(card, CardType::Land) && is_battlefield(card))
+                .count();
+
+            if hand.cloud_of_faeries >= 1
+                && hand.cavern_harpies >= 1
+                && land_count > 0
+                && game.floating_mana.values().sum::<usize>() < 10
+            {
+                // Can generate mana at the cost of life, or infinite if we also have soul warden
+                game.float_mana();
+                // Need to refresh this so that no floating mana is lost
+                castable = game.find_castable();
+
+                if self.cast_named(game, castable.clone(), "Cloud of Faeries") {
+                    return true;
+                }
             }
 
             // Maybe some combo pieces have been discarded

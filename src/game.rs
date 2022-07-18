@@ -2,15 +2,16 @@ use log::{debug, warn};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::card::{CardRef, CardType, Effect, SearchFilter, Zone};
+use crate::card::{CardRef, CardType, Effect, SearchFilter, SubType, Zone};
 use crate::deck::{Deck, Decklist};
 use crate::mana::find_payment_for;
 use crate::mana::{Mana, PaymentAndFloating};
-use crate::strategy::{Strategy};
+use crate::strategy::Strategy;
 use crate::utils::*;
 
 pub enum GameStatus {
     Continue,
+    Draw(usize),
     Win(usize),
     Lose(usize),
 }
@@ -21,6 +22,7 @@ pub struct GameState {
     pub available_land_drops: usize,
     pub deck: Deck,
     pub life_total: i32,
+    pub damage_dealt: i32,
     pub floating_mana: HashMap<Mana, usize>,
     pub is_first_player: bool,
 }
@@ -43,6 +45,7 @@ impl GameState {
             game_objects,
             turn: 0,
             life_total: 20,
+            damage_dealt: 0,
             floating_mana: HashMap::new(),
             is_first_player: true,
             available_land_drops: 1,
@@ -132,9 +135,9 @@ impl GameState {
                     name = card.name,
                     library = self.deck.len(),
                 );
-                return GameStatus::Continue
+                return GameStatus::Continue;
             } else {
-                return GameStatus::Lose(self.turn)
+                return GameStatus::Lose(self.turn);
             }
         }
         GameStatus::Continue
@@ -156,7 +159,7 @@ impl GameState {
                     if !action_taken {
                         return GameStatus::Continue;
                     }
-                },
+                }
                 result => return result,
             };
         }
@@ -201,6 +204,37 @@ impl GameState {
 
         if source.borrow().card_type == CardType::Creature {
             source.borrow_mut().is_summoning_sick = true;
+
+            if source.borrow().sub_types.contains(&SubType::Beast) {
+                let etb_draw_triggers = self
+                    .game_objects
+                    .iter()
+                    .filter(|card| {
+                        let card = card.borrow();
+                        card.zone == Zone::Battlefield && card.name == "Wirewood Savage"
+                    })
+                    .count();
+
+                for _ in 0..etb_draw_triggers {
+                    // Leave one card so that turn can be passed
+                    if self.deck.len() > 1 {
+                        self.draw();
+                    }
+                }
+            }
+
+            let lifegain_triggers = self
+                .game_objects
+                .iter()
+                .filter(|card| {
+                    let card = card.borrow();
+                    card.zone == Zone::Battlefield && card.name == "Soul Warden"
+                })
+                .count();
+
+            for _ in 0..lifegain_triggers {
+                self.take_damage(-1);
+            }
         }
 
         for mana_source in payment {
@@ -375,24 +409,13 @@ impl GameState {
                     })
                     .count();
 
-                if etb_draw_triggers > 0 {
-                    let mut some_cards_drawn = false;
-                    for _ in 0..etb_draw_triggers {
-                        // Leave one card so that turn can be passed
-                        if self.deck.len() > 1 {
-                            self.draw();
-                            some_cards_drawn = true;
-                        }
-                    }
-
-                    if some_cards_drawn {
-                        debug!(
-                            "[Turn {turn:002}][Action]: Bouncing \"Cavern Harpy\" back to hand.",
-                            turn = self.turn
-                        );
-                        game_object.borrow_mut().zone = Zone::Hand;
-                        return;
-                    }
+                if etb_draw_triggers > 0 && self.deck.len() > 1 {
+                    debug!(
+                        "[Turn {turn:002}][Action]: Bouncing \"Cavern Harpy\" back to hand.",
+                        turn = self.turn
+                    );
+                    game_object.borrow_mut().zone = Zone::Hand;
+                    return;
                 }
 
                 let maggot_carrier_to_return = self.game_objects.iter().find(|card| {
@@ -437,6 +460,10 @@ impl GameState {
                     card.borrow_mut().zone = Zone::Hand;
                     return;
                 }
+            }
+            Effect::DamageEach(damage) => {
+                self.take_damage(damage as i32);
+                self.deal_damage(damage as i32);
             }
             _ => unimplemented!(),
         }
@@ -538,7 +565,61 @@ impl GameState {
         self.print_life();
     }
 
+    pub fn deal_damage(&mut self, amount: i32) {
+        self.damage_dealt += amount;
+        self.print_life();
+    }
+
+    pub fn float_mana(&mut self) {
+        // Produce colors in this priority order for now, producing 2 of each color first
+        // TODO: Consider life loss here
+        let colors = [Mana::Green, Mana::Blue, Mana::Black, Mana::White, Mana::Red];
+
+        for land in self
+            .game_objects
+            .iter()
+            .filter(|card| is_battlefield(card) && is_card_type(card, CardType::Land) && !is_tapped(card))
+        {
+            let mut land_used = false;
+            // First try to produce colors we have the least of 
+            for color in colors.iter() {
+                let land_name = land.borrow().name.clone();
+                let floating = self.floating_mana.entry(*color).or_insert(0);
+
+                if *floating < 2 {
+                    if let Some(mana) = land.borrow().produced_mana.get(color) {
+                        debug!(
+                            "[Turn {turn:002}][Action]: Floating {mana} {color:?} mana from \"{land_name}\".",
+                            turn = self.turn
+                        );
+                        *floating += mana;
+                        land_used = true;
+                        break;
+                    }
+                }
+            }
+            if !land_used {
+                // Then fall back to just producing some mana the land produces
+                for (color, mana) in land.borrow().produced_mana.iter() {
+                    let land_name = land.borrow().name.clone();
+                    let floating = self.floating_mana.entry(*color).or_insert(0);
+    
+                    debug!(
+                        "[Turn {turn:002}][Action]: Floating {mana} {color:?} mana from \"{land_name}\".",
+                        turn = self.turn
+                    );
+                    *floating += mana;
+                    land_used = true;
+                    break;
+                }   
+            }
+
+            land.borrow_mut().is_tapped = land_used;
+        }
+    }
+
     pub fn print_game_state(&self) {
+        self.print_life();
         self.print_library();
         self.print_hand();
         self.print_battlefield();
@@ -547,9 +628,10 @@ impl GameState {
 
     pub fn print_life(&self) {
         debug!(
-            "[Turn {turn:002}][Player]: Life total: {life}",
+            "[Turn {turn:002}][Game]: Life total: {life}, Damage dealt: {damage}",
             life = self.life_total,
-            turn = self.turn
+            damage = self.damage_dealt,
+            turn = self.turn,
         );
     }
 
@@ -641,6 +723,7 @@ mod tests {
             game_objects,
             turn: 0,
             life_total: 20,
+            damage_dealt: 0,
             floating_mana: HashMap::new(),
             is_first_player: true,
             available_land_drops: 1,

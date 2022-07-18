@@ -79,6 +79,7 @@ mod tests {
             game_objects,
             turn: 0,
             life_total: 20,
+            damage_dealt: 0,
             floating_mana: HashMap::new(),
             is_first_player: true,
             available_land_drops: 10,

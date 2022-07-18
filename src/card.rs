@@ -23,6 +23,12 @@ impl Default for CardType {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum SubType {
+    Harpy,
+    Beast,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Zone {
     Library,
     Hand,
@@ -53,13 +59,15 @@ pub enum Effect {
     Impulse(usize),
     CavernHarpy,
     Unearth,
-    UntapLands(usize)
+    UntapLands(usize),
+    DamageEach(usize),
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct Card {
     pub name: String,
     pub card_type: CardType,
+    pub sub_types: Vec<SubType>,
     pub zone: Zone,
     pub cost: HashMap<Mana, usize>,
     pub produced_mana: HashMap<Mana, usize>,
@@ -295,6 +303,7 @@ impl Card {
             "Cavern Harpy" => Card {
                 name,
                 card_type: CardType::Creature,
+                sub_types: vec![SubType::Harpy, SubType::Beast],
                 cost: HashMap::from([(Mana::Blue, 1), (Mana::Black, 1)]),
                 on_resolve: Some(Effect::CavernHarpy),
                 ..Default::default()
@@ -356,6 +365,7 @@ impl Card {
                 name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 2)]),
+                on_resolve: Some(Effect::DamageEach(1)),
                 ..Default::default()
             },
             "Auramancer" => Card {
