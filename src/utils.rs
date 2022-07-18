@@ -1,5 +1,8 @@
+use crate::{
+    card::{CardRef, CardType, SearchFilter, Zone},
+    game::GameState,
+};
 use std::collections::HashMap;
-use crate::card::{CardRef, CardType, Zone, self};
 
 pub fn is_battlefield(card: &&CardRef) -> bool {
     card.borrow().zone == Zone::Battlefield
@@ -17,12 +20,8 @@ pub fn is_exile(card: &&CardRef) -> bool {
     card.borrow().zone == Zone::Exile
 }
 
-pub fn is_creature(card: &&CardRef) -> bool {
-    card.borrow().card_type == CardType::Creature
-}
-
-pub fn is_land(card: &&CardRef) -> bool {
-    card.borrow().card_type == CardType::Land
+pub fn is_library(card: &&CardRef) -> bool {
+    card.borrow().zone == Zone::Library
 }
 
 pub fn is_rector(card: &&CardRef) -> bool {
@@ -53,6 +52,10 @@ pub fn is_single_use_mana(card: &&CardRef) -> bool {
     }
 }
 
+pub fn is_card_type(card: &&CardRef, card_type: CardType) -> bool {
+    card.borrow().card_type == card_type
+}
+
 pub fn is_named(card: &&CardRef, name: &str) -> bool {
     card.borrow().name == name
 }
@@ -67,10 +70,11 @@ pub fn sort_by_best_mana_to_play(a: &CardRef, b: &CardRef) -> std::cmp::Ordering
 
     if a.produced_mana.len() == b.produced_mana.len() {
         // Play the mana source with most uses
-        return a.remaining_uses
+        return a
+            .remaining_uses
             .unwrap_or(usize::MAX)
             .partial_cmp(&b.remaining_uses.unwrap_or(usize::MAX))
-            .unwrap()
+            .unwrap();
     }
 
     a.produced_mana
@@ -85,10 +89,11 @@ pub fn sort_by_best_mana_to_use(a: &CardRef, b: &CardRef) -> std::cmp::Ordering 
 
     if a.produced_mana.len() == b.produced_mana.len() {
         // Try to save the mana sources with least uses
-        return b.remaining_uses
+        return b
+            .remaining_uses
             .unwrap_or(usize::MAX)
             .partial_cmp(&a.remaining_uses.unwrap_or(usize::MAX))
-            .unwrap()
+            .unwrap();
     }
 
     a.produced_mana
@@ -104,6 +109,40 @@ pub fn sort_by_cmc(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
         .sum::<usize>()
         .partial_cmp(&b.borrow().cost.values().sum())
         .unwrap()
+}
+
+pub fn apply_search_filter(game: &GameState, search_filter: Option<SearchFilter>) -> Vec<CardRef> {
+    match search_filter {
+        Some(SearchFilter::Creature) => game
+            .game_objects
+            .iter()
+            .filter(|card| is_library(card) && is_card_type(card, CardType::Creature))
+            .cloned()
+            .collect(),
+        Some(SearchFilter::EnchantmentArtifact) => game
+            .game_objects
+            .iter()
+            .filter(|card| {
+                is_library(card)
+                    && (is_card_type(card, CardType::Enchantment)
+                        || is_card_type(card, CardType::Artifact))
+            })
+            .cloned()
+            .collect(),
+        Some(SearchFilter::LivingWish) => game
+            .deck
+            .sideboard
+            .iter()
+            .filter(|card| is_card_type(card, CardType::Creature) || is_card_type(card, CardType::Land))
+            .cloned()
+            .collect(),
+        None => game
+            .game_objects
+            .iter()
+            .filter(is_library)
+            .cloned()
+            .collect(),
+    }
 }
 
 pub fn group_by_name(game_objects: Vec<CardRef>) -> HashMap<String, Vec<CardRef>> {

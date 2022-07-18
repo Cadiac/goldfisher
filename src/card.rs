@@ -29,6 +29,7 @@ pub enum Zone {
     Battlefield,
     Graveyard,
     Exile,
+    Outside
 }
 
 impl Default for Zone {

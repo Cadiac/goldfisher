@@ -1,4 +1,4 @@
-use log::debug;
+use log::{debug, warn};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -121,9 +121,10 @@ impl GameState {
 
                 card.zone = Zone::Hand;
                 debug!(
-                    "[Turn {turn:002}][Action]: Drew card \"{land}\".",
+                    "[Turn {turn:002}][Action]: Drew card: \"{name}\", {library} cards remaining.",
                     turn = self.turn,
-                    land = card.name
+                    name = card.name,
+                    library = self.deck.len(),
                 );
             } else {
                 panic!("empty library!");
@@ -158,18 +159,23 @@ impl GameState {
         (payment, floating): &PaymentAndFloating,
         attach_to: Option<CardRef>,
     ) {
-        let mana_sources = payment
-            .iter()
-            .map(|mana_source| mana_source.borrow().name.clone())
-            .collect::<Vec<_>>()
-            .join(", ");
-
         let target_str = match attach_to.as_ref() {
             Some(target) => format!(" on target \"{}\"", target.borrow().name.clone()),
             None => "".to_owned(),
         };
 
-        debug!("[Turn {turn:002}][Action]: Casting card \"{card_name}\"{target_str} with mana sources: {mana_sources}",
+        let mana_sources_str = if payment.is_empty() {
+            String::new()
+        } else {
+            let mana_sources = payment
+                .iter()
+                .map(|mana_source| format!("\"{}\"", mana_source.borrow().name.clone()))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(" with mana sources: {mana_sources}")
+        };
+
+        debug!("[Turn {turn:002}][Action]: Casting card: \"{card_name}\"{target_str}{mana_sources_str}",
             turn = self.turn,
             card_name = source.borrow().name);
 
@@ -209,80 +215,132 @@ impl GameState {
 
         self.floating_mana = floating.to_owned();
 
-        let effect = match source.borrow().on_resolve.clone() {
+        self.handle_on_resolve_effects(source, strategy);
+    }
+
+    fn handle_on_resolve_effects(&mut self, game_object: &CardRef, strategy: &impl Strategy) {
+        let effect = match game_object.borrow().on_resolve.clone() {
             Some(e) => e,
             _ => return,
         };
 
         match effect {
-            Effect::SearchAndPutTopOfLibrary(card_filter) => {
-                let card_name = strategy.best_card_to_draw(self, card_filter).to_owned();
-                match self.deck.search(&card_name) {
-                    Some(found) => {
-                        debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it on top of the library.",
-                            turn = self.turn,
-                            card_name = found.borrow().name);
-                        self.deck.shuffle();
-                        self.deck.put_top(found)
-                    }
-                    None => debug!(
-                        "[Turn {turn:002}][Action]: Failed to find.",
-                        turn = self.turn
-                    ),
+            Effect::SearchAndPutTopOfLibrary(search_filter) => {
+                let searchable = apply_search_filter(self, search_filter);
+                if let Some(found) = strategy.find_best_card(self, group_by_name(searchable)) {
+                    debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it on top of the library.",
+                        turn = self.turn,
+                        card_name = found.borrow().name);
+
+                    self.deck.remove(&found);
+                    self.deck.shuffle();
+                    self.deck.put_top(found);
                 }
             }
-            Effect::SearchAndPutHand(card_filter) => {
-                if card_filter == Some(SearchFilter::LivingWish) {
-                    let card_name = strategy.best_card_to_draw(self, card_filter).to_owned();
+            Effect::SearchAndPutHand(search_filter) => {
+                let searchable = apply_search_filter(self, search_filter.clone());
+                if let Some(found) = strategy.find_best_card(self, group_by_name(searchable)) {
+                    if search_filter == Some(SearchFilter::LivingWish) {
+                        debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" from sideboard and put it in hand.",
+                                    turn = self.turn,
+                                    card_name = found.borrow().name);
+                        assert!(found.borrow().zone == Zone::Outside);
 
-                    match self.deck.search_sideboard(&card_name) {
-                        Some(found) => {
-                            debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" from sideboard and put it in hand.",
-                                turn = self.turn,
-                                card_name = found.borrow().name);
+                        self.deck.remove_sideboard(&found);
+                        found.borrow_mut().zone = Zone::Hand;
+                        self.game_objects.push(found);
+                    } else {
+                        debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it in hand.",
+                            turn = self.turn,
+                            card_name = found.borrow().name);
+                        assert!(found.borrow().zone == Zone::Library);
 
-                            found.borrow_mut().zone = Zone::Hand;
-                            self.game_objects.push(found);
-                        }
-                        None => debug!(
-                            "[Turn {turn:002}][Action]: Failed to find.",
-                            turn = self.turn
-                        ),
+                        self.deck.remove(&found);
+                        found.borrow_mut().zone = Zone::Hand;
+                        self.deck.shuffle();
                     }
                 } else {
-                    let card_name = strategy.best_card_to_draw(self, card_filter).to_owned();
-
-                    match self.deck.search(&card_name) {
-                        Some(found) => {
-                            debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it in hand.",
-                                turn = self.turn,
-                                card_name = found.borrow().name);
-                            self.deck.shuffle();
-
-                            found.borrow_mut().zone = Zone::Hand;
-                        }
-                        None => debug!(
-                            "[Turn {turn:002}][Action]: Failed to find.",
-                            turn = self.turn
-                        ),
-                    }
+                    debug!(
+                        "[Turn {turn:002}][Action]: Failed to find.",
+                        turn = self.turn
+                    );
                 }
             }
             Effect::Impulse(n) => {
-                // TODO: Proper impulse, selecting the best draw
-                if self.deck.len() > 0 {
-                    self.draw()
+                let mut cards = Vec::with_capacity(n);
+                for _ in 0..n {
+                    if let Some(card) = self.deck.draw() {
+                        if card.borrow().zone != Zone::Library {
+                            warn!(
+                                "Card {} is on the wrong zone {:?}!",
+                                card.borrow().name,
+                                card.borrow().zone
+                            );
+                            panic!("wrong zone");
+                        }
+                        cards.push(card);
+                    }
+                }
+
+                let revealed_str = cards
+                    .iter()
+                    .map(|card| format!("\"{}\"", card.borrow().name.clone()))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                debug!(
+                    "[Turn {turn:002}][Action]: Looking at cards: {revealed_str}",
+                    turn = self.turn
+                );
+
+                if let Some(selected) = strategy.find_best_card(self, group_by_name(cards.clone()))
+                {
+                    debug!(
+                        "[Turn {turn:002}][Action]: Selected \"{card_name}\" and put it in hand.",
+                        turn = self.turn,
+                        card_name = selected.borrow().name
+                    );
+                    cards.retain(|card| !Rc::ptr_eq(card, &selected));
+
+                    selected.borrow_mut().zone = Zone::Hand;
+                }
+
+                for card in cards {
+                    self.deck.put_bottom(card);
                 }
             }
             Effect::Unearth => {
-                
+                let graveyard = self
+                    .game_objects
+                    .iter()
+                    .filter(|card| {
+                        let card = card.borrow();
+                        card.zone == Zone::Graveyard
+                            && card.card_type == CardType::Creature
+                            && card.cost.values().sum::<usize>() <= 3
+                    })
+                    .cloned()
+                    .collect();
+
+                if let Some(target) = strategy.find_best_card(self, group_by_name(graveyard)) {
+                    debug!(
+                        "[Turn {turn:002}][Action]: Returning \"{card_name}\" on the battlefield.",
+                        turn = self.turn,
+                        card_name = target.borrow().name
+                    );
+                    target.borrow_mut().zone = Zone::Battlefield;
+                    self.handle_on_resolve_effects(&target, strategy)
+                }
             }
             Effect::UntapLands(n) => {
                 for _ in 0..n {
                     let mut tapped_lands = self
                         .game_objects
                         .iter()
-                        .filter(|card| is_battlefield(card) && is_land(card) && is_tapped(card))
+                        .filter(|card| {
+                            is_battlefield(card)
+                                && is_card_type(card, CardType::Land)
+                                && is_tapped(card)
+                        })
                         .cloned()
                         .collect::<Vec<_>>();
 
@@ -311,7 +369,8 @@ impl GameState {
                 if etb_draw_triggers > 0 {
                     let mut some_cards_drawn = false;
                     for _ in 0..etb_draw_triggers {
-                        if self.deck.len() > 0 {
+                        // Leave one card so that turn can be passed
+                        if self.deck.len() > 1 {
                             self.draw();
                             some_cards_drawn = true;
                         }
@@ -322,18 +381,15 @@ impl GameState {
                             "[Turn {turn:002}][Action]: Bouncing \"Cavern Harpy\" back to hand.",
                             turn = self.turn
                         );
-                        source.borrow_mut().zone = Zone::Hand;
-                        return
+                        game_object.borrow_mut().zone = Zone::Hand;
+                        return;
                     }
                 }
 
-                let maggot_carrier_to_return = self
-                    .game_objects
-                    .iter()
-                    .find(|card| {
-                        let card = card.borrow();
-                        card.zone == Zone::Battlefield && card.name == "Maggot Carrier"
-                    });
+                let maggot_carrier_to_return = self.game_objects.iter().find(|card| {
+                    let card = card.borrow();
+                    card.zone == Zone::Battlefield && card.name == "Maggot Carrier"
+                });
 
                 if let Some(card) = maggot_carrier_to_return {
                     debug!(
@@ -344,13 +400,10 @@ impl GameState {
                     return;
                 }
 
-                let cloud_of_faeries_to_return = self
-                    .game_objects
-                    .iter()
-                    .find(|card| {
-                        let card = card.borrow();
-                        card.zone == Zone::Battlefield && card.name == "Cloud of Faeries"
-                    });
+                let cloud_of_faeries_to_return = self.game_objects.iter().find(|card| {
+                    let card = card.borrow();
+                    card.zone == Zone::Battlefield && card.name == "Cloud of Faeries"
+                });
 
                 if let Some(card) = cloud_of_faeries_to_return {
                     debug!(
@@ -362,13 +415,10 @@ impl GameState {
                 }
 
                 // TODO: Decide whether we want to untap or untap lands?
-                let raven_familiar_to_return = self
-                    .game_objects
-                    .iter()
-                    .find(|card| {
-                        let card = card.borrow();
-                        card.zone == Zone::Battlefield && card.name == "Raven Familiar"
-                    });
+                let raven_familiar_to_return = self.game_objects.iter().find(|card| {
+                    let card = card.borrow();
+                    card.zone == Zone::Battlefield && card.name == "Raven Familiar"
+                });
 
                 if let Some(card) = raven_familiar_to_return {
                     debug!(
@@ -395,6 +445,17 @@ impl GameState {
 
     pub fn cleanup(&mut self, strategy: &impl Strategy) {
         let cards_to_discard = strategy.worst_cards_in_hand(self, 7);
+        if !cards_to_discard.is_empty() {
+            debug!(
+                "[Turn {turn:002}][Action]: Discarding to hand size: {discard_str}",
+                turn = self.turn,
+                discard_str = cards_to_discard
+                    .iter()
+                    .map(|card| format!("\"{}\"", card.borrow().name))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
+        }
 
         for card in cards_to_discard {
             card.borrow_mut().zone = Zone::Graveyard;

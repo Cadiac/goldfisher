@@ -6,7 +6,7 @@ use std::rc::Rc;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
-use crate::card::{Card, CardRef};
+use crate::card::{Card, CardRef, Zone};
 
 pub struct Decklist {
     pub maindeck: Vec<(&'static str, usize)>,
@@ -15,8 +15,8 @@ pub struct Decklist {
 
 #[derive(Clone, Debug, Default)]
 pub struct Deck {
-    maindeck: VecDeque<CardRef>,
-    sideboard: Vec<CardRef>,
+    pub maindeck: VecDeque<CardRef>,
+    pub sideboard: Vec<CardRef>,
 }
 
 impl From<Decklist> for Deck {
@@ -33,7 +33,8 @@ impl From<Decklist> for Deck {
         }
 
         for (card_name, quantity) in decklist.sideboard {
-            let card = Card::new(card_name);
+            let mut card = Card::new(card_name);
+            card.zone = Zone::Outside;
 
             for _ in 0..quantity {
                 sideboard.push(Rc::new(RefCell::new(card.clone())));
@@ -66,17 +67,17 @@ impl Deck {
         self.maindeck = VecDeque::from(deck);
     }
 
-    pub fn search(&mut self, card_name: &str) -> Option<CardRef> {
+    pub fn remove(&mut self, card: &CardRef) -> Option<CardRef> {
         self.maindeck
             .iter()
-            .position(|card| card.borrow().name == card_name)
+            .position(|deck_card| Rc::ptr_eq(deck_card, card))
             .and_then(|index| self.maindeck.remove(index))
     }
 
-    pub fn search_sideboard(&mut self, card_name: &str) -> Option<CardRef> {
+    pub fn remove_sideboard(&mut self, card: &CardRef) -> Option<CardRef> {
         self.sideboard
             .iter()
-            .position(|card| card.borrow().name == card_name)
+            .position(|side_card| Rc::ptr_eq(side_card, card))
             .map(|index| self.sideboard.remove(index))
     }
 

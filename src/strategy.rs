@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
+use crate::card::{CardRef, CardType, SearchFilter};
 use crate::deck::Decklist;
-use crate::game::{GameState};
-use crate::card::{CardRef, SearchFilter};
+use crate::game::GameState;
 use crate::utils::*;
 
-pub mod pattern_rector;
 pub mod aluren;
+pub mod pattern_rector;
 
 pub trait Strategy {
     fn is_win_condition_met(&self, game: &GameState) -> bool;
@@ -17,7 +17,7 @@ pub trait Strategy {
             let mut lands_in_hand = game
                 .game_objects
                 .iter()
-                .filter(|card| is_hand(card) && is_land(card))
+                .filter(|card| is_hand(card) && is_card_type(card, CardType::Land))
                 .cloned()
                 .collect::<Vec<_>>();
 
@@ -34,7 +34,11 @@ pub trait Strategy {
         }
         false
     }
-    fn select_best_card(&self, game: &GameState, cards: HashMap<String, Vec<CardRef>>) -> Option<CardRef>;
+    fn find_best_card(
+        &self,
+        game: &GameState,
+        cards: HashMap<String, Vec<CardRef>>,
+    ) -> Option<CardRef>;
     fn best_card_to_draw(&self, game: &GameState, search_filter: Option<SearchFilter>) -> &str;
     fn worst_cards_in_hand(&self, game: &GameState, hand_size: usize) -> Vec<CardRef>;
     fn decklist() -> Decklist;

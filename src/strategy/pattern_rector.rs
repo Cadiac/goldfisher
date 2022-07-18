@@ -27,7 +27,7 @@ impl PatternRector {
         let is_creature_on_battlefield = game
             .game_objects
             .iter()
-            .any(|card| is_battlefield(&card) && is_creature(&card));
+            .any(|card| is_battlefield(&card) && is_card_type(&card, CardType::Creature));
         let is_pattern_on_battlefield = game
             .game_objects
             .iter()
@@ -38,17 +38,20 @@ impl PatternRector {
         if let Some((card_ref, payment)) = pattern_of_rebirth {
             if payment.is_some() && is_creature_on_battlefield && !is_pattern_on_battlefield {
                 // Target non-sacrifice outlets over sac outlets
-                let non_sac_creature = game
-                    .game_objects
-                    .iter()
-                    .find(|card| is_battlefield(card) && is_creature(card) && !is_sac_outlet(card));
+                let non_sac_creature = game.game_objects.iter().find(|card| {
+                    is_battlefield(card)
+                        && is_card_type(card, CardType::Creature)
+                        && !is_sac_outlet(card)
+                });
 
                 let target = if let Some(creature) = non_sac_creature {
                     Rc::clone(creature)
                 } else {
                     // Otherwise just cast it on a sac outlet
                     let sac_creature = game.game_objects.iter().find(|card| {
-                        is_battlefield(card) && is_creature(card) && is_sac_outlet(card)
+                        is_battlefield(card)
+                            && is_card_type(card, CardType::Creature)
+                            && is_sac_outlet(card)
                     });
 
                     Rc::clone(sac_creature.unwrap())
@@ -125,7 +128,7 @@ impl PatternRector {
 
         let mut creatures = castable
             .iter()
-            .filter(|(c, _)| is_creature(&c))
+            .filter(|(c, _)| is_card_type(&c, CardType::Creature))
             .collect::<Vec<_>>();
 
         // Cast the cheapest creatures first
@@ -163,11 +166,17 @@ impl PatternRector {
             (include_hand && is_hand(card)) || (include_battlefield && is_battlefield(card))
         });
 
-        let creatures = game_objects.clone().filter(is_creature).count();
+        let creatures = game_objects
+            .clone()
+            .filter(|card| is_card_type(card, CardType::Creature))
+            .count();
         let academy_rectors = game_objects.clone().filter(is_rector).count();
         let multi_use_sac_outlets = game_objects.clone().filter(is_sac_outlet).count();
         let patterns = game_objects.clone().filter(is_pattern).count();
-        let lands = game_objects.clone().filter(is_land).count();
+        let lands = game_objects
+            .clone()
+            .filter(|card| is_card_type(card, CardType::Land))
+            .count();
 
         let mana_sources = game_objects
             .clone()
@@ -356,7 +365,11 @@ impl Strategy for PatternRector {
         false
     }
 
-    fn select_best_card(&self, _game: &GameState, cards: HashMap<String, Vec<CardRef>>) -> Option<CardRef> {
+    fn find_best_card(
+        &self,
+        _game: &GameState,
+        cards: HashMap<String, Vec<CardRef>>,
+    ) -> Option<CardRef> {
         cards.values().flatten().cloned().next()
     }
 
