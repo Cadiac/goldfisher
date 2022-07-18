@@ -1,3 +1,4 @@
+use log::debug;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -6,6 +7,8 @@ use crate::deck::Decklist;
 use crate::game::GameState;
 use crate::strategy::Strategy;
 use crate::utils::*;
+
+use super::GameStatus;
 
 struct ComboStatus {
     mana_sources: usize,
@@ -264,10 +267,81 @@ impl Strategy for PatternRector {
         }
     }
 
-    fn is_win_condition_met(&self, game: &GameState) -> bool {
-        // TODO: Make sure we still have the required combo pieces in library
+    fn game_status(&self, game: &GameState) -> super::GameStatus {
+        if game.life_total <= 0 {
+            debug!(
+                "[Turn {turn:002}][Game]: Out of life points, lost the game!",
+                turn = game.turn
+            );
+            return GameStatus::Lose(game.turn);
+        }
 
         let status = self.combo_status(game, false, true);
+
+        let mut count_in_library: HashMap<&str, usize> = HashMap::new();
+        let combo_pieces = [
+            "Body Snatcher",
+            "Iridescent Drake",
+            "Pattern of Rebirth",
+            "Karmic Guide",
+            "Volrath's Shapeshifter",
+            "Academy Rector",
+            "Goblin Bombardment",
+            "Akroma, Angel of Wrath",
+            "Caller of the Claw",
+        ];
+        for name in combo_pieces {
+            let count = game
+                .game_objects
+                .iter()
+                .filter(|card| is_library(&card) && is_named(&card, name))
+                .count();
+
+            *count_in_library.entry(name).or_insert(0) = count
+        }
+
+        let is_goblin_bombardment_on_battlefield = game
+            .game_objects
+            .iter()
+            .any(|card| is_battlefield(&card) && is_named(&card, "Goblin Bombardment"));
+
+        // Make sure required combo pieces are still in library
+        // NOTE: This is not be 100% accurate, and is probably missing some lines that
+        // involve just playing out the cards from hand.
+        // TODO: Handle at least cases where we have the bombardment in hand but we just haven't cast it.
+        let simple_kill_available = is_goblin_bombardment_on_battlefield
+            && *count_in_library.get("Iridescent Drake").unwrap() >= 1
+            && (*count_in_library.get("Volrath's Shapeshifter").unwrap()
+                + *count_in_library.get("Karmic Guide").unwrap()
+                + *count_in_library.get("Body Snatcher").unwrap()
+                >= 2);
+
+        let main_kill_available = (*count_in_library.get("Volrath's Shapeshifter").unwrap()
+            + *count_in_library.get("Karmic Guide").unwrap()
+            + *count_in_library.get("Body Snatcher").unwrap()
+            >= 3)
+            && (*count_in_library.get("Iridescent Drake").unwrap() >= 1
+                || *count_in_library.get("Body Snatcher").unwrap() >= 1)
+            && *count_in_library.get("Academy Rector").unwrap() >= 1
+            && *count_in_library.get("Pattern of Rebirth").unwrap() >= 1
+            && *count_in_library.get("Goblin Bombardment").unwrap() >= 1;
+
+        let backup_kill_available = *count_in_library.get("Volrath's Shapeshifter").unwrap() >= 2
+            && (*count_in_library.get("Karmic Guide").unwrap()
+                + *count_in_library.get("Body Snatcher").unwrap()
+                >= 2)
+            && *count_in_library.get("Academy Rector").unwrap() >= 1
+            && *count_in_library.get("Pattern of Rebirth").unwrap() >= 1
+            && *count_in_library.get("Akroma, Angel of Wrath").unwrap() >= 1
+            && *count_in_library.get("Caller of the Claw").unwrap() >= 1;
+
+        if !simple_kill_available && !main_kill_available && !backup_kill_available {
+            debug!(
+                "[Turn {turn:002}][Game]: Can't combo anymore, lost the game!",
+                turn = game.turn
+            );
+            return GameStatus::Lose(game.turn);
+        }
 
         // Winning combinations:
 
@@ -276,25 +350,25 @@ impl Strategy for PatternRector {
             && status.patterns >= 1
             && !status.pattern_on_sac_outlet
         {
-            return true;
+            return GameStatus::Win(game.turn);
         }
 
         // 2) One sac outlet with pattern + one sac outlet without + Pattern of Rebirth on a sac outlet
         if status.multi_use_sac_outlets >= 2 && status.patterns >= 1 && status.pattern_on_sac_outlet
         {
-            return true;
+            return GameStatus::Win(game.turn);
         }
 
         // 3) Sac outlet + Academy Rector + any redundant creature
         if status.multi_use_sac_outlets >= 1 && status.academy_rectors >= 1 && status.creatures >= 3
         {
-            return true;
+            return GameStatus::Win(game.turn);
         }
 
         // 4) At least one Academy Rector + Pattern of Rebirth on a creature + Cabal Therapy in graveyard / Phyrexian Tower
         if status.academy_rectors >= 1 && status.patterns >= 1 && status.single_use_sac_outlets >= 1
         {
-            return true;
+            return GameStatus::Win(game.turn);
         }
 
         // 5) At least two Academy Rectors + at least one single use sac outlet + at least three creatures total
@@ -302,16 +376,16 @@ impl Strategy for PatternRector {
             && status.single_use_sac_outlets >= 1
             && status.creatures >= 3
         {
-            return true;
+            return GameStatus::Win(game.turn);
         }
 
         // 6) At least two Academy Rectors + at least two single use sac outlets available
         // Sac first, get Pattern on second, sac the second, get Drake + Bombardment
         if status.academy_rectors >= 2 && status.single_use_sac_outlets >= 2 {
-            return true;
+            return GameStatus::Win(game.turn);
         }
 
-        false
+        GameStatus::Continue
     }
 
     fn is_keepable_hand(&self, game: &GameState, mulligan_count: usize) -> bool {

@@ -6,8 +6,14 @@ use crate::card::{CardRef, CardType, Effect, SearchFilter, Zone};
 use crate::deck::{Deck, Decklist};
 use crate::mana::find_payment_for;
 use crate::mana::{Mana, PaymentAndFloating};
-use crate::strategy::Strategy;
+use crate::strategy::{Strategy};
 use crate::utils::*;
+
+pub enum GameStatus {
+    Continue,
+    Win(usize),
+    Lose(usize),
+}
 
 pub struct GameState {
     pub turn: usize,
@@ -114,7 +120,7 @@ impl GameState {
         }
     }
 
-    pub fn draw(&mut self) {
+    pub fn draw(&mut self) -> GameStatus {
         if self.turn == 0 || (self.turn == 1 && !self.is_first_player) || self.turn > 1 {
             if let Some(card) = self.deck.draw() {
                 let mut card = card.borrow_mut();
@@ -126,10 +132,12 @@ impl GameState {
                     name = card.name,
                     library = self.deck.len(),
                 );
+                return GameStatus::Continue
             } else {
-                panic!("empty library!");
+                return GameStatus::Lose(self.turn)
             }
         }
+        GameStatus::Continue
     }
 
     pub fn untap(&mut self) {
@@ -140,15 +148,17 @@ impl GameState {
         }
     }
 
-    pub fn take_game_actions(&mut self, strategy: &impl Strategy) -> bool {
+    pub fn take_game_actions(&mut self, strategy: &impl Strategy) -> GameStatus {
         loop {
             let action_taken = strategy.take_game_action(self);
-            if strategy.is_win_condition_met(self) {
-                return true;
-            }
-            if !action_taken {
-                return false;
-            }
+            match strategy.game_status(self) {
+                GameStatus::Continue => {
+                    if !action_taken {
+                        return GameStatus::Continue;
+                    }
+                },
+                result => return result,
+            };
         }
     }
 
@@ -267,6 +277,7 @@ impl GameState {
             Effect::Impulse(n) => {
                 let mut cards = Vec::with_capacity(n);
                 for _ in 0..n {
+                    // This isn't actually "draw"
                     if let Some(card) = self.deck.draw() {
                         if card.borrow().zone != Zone::Library {
                             warn!(
@@ -522,11 +533,24 @@ impl GameState {
         }
     }
 
+    pub fn take_damage(&mut self, amount: i32) {
+        self.life_total -= amount;
+        self.print_life();
+    }
+
     pub fn print_game_state(&self) {
         self.print_library();
         self.print_hand();
         self.print_battlefield();
         self.print_graveyard();
+    }
+
+    pub fn print_life(&self) {
+        debug!(
+            "[Turn {turn:002}][Player]: Life total: {life}",
+            life = self.life_total,
+            turn = self.turn
+        );
     }
 
     fn print_battlefield(&self) {

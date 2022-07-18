@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use crate::card::{CardRef, CardType};
 use crate::deck::Decklist;
-use crate::game::GameState;
+use crate::game::{GameState, GameStatus};
 use crate::utils::*;
 
 pub mod aluren;
 pub mod pattern_rector;
 
 pub trait Strategy {
-    fn is_win_condition_met(&self, game: &GameState) -> bool;
+    fn game_status(&self, game: &GameState) -> GameStatus;
     fn is_keepable_hand(&self, game: &GameState, mulligan_count: usize) -> bool;
     fn take_game_action(&self, game: &mut GameState) -> bool;
     fn play_land(&self, game: &mut GameState) -> bool {

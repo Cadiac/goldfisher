@@ -6,7 +6,7 @@ use crate::card::{CardRef, CardType, Zone};
 use crate::deck::Decklist;
 use crate::game::GameState;
 use crate::mana::{Mana, PaymentAndFloating};
-use crate::strategy::Strategy;
+use crate::strategy::{Strategy, GameStatus};
 use crate::utils::*;
 
 struct ComboStatus {
@@ -166,7 +166,11 @@ impl Strategy for Aluren {
         }
     }
 
-    fn is_win_condition_met(&self, game: &GameState) -> bool {
+    fn game_status(&self, game: &GameState) -> GameStatus {
+        if game.life_total <= 0 {
+            return GameStatus::Lose(game.turn);
+        }
+
         let hand = self.combo_status(game, vec![Zone::Hand]);
         let battlefield = self.combo_status(game, vec![Zone::Battlefield]);
 
@@ -177,10 +181,10 @@ impl Strategy for Aluren {
             && hand.cavern_harpies >= 1
             && (battlefield.soul_wardens >= 1 || game.life_total >= 40)
         {
-            return true;
+            return GameStatus::Win(game.turn);
         }
 
-        false
+        GameStatus::Continue
     }
 
     fn is_keepable_hand(&self, game: &GameState, mulligan_count: usize) -> bool {
@@ -480,12 +484,9 @@ impl Strategy for Aluren {
             return true;
         }
 
-        let is_aluren_on_battlefield = game
-            .game_objects
-            .iter()
-            .any(|card| is_battlefield(&card) && card.borrow().name == "Aluren");
+        let battlefield = self.combo_status(game, vec![Zone::Battlefield]);
 
-        if !is_aluren_on_battlefield {
+        if battlefield.alurens == 0 {
             let castable = game.find_castable();
 
             let priority_order = [
@@ -521,6 +522,7 @@ impl Strategy for Aluren {
                     turn = game.turn
                 );
                 card.borrow_mut().zone = Zone::Hand;
+                game.take_damage(1);
                 return true;
             }
 
@@ -582,7 +584,6 @@ impl Strategy for Aluren {
                 }
             }
 
-            let battlefield = self.combo_status(game, vec![Zone::Battlefield]);
             if game.deck.len() <= 1 && hand.maggot_carriers == 0 && battlefield.maggot_carriers == 0
             {
                 // Have to pass the turn, probably due to lack of mana :(
