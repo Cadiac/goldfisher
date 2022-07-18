@@ -4,8 +4,8 @@ use std::collections::HashMap;
 
 use goldfisher::game::GameState;
 use goldfisher::strategy::Strategy;
-// use goldfisher::strategy::pattern_rector::PatternRector;
-use goldfisher::strategy::aluren::Aluren;
+use goldfisher::strategy::pattern_rector::PatternRector;
+// use goldfisher::strategy::aluren::Aluren;
 
 #[macro_use]
 extern crate log;
@@ -28,12 +28,12 @@ fn main() {
     let mut win_statistics: HashMap<usize, usize> = HashMap::new();
     let simulated_games = cli.games;
 
-    // let strategy = PatternRector {};
-    let strategy = Aluren {};
+    let strategy = PatternRector {};
+    // let strategy = Aluren {};
 
     for _ in 0..simulated_games {
         debug!("====================[ START OF GAME ]=======================");
-        let mut game = GameState::new(Aluren::decklist());
+        let mut game = GameState::new(PatternRector::decklist());
 
         game.find_starting_hand(&strategy);
 

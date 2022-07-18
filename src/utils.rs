@@ -133,7 +133,9 @@ pub fn apply_search_filter(game: &GameState, search_filter: Option<SearchFilter>
             .deck
             .sideboard
             .iter()
-            .filter(|card| is_card_type(card, CardType::Creature) || is_card_type(card, CardType::Land))
+            .filter(|card| {
+                is_card_type(card, CardType::Creature) || is_card_type(card, CardType::Land)
+            })
             .cloned()
             .collect(),
         None => game
@@ -157,4 +159,8 @@ pub fn group_by_name(game_objects: Vec<CardRef>) -> HashMap<String, Vec<CardRef>
     }
 
     cards
+}
+
+pub fn find_named(cards: &HashMap<String, Vec<CardRef>>, name: &str) -> Option<CardRef> {
+    cards.get(name).and_then(|copies| copies.first()).cloned()
 }

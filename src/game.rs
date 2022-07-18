@@ -244,7 +244,6 @@ impl GameState {
                         debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" from sideboard and put it in hand.",
                                     turn = self.turn,
                                     card_name = found.borrow().name);
-                        assert!(found.borrow().zone == Zone::Outside);
 
                         self.deck.remove_sideboard(&found);
                         found.borrow_mut().zone = Zone::Hand;
@@ -253,7 +252,6 @@ impl GameState {
                         debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it in hand.",
                             turn = self.turn,
                             card_name = found.borrow().name);
-                        assert!(found.borrow().zone == Zone::Library);
 
                         self.deck.remove(&found);
                         found.borrow_mut().zone = Zone::Hand;
@@ -444,7 +442,7 @@ impl GameState {
     }
 
     pub fn cleanup(&mut self, strategy: &impl Strategy) {
-        let cards_to_discard = strategy.worst_cards_in_hand(self, 7);
+        let cards_to_discard = strategy.discard_to_hand_size(self, 7);
         if !cards_to_discard.is_empty() {
             debug!(
                 "[Turn {turn:002}][Action]: Discarding to hand size: {discard_str}",
@@ -482,7 +480,7 @@ impl GameState {
                     turn = self.turn,
                     cards = 7 - mulligan_count
                 );
-                let bottomed = strategy.worst_cards_in_hand(self, 7 - mulligan_count);
+                let bottomed = strategy.discard_to_hand_size(self, 7 - mulligan_count);
 
                 if !bottomed.is_empty() {
                     let bottomed_str = bottomed

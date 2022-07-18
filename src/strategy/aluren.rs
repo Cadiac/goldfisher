@@ -2,7 +2,7 @@ use log::debug;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::card::{CardRef, CardType, SearchFilter, Zone};
+use crate::card::{CardRef, CardType, Zone};
 use crate::deck::Decklist;
 use crate::game::GameState;
 use crate::mana::{Mana, PaymentAndFloating};
@@ -235,53 +235,48 @@ impl Strategy for Aluren {
 
         if battlefield.alurens >= 1 {
             if status.cavern_harpies == 0 {
-                if let Some(card) = cards.get("Cavern Harpy").and_then(|copies| copies.first()) {
-                    return Some(card.clone());
+                let card = find_named(&cards, "Cavern Harpy");
+                if card.is_some() {
+                    return card;
                 }
             }
 
             if status.soul_wardens == 0 {
-                if let Some(card) = cards.get("Soul Warden").and_then(|copies| copies.first()) {
-                    return Some(card.clone());
+                let card = find_named(&cards, "Soul Warden");
+                if card.is_some() {
+                    return card;
                 }
             }
 
             if status.maggot_carriers == 0 {
-                if let Some(card) = cards
-                    .get("Maggot Carrier")
-                    .and_then(|copies| copies.first())
-                {
-                    return Some(card.clone());
+                let card = find_named(&cards, "Maggot Carrier");
+                if card.is_some() {
+                    return card;
                 }
             }
 
             if status.wirewood_savages == 0 && status.raven_familiars == 0 {
-                if let Some(card) = cards
-                    .get("Wirewood Savage")
-                    .and_then(|copies| copies.first())
-                {
-                    return Some(card.clone());
+                let card = find_named(&cards, "Wirewood Savage");
+                if card.is_some() {
+                    return card;
                 }
-                if let Some(card) = cards
-                    .get("Raven Familiar")
-                    .and_then(|copies| copies.first())
-                {
-                    return Some(card.clone());
+                let card = find_named(&cards, "Raven Familiar");
+                if card.is_some() {
+                    return card;
                 }
             }
 
-            if let Some(card) = cards
-                .get("Cloud of Faeries")
-                .and_then(|copies| copies.first())
-            {
-                return Some(card.clone());
+            let card = find_named(&cards, "Cloud of Faeries");
+            if card.is_some() {
+                return card;
             }
         }
 
         if battlefield.alurens == 0 {
             if status.alurens == 0 {
-                if let Some(card) = cards.get("Aluren").and_then(|copies| copies.first()) {
-                    return Some(card.clone());
+                let card = find_named(&cards, "Aluren");
+                if card.is_some() {
+                    return card;
                 }
             }
             if status.mana_sources < 4 {
@@ -296,148 +291,70 @@ impl Strategy for Aluren {
 
                     if let Some(best_land) = lands.last() {
                         let name = &best_land.borrow().name;
-                        if let Some(card) =
-                            cards.get(name.as_str()).and_then(|copies| copies.first())
-                        {
-                            return Some(card.clone());
+                        let card = cards
+                            .get(name.as_str())
+                            .and_then(|copies| copies.first())
+                            .cloned();
+                        if card.is_some() {
+                            return card;
                         }
                     }
                 }
-                if let Some(card) = cards
-                    .get("Birds of Paradise")
-                    .and_then(|copies| copies.first())
-                {
-                    return Some(card.clone());
+                let card = find_named(&cards, "Birds of Paradise");
+                if card.is_some() {
+                    return card;
                 }
-                if let Some(card) = cards.get("Wall of Roots").and_then(|copies| copies.first()) {
-                    return Some(card.clone());
+                let card = find_named(&cards, "Wall of Roots");
+                if card.is_some() {
+                    return card;
                 }
             }
             if status.cavern_harpies == 0 {
-                if let Some(card) = cards.get("Cavern Harpy").and_then(|copies| copies.first()) {
-                    return Some(card.clone());
+                let card = find_named(&cards, "Cavern Harpy");
+                if card.is_some() {
+                    return card;
                 }
             }
             if status.raven_familiars == 0 {
-                if let Some(card) = cards
-                    .get("Raven Familiar")
-                    .and_then(|copies| copies.first())
-                {
-                    return Some(card.clone());
+                let card = find_named(&cards, "Raven Familiar");
+                if card.is_some() {
+                    return card;
                 }
             }
             if status.soul_wardens == 0 {
-                if let Some(card) = cards.get("Soul Warden").and_then(|copies| copies.first()) {
-                    return Some(card.clone());
+                let card = find_named(&cards, "Soul Warden");
+                if card.is_some() {
+                    return card;
                 }
             }
             if status.maggot_carriers == 0 {
-                if let Some(card) = cards
-                    .get("Maggot Carrier")
-                    .and_then(|copies| copies.first())
-                {
-                    return Some(card.clone());
+                let card = find_named(&cards, "Maggot Carrier");
+                if card.is_some() {
+                    return card;
                 }
             }
         }
 
-        if let Some(card) = cards.get("Living Wish").and_then(|copies| copies.first()) {
-            return Some(card.clone());
+        let card = find_named(&cards, "Living Wish");
+        if card.is_some() {
+            return card;
         }
 
-        if let Some(card) = cards.get("Intuition").and_then(|copies| copies.first()) {
-            return Some(card.clone());
+        let card = find_named(&cards, "Intuition");
+        if card.is_some() {
+            return card;
         }
 
-        if let Some(card) = cards.get("Impulse").and_then(|copies| copies.first()) {
-            return Some(card.clone());
+        let card = find_named(&cards, "Impulse");
+        if card.is_some() {
+            return card;
         }
 
-        // Otherwise just pick anything we have left
-        for copies in cards.values() {
-            if let Some(card) = copies.first() {
-                return Some(card.clone());
-            }
-        }
-
-        None
+        // Otherwise just pick anything
+        cards.values().flatten().cloned().next()
     }
 
-    fn best_card_to_draw(&self, game: &GameState, search_filter: Option<SearchFilter>) -> &str {
-        let status = self.combo_status(game, vec![Zone::Hand, Zone::Battlefield]);
-
-        match search_filter {
-            Some(SearchFilter::LivingWish) => {
-                if status.alurens >= 1 && status.cavern_harpies >= 1 {
-                    if status.wirewood_savages == 0 && status.raven_familiars == 0 {
-                        return "Wirewood Savage";
-                    } else if status.soul_wardens == 0 {
-                        return "Soul Warden";
-                    } else {
-                        return "Maggot Carrier";
-                    }
-                }
-
-                if status.cavern_harpies == 0 {
-                    return "Cavern Harpy";
-                }
-
-                if status.alurens >= 1 && status.wirewood_savages == 0 {
-                    return "Wirewood Savage";
-                }
-
-                if status.raven_familiars == 0 {
-                    return "Raven Familiar";
-                }
-
-                if status.soul_wardens == 0 {
-                    return "Soul Warden";
-                }
-
-                if status.mana_sources < 4 {
-                    if status.alurens == 0 {
-                        return "Birds of Paradise";
-                    } else {
-                        // TODO: ignore summoning sickness
-                        return "Wall of Roots";
-                    }
-                }
-
-                "Cavern Harpy"
-            }
-            None => {
-                // TODO: Some actual logic for Intuition
-                if status.alurens == 0 {
-                    return "Aluren";
-                }
-
-                if status.cavern_harpies == 0 {
-                    return "Cavern Harpy";
-                }
-
-                if status.wirewood_savages == 0 {
-                    return "Wirewood Savage";
-                }
-
-                if status.raven_familiars == 0 {
-                    return "Raven Familiar";
-                }
-
-                if status.soul_wardens == 0 {
-                    return "Soul Warden";
-                }
-
-                if status.mana_sources < 4 {
-                    return "City of Brass";
-                }
-
-                "Living Wish"
-            }
-            _ => unimplemented!(),
-        }
-    }
-
-    fn worst_cards_in_hand(&self, game: &GameState, hand_size: usize) -> Vec<CardRef> {
+    fn discard_to_hand_size(&self, game: &GameState, hand_size: usize) -> Vec<CardRef> {
         let mut ordered_hand = Vec::new();
 
         let mut lands = Vec::with_capacity(7);

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::card::{CardRef, CardType, SearchFilter};
+use crate::card::{CardRef, CardType};
 use crate::deck::Decklist;
 use crate::game::GameState;
 use crate::strategy::Strategy;
@@ -367,13 +367,9 @@ impl Strategy for PatternRector {
 
     fn find_best_card(
         &self,
-        _game: &GameState,
+        game: &GameState,
         cards: HashMap<String, Vec<CardRef>>,
     ) -> Option<CardRef> {
-        cards.values().flatten().cloned().next()
-    }
-
-    fn best_card_to_draw(&self, game: &GameState, search_filter: Option<SearchFilter>) -> &str {
         let status = self.combo_status(game, true, true);
 
         let is_pattern_attached_to_redundant_creature = game.game_objects.iter().any(|card| {
@@ -396,50 +392,84 @@ impl Strategy for PatternRector {
             }
         });
 
-        match search_filter {
-            Some(SearchFilter::Creature) => {
-                if is_pattern_attached_to_redundant_creature {
-                    return "Carrion Feeder";
+        if is_pattern_attached_to_redundant_creature {
+            for name in [
+                "Carrion Feeder",
+                "Goblin Bombardment",
+                "Nantuko Husk",
+                "Phyrexian Ghoul",
+            ] {
+                let card = find_named(&cards, name);
+                if card.is_some() {
+                    return card;
                 }
-
-                if status.academy_rectors == 0 && status.patterns == 0 {
-                    return "Academy Rector";
-                }
-
-                if status.multi_use_sac_outlets == 0 {
-                    return "Carrion Feeder";
-                }
-
-                if status.mana_sources < 4 {
-                    return "Birds of Paradise";
-                }
-
-                "Academy Rector"
             }
-            Some(SearchFilter::EnchantmentArtifact) => {
-                if is_pattern_attached_to_redundant_creature {
-                    return "Goblin Bombardment";
-                }
-
-                if status.academy_rectors == 0 && status.patterns == 0 {
-                    return "Pattern of Rebirth";
-                }
-
-                if status.multi_use_sac_outlets == 0 {
-                    return "Goblin Bombardment";
-                }
-
-                if status.mana_sources < 4 {
-                    return "Lotus Petal";
-                }
-
-                "Pattern of Rebirth"
-            }
-            _ => unimplemented!(),
         }
+
+        if status.academy_rectors == 0 && status.patterns == 0 {
+            for name in ["Academy Rector", "Pattern of Rebirth"] {
+                let card = find_named(&cards, name);
+                if card.is_some() {
+                    return card;
+                }
+            }
+        }
+
+        if status.multi_use_sac_outlets == 0 {
+            for name in [
+                "Carrion Feeder",
+                "Goblin Bombardment",
+                "Nantuko Husk",
+                "Phyrexian Ghoul",
+            ] {
+                let card = find_named(&cards, name);
+                if card.is_some() {
+                    return card;
+                }
+            }
+        }
+
+        if status.mana_sources < 4 {
+            if game.available_land_drops > 0 {
+                let mut lands: Vec<CardRef> = cards
+                    .values()
+                    .flatten()
+                    .filter(|card| is_card_type(card, CardType::Land))
+                    .cloned()
+                    .collect();
+                lands.sort_by(sort_by_best_mana_to_play);
+
+                if let Some(best_land) = lands.last() {
+                    let name = &best_land.borrow().name;
+                    let card = cards
+                        .get(name.as_str())
+                        .and_then(|copies| copies.first())
+                        .cloned();
+                    if card.is_some() {
+                        return card;
+                    }
+                }
+            } else {
+                for name in ["Birds of Paradise", "Lotus Petal", "Wall of Roots"] {
+                    let card = find_named(&cards, name);
+                    if card.is_some() {
+                        return card;
+                    }
+                }
+            }
+        }
+
+        for name in ["Academy Rector", "Pattern of Rebirth"] {
+            let card = find_named(&cards, name);
+            if card.is_some() {
+                return card;
+            }
+        }
+
+        cards.values().flatten().cloned().next()
     }
 
-    fn worst_cards_in_hand(&self, game: &GameState, hand_size: usize) -> Vec<CardRef> {
+    fn discard_to_hand_size(&self, game: &GameState, hand_size: usize) -> Vec<CardRef> {
         let mut ordered_hand = Vec::new();
         let mut lands = Vec::with_capacity(7);
         let mut patterns_or_rectors = Vec::with_capacity(7);
