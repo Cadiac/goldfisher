@@ -36,6 +36,10 @@ pub fn is_sac_outlet(card: &&CardRef) -> bool {
     card.borrow().is_sac_outlet
 }
 
+pub fn is_basic(card: &&CardRef) -> bool {
+    ["Plains", "Island", "Swamp", "Mountain", "Forest"].contains(&card.borrow().name.as_str())
+}
+
 pub fn is_mana_dork(card: &&CardRef) -> bool {
     let card = card.borrow();
     card.card_type == CardType::Creature && !card.produced_mana.is_empty()

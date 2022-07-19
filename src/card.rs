@@ -91,6 +91,12 @@ impl Card {
                 produced_mana: HashMap::from([(Mana::Green, 1)]),
                 ..Default::default()
             },
+            "Veteran Explorer" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Green, 1)]),
+                ..Default::default()
+            },
             "Fyndhorn Elves" => Card {
                 name,
                 card_type: CardType::Creature,

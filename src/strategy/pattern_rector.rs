@@ -2,9 +2,10 @@ use log::debug;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::card::{CardRef, CardType};
+use crate::card::{CardRef, CardType, Zone};
 use crate::deck::Decklist;
 use crate::game::GameState;
+use crate::mana::Mana;
 use crate::strategy::Strategy;
 use crate::utils::*;
 
@@ -101,6 +102,100 @@ impl PatternRector {
 
         if let Some((card_ref, payment)) = mana_dorks.last() {
             game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
+            return true;
+        }
+
+        let veteran_explorer = castable
+            .iter()
+            .find(|(card, _)| is_named(&card, "Veteran Explorer"));
+
+        if let Some((card_ref, payment)) = veteran_explorer {
+            game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
+            return true;
+        }
+
+        false
+    }
+
+    fn sac_veteran_explorer(&self, game: &mut GameState, veteran_explorer: CardRef) {
+        veteran_explorer.borrow_mut().zone = Zone::Graveyard;
+
+        for _ in 0..2 {
+            let basics = game
+                .game_objects
+                .iter()
+                .filter(|card| is_library(card) && is_basic(card))
+                .cloned()
+                .collect();
+            if let Some(land) = self.find_best_card(game, group_by_name(basics)) {
+                land.borrow_mut().zone = Zone::Battlefield;
+                debug!(
+                    "[Turn {turn:002}][Action]: Searched for \"{card_name}\" with \"Veteran Explorer\" dies trigger.",
+                    card_name = land.borrow().name,
+                    turn = game.turn
+                );
+            }
+        }
+    }
+
+    fn ramp_with_veteran_explorer(&self, game: &mut GameState) -> bool {
+        let veteran_explorer = match game
+            .game_objects
+            .iter()
+            .find(|card| is_battlefield(card) && is_named(card, "Veteran Explorer"))
+            .cloned()
+        {
+            Some(card) => card,
+            None => return false,
+        };
+
+        if let Some(sac_outlet) = game
+            .game_objects
+            .iter()
+            .find(|card| is_battlefield(&card) && is_sac_outlet(&card))
+            .cloned()
+        {
+            debug!(
+                "[Turn {turn:002}][Action]: Sacrificing \"Veteran Explorer\" with \"{card_name}\".",
+                card_name = sac_outlet.borrow().name,
+                turn = game.turn
+            );
+            self.sac_veteran_explorer(game, veteran_explorer);
+            return true;
+        }
+
+        if let Some(cabal_therapy) = game
+            .game_objects
+            .iter()
+            .find(|card| is_graveyard(card) && is_named(card, "Cabal Therapy"))
+            .cloned()
+        {
+            debug!(
+                "[Turn {turn:002}][Action]: Sacrificing \"Veteran Explorer\" with \"{card_name}\".",
+                card_name = cabal_therapy.borrow().name,
+                turn = game.turn
+            );
+            self.sac_veteran_explorer(game, veteran_explorer);
+            cabal_therapy.borrow_mut().zone = Zone::Exile;
+            return true;
+        }
+
+        if let Some(phyrexian_tower) = game
+            .game_objects
+            .iter()
+            .find(|card| {
+                is_battlefield(card) && is_named(card, "Phyrexian Tower") && !is_tapped(card)
+            })
+            .cloned()
+        {
+            debug!(
+                "[Turn {turn:002}][Action]: Sacrificing \"Veteran Explorer\" with \"{card_name}\".",
+                card_name = phyrexian_tower.borrow().name,
+                turn = game.turn
+            );
+            self.sac_veteran_explorer(game, veteran_explorer);
+            phyrexian_tower.borrow_mut().is_tapped = true;
+            *game.floating_mana.entry(Mana::Black).or_insert(0) += 2;
             return true;
         }
 
@@ -233,7 +328,8 @@ impl Strategy for PatternRector {
         Decklist {
             maindeck: vec![
                 ("Birds of Paradise", 4),
-                ("Llanowar Elves", 3),
+                ("Llanowar Elves", 2),
+                ("Veteran Explorer", 4),
                 ("Carrion Feeder", 4),
                 ("Nantuko Husk", 3),
                 ("Phyrexian Ghoul", 1),
@@ -241,7 +337,7 @@ impl Strategy for PatternRector {
                 ("Academy Rector", 4),
                 // ("Enlightened Tutor", 3),
                 // ("Worldly Tutor", 3),
-                ("Elvish Spirit Guide", 3),
+                // ("Elvish Spirit Guide", 3),
                 // ("Mesmeric Fiend", 3),
                 ("Iridescent Drake", 1),
                 ("Karmic Guide", 2),
@@ -540,6 +636,13 @@ impl Strategy for PatternRector {
             }
         }
 
+        for name in ["Swamp", "Plains", "Forest", "Island", "Mountain"] {
+            let card = find_named(&cards, name);
+            if card.is_some() {
+                return card;
+            }
+        }
+
         cards.values().flatten().cloned().next()
     }
 
@@ -626,6 +729,7 @@ impl Strategy for PatternRector {
             || self.cast_pattern_of_rebirth(game)
             || self.cast_academy_rector(game)
             || self.cast_sac_outlet(game)
+            || self.ramp_with_veteran_explorer(game)
             || self.cast_mana_dork(game)
             || self.cast_other_creature(game)
             || self.cast_others(game)
