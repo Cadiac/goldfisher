@@ -97,6 +97,12 @@ impl Card {
                 cost: HashMap::from([(Mana::Green, 1)]),
                 ..Default::default()
             },
+            "Xantid Swarm" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::Green, 1)]),
+                ..Default::default()
+            },
             "Fyndhorn Elves" => Card {
                 name,
                 card_type: CardType::Creature,
@@ -198,6 +204,36 @@ impl Card {
                 cost: HashMap::from([(Mana::White, 1), (Mana::Colorless, 3)]),
                 ..Default::default()
             },
+            "Pernicious Deed" => Card {
+                name,
+                card_type: CardType::Enchantment,
+                cost: HashMap::from([(Mana::Green, 1), (Mana::Black, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Recurring Nightmare" => Card {
+                name,
+                card_type: CardType::Enchantment,
+                cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Seal of Cleansing" => Card {
+                name,
+                card_type: CardType::Enchantment,
+                cost: HashMap::from([(Mana::White, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "City of Solitude" => Card {
+                name,
+                card_type: CardType::Enchantment,
+                cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Engineered Plague" => Card {
+                name,
+                card_type: CardType::Enchantment,
+                cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
             "Goblin Bombardment" => Card {
                 name,
                 card_type: CardType::Enchantment,
@@ -222,6 +258,12 @@ impl Card {
                 name,
                 card_type: CardType::Sorcery,
                 cost: HashMap::from([(Mana::Black, 1)]),
+                ..Default::default()
+            },
+            "Swords to Plowshares" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::White, 1)]),
                 ..Default::default()
             },
             "Worldly Tutor" => Card {
@@ -390,6 +432,13 @@ impl Card {
                 name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Ravenous Baloth" => Card {
+                name,
+                card_type: CardType::Creature,
+                sub_types: vec![SubType::Beast],
+                cost: HashMap::from([(Mana::Green, 2), (Mana::Colorless, 2)]),
                 ..Default::default()
             },
             "Naturalize" => Card {

@@ -325,11 +325,56 @@ impl PatternRector {
 
 impl Strategy for PatternRector {
     fn decklist() -> Decklist {
+        // Decklist {
+        //     maindeck: vec![
+        //         ("Birds of Paradise", 4),
+        //         ("Veteran Explorer", 4),
+        //         ("Carrion Feeder", 3),
+        //         ("Nantuko Husk", 2),
+        //         ("Academy Rector", 3),
+        //         ("Mesmeric Fiend", 2),
+        //         ("Xantid Swarm", 1),
+
+        //         ("Volrath's Shapeshifter", 1),
+        //         ("Body Snatcher", 1),
+        //         ("Iridescent Drake", 1),
+        //         ("Karmic Guide", 2),
+        //         ("Cabal Therapy", 4),
+        //         ("Living Wish", 4),
+        //         ("Goblin Bombardment", 1),
+        //         ("Pernicious Deed", 1),
+        //         ("Recurring Nightmare", 1),
+        //         ("Pattern of Rebirth", 4),
+
+        //         ("City of Brass", 4),
+        //         ("Gemstone Mine", 3),
+        //         ("Llanowar Wastes", 4),
+        //         ("Brushland", 1),
+        //         ("Caves of Koilos", 1),
+        //         ("Forest", 6),
+        //         ("Plains", 1),
+        //         ("Swamp", 1),
+        //     ],
+        //     sideboard: vec![
+        //         ("Carrion Feeder", 1),
+        //         ("Xantid Swarm", 1),
+        //         ("Mesmeric Fiend", 1),
+        //         ("Monk Realist", 1),
+        //         ("Uktabi Orangutan", 1),
+        //         ("Academy Rector", 1),
+        //         ("Ravenous Baloth", 1),
+        //         ("Swords to Plowshares", 2),
+        //         ("Naturalize", 2),
+        //         ("Seal of Cleansing", 1),
+        //         ("City of Solitude", 1),
+        //         ("Engineered Plague", 1),
+        //         ("Worship", 1),
+        //     ],
+        // }
         Decklist {
             maindeck: vec![
                 ("Birds of Paradise", 4),
-                ("Llanowar Elves", 2),
-                ("Veteran Explorer", 4),
+                ("Llanowar Elves", 3),
                 ("Carrion Feeder", 4),
                 ("Nantuko Husk", 3),
                 ("Phyrexian Ghoul", 1),
@@ -338,7 +383,7 @@ impl Strategy for PatternRector {
                 // ("Enlightened Tutor", 3),
                 // ("Worldly Tutor", 3),
                 // ("Elvish Spirit Guide", 3),
-                // ("Mesmeric Fiend", 3),
+                ("Mesmeric Fiend", 3),
                 ("Iridescent Drake", 1),
                 ("Karmic Guide", 2),
                 ("Caller of the Claw", 1),
@@ -401,6 +446,11 @@ impl Strategy for PatternRector {
             .iter()
             .any(|card| is_battlefield(&card) && is_named(&card, "Goblin Bombardment"));
 
+        let is_goblin_bombardment_in_hand = game
+            .game_objects
+            .iter()
+            .any(|card| is_hand(&card) && is_named(&card, "Goblin Bombardment"));
+
         // Make sure required combo pieces are still in library
         // NOTE: This is not be 100% accurate, and is probably missing some lines that
         // involve just playing out the cards from hand.
@@ -431,7 +481,8 @@ impl Strategy for PatternRector {
             && *count_in_library.get("Akroma, Angel of Wrath").unwrap() >= 1
             && *count_in_library.get("Caller of the Claw").unwrap() >= 1;
 
-        if !simple_kill_available && !main_kill_available && !backup_kill_available {
+        // TODO: This doesn't seem to be accurate
+        if !simple_kill_available && !main_kill_available && !backup_kill_available && !is_goblin_bombardment_in_hand {
             debug!(
                 "[Turn {turn:002}][Game]: Can't combo anymore, lost the game!",
                 turn = game.turn
@@ -440,6 +491,10 @@ impl Strategy for PatternRector {
         }
 
         // Winning combinations:
+
+        // TODO: Treat Bombardment + Karmic Guide loop as a wincon.
+
+        // TODO: Add a flag to toggle treating a non-summoning sick Carrion Feeded / Nantuko Husk attacker as wincon
 
         // 1) At least one sac outlet + Pattern of Rebirth on another
         if status.multi_use_sac_outlets >= 1

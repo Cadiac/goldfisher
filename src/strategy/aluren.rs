@@ -140,7 +140,7 @@ impl Strategy for Aluren {
                 ("Aluren", 4),
                 ("City of Brass", 4),
                 ("Gemstone Mine", 3),
-                ("Hickory Woodlot", 4),
+                ("Hickory Woodlot", 4), // TODO: These don't enter tapped yet
                 ("Llanowar Wastes", 2),
                 ("Underground River", 2),
                 ("Yavimaya Coast", 3),
