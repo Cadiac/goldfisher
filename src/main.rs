@@ -68,7 +68,7 @@ fn main() {
 
 fn simulate_game(strategy: &impl Strategy) -> GameStatus {
     debug!("====================[ START OF GAME ]=======================");
-    let mut game = GameState::new(Aluren::decklist());
+    let mut game = GameState::new(strategy.decklist());
 
     game.find_starting_hand(strategy);
 

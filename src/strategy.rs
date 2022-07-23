@@ -9,6 +9,7 @@ pub mod aluren;
 pub mod pattern_rector;
 
 pub trait Strategy {
+    fn decklist(&self) -> Decklist;
     fn game_status(&self, game: &GameState) -> GameStatus;
     fn is_keepable_hand(&self, game: &GameState, mulligan_count: usize) -> bool;
     fn take_game_action(&self, game: &mut GameState) -> bool;
@@ -40,7 +41,6 @@ pub trait Strategy {
         cards: HashMap<String, Vec<CardRef>>,
     ) -> Option<CardRef>;
     fn discard_to_hand_size(&self, game: &GameState, hand_size: usize) -> Vec<CardRef>;
-    fn decklist() -> Decklist;
 }
 
 #[cfg(test)]

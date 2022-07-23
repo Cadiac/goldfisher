@@ -146,8 +146,11 @@ impl GameState {
     pub fn untap(&mut self) {
         for card in self.game_objects.iter() {
             let mut card = card.borrow_mut();
-            card.is_summoning_sick = false;
-            card.is_tapped = false;
+
+            if card.zone == Zone::Battlefield {
+                card.is_summoning_sick = false;
+                card.is_tapped = false;
+            }
         }
     }
 
@@ -760,5 +763,30 @@ mod tests {
                 spent.is_tapped = true;
             }
         }
+    }
+
+    #[test]
+    fn it_plays_taplands_correctly() {
+        let tapland = Card::new_with_zone("Hickory Woodlot", Zone::Hand);
+        let llanowar_elves = Card::new_with_zone("Llanowar Elves", Zone::Hand);
+
+        let mut game = GameState {
+            deck: Deck::from(Decklist { maindeck: vec![], sideboard: vec![] }),
+            game_objects: vec![tapland.clone(), llanowar_elves.clone()],
+            turn: 0,
+            life_total: 20,
+            damage_dealt: 0,
+            floating_mana: HashMap::new(),
+            is_first_player: true,
+            available_land_drops: 1,
+        };
+
+        game.play_land(tapland.clone());
+        
+        assert_eq!(Zone::Battlefield, tapland.borrow().zone);
+        assert_eq!(true, tapland.borrow().is_tapped);
+
+        let castable = game.find_castable();
+        assert_eq!(true, castable.is_empty());
     }
 }

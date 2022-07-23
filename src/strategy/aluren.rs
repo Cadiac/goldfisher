@@ -121,7 +121,7 @@ impl Aluren {
 }
 
 impl Strategy for Aluren {
-    fn decklist() -> Decklist {
+    fn decklist(&self) -> Decklist {
         Decklist {
             maindeck: vec![
                 ("Birds of Paradise", 4),
@@ -314,8 +314,12 @@ impl Strategy for Aluren {
                     return card;
                 }
             }
-            if status.raven_familiars == 0 {
+            if status.wirewood_savages == 0 && status.raven_familiars == 0 {
                 let card = find_named(&cards, "Raven Familiar");
+                if card.is_some() {
+                    return card;
+                }
+                let card = find_named(&cards, "Wirewood Savage");
                 if card.is_some() {
                     return card;
                 }
@@ -610,13 +614,13 @@ impl Strategy for Aluren {
 mod tests {
     use super::*;
 
-    fn setup_game(cards_and_zones: Vec<(&str, Zone)>) -> GameState {
-        let game = GameState::new(Aluren::decklist());
+    fn setup_game(cards_and_zones: Vec<(&str, Zone)>, strategy: &impl Strategy) -> GameState {
+        let game = GameState::new(strategy.decklist());
 
         for (name, zone) in cards_and_zones {
             game.game_objects
                 .iter()
-                .find(|card| card.borrow().name == name)
+                .find(|card| card.borrow().name == name && card.borrow().zone != zone)
                 .map(|card| card.borrow_mut().zone = zone);
         }
 
@@ -624,7 +628,8 @@ mod tests {
     }
 
     fn assert_best_card(expected: &str, cards_and_zones: Vec<(&str, Zone)>) {
-        let game = setup_game(cards_and_zones);
+        let strategy = Aluren {};
+        let game = setup_game(cards_and_zones, &strategy);
         let cards = group_by_name(
             game.game_objects
                 .iter()
@@ -639,22 +644,71 @@ mod tests {
         assert_eq!(expected, best_card.unwrap().borrow().name);
     }
 
-    #[test]
-    fn it_finds_correct_best_cards() {
-        assert_best_card("Aluren", vec![]);
-        assert_best_card("Cavern Harpy", vec![("Aluren", Zone::Hand)]);
-        assert_best_card(
-            "Raven Familiar",
-            vec![("Aluren", Zone::Hand), ("Cavern Harpy", Zone::Hand)],
+    fn assert_best_card_from_sideboard(expected: &str, cards_and_zones: Vec<(&str, Zone)>) {
+        let strategy = Aluren {};
+        let game = setup_game(cards_and_zones, &strategy);
+        let cards = group_by_name(
+            game.deck
+                .sideboard
+                .iter()
+                .filter(|card| {
+                    card.borrow().card_type == CardType::Creature
+                        || card.borrow().card_type == CardType::Land
+                })
+                .cloned()
+                .collect(),
         );
 
+        let best_card = Aluren {}.find_best_card(&game, cards);
+
+        assert_eq!(true, best_card.is_some());
+        assert_eq!(expected, best_card.unwrap().borrow().name);
+    }
+
+    #[test]
+    fn it_finds_correct_best_cards_without_aluren() {
+        assert_best_card("Aluren", vec![]);
+        assert_best_card("City of Brass", vec![("Aluren", Zone::Hand)]);
+        assert_best_card(
+            "Cavern Harpy",
+            vec![
+                ("Aluren", Zone::Hand),
+                ("City of Brass", Zone::Hand),
+                ("City of Brass", Zone::Hand),
+                ("City of Brass", Zone::Hand),
+                ("City of Brass", Zone::Hand),
+            ],
+        );
+        assert_best_card(
+            "Raven Familiar",
+            vec![
+                ("Aluren", Zone::Hand),
+                ("Cavern Harpy", Zone::Hand),
+                ("City of Brass", Zone::Hand),
+                ("City of Brass", Zone::Hand),
+                ("City of Brass", Zone::Hand),
+                ("City of Brass", Zone::Hand),
+            ],
+        );
+    }
+
+    #[test]
+    fn it_finds_correct_best_cards_with_aluren() {
         assert_best_card("Cavern Harpy", vec![("Aluren", Zone::Battlefield)]);
         assert_best_card(
-            "Wirewood Savage",
+            "Soul Warden",
             vec![("Aluren", Zone::Battlefield), ("Cavern Harpy", Zone::Hand)],
         );
         assert_best_card(
-            "Raven Familiar",
+            "Wirewood Savage",
+            vec![
+                ("Aluren", Zone::Battlefield),
+                ("Cavern Harpy", Zone::Hand),
+                ("Soul Warden", Zone::Hand),
+            ],
+        );
+        assert_best_card(
+            "Soul Warden",
             vec![
                 ("Aluren", Zone::Battlefield),
                 ("Cavern Harpy", Zone::Hand),
@@ -669,5 +723,15 @@ mod tests {
                 ("Raven Familiar", Zone::Battlefield),
             ],
         );
+        // Maggot carrier is found from sideboard
+        assert_best_card_from_sideboard(
+            "Maggot Carrier",
+            vec![
+                ("Aluren", Zone::Battlefield),
+                ("Cavern Harpy", Zone::Hand),
+                ("Raven Familiar", Zone::Battlefield),
+                ("Soul Warden", Zone::Battlefield),
+            ],
+        )
     }
 }

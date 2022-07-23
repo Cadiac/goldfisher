@@ -324,7 +324,7 @@ impl PatternRector {
 }
 
 impl Strategy for PatternRector {
-    fn decklist() -> Decklist {
+    fn decklist(&self) -> Decklist {
         // Decklist {
         //     maindeck: vec![
         //         ("Birds of Paradise", 4),
