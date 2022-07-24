@@ -80,27 +80,27 @@ pub struct Deck {
 }
 
 impl Deck {
-    pub fn new(decklist: Decklist) -> Result<Self, ParseDeckError> {
+    pub fn new(decklist: &Decklist) -> Result<Self, ParseDeckError> {
         let mut maindeck = Vec::with_capacity(60);
         let mut sideboard = Vec::with_capacity(15);
 
-        for (card_name, quantity) in decklist.maindeck {
-            let card = Card::new(&card_name).or_else(|msg| {
+        for (card_name, quantity) in decklist.maindeck.iter() {
+            let card = Card::new(card_name).or_else(|msg| {
                 Err(ParseDeckError(format!("failed to create deck: {msg}")))
             })?;
 
-            for _ in 0..quantity {
+            for _ in 0..*quantity {
                 maindeck.push(Rc::new(RefCell::new(card.clone())));
             }
         }
 
-        for (card_name, quantity) in decklist.sideboard {
-            let mut card = Card::new(&card_name).or_else(|msg| {
+        for (card_name, quantity) in decklist.sideboard.iter() {
+            let mut card = Card::new(card_name).or_else(|msg| {
                 Err(ParseDeckError(format!("failed to create deck: {msg}")))
             })?;
             card.zone = Zone::Outside;
 
-            for _ in 0..quantity {
+            for _ in 0..*quantity {
                 sideboard.push(Rc::new(RefCell::new(card.clone())));
             }
         }

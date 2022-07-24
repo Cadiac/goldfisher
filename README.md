@@ -18,11 +18,14 @@ USAGE:
     goldfisher [OPTIONS] --strategy <STRATEGY>
 
 OPTIONS:
+    -d, --decklist <DECKLIST>    Path to custom decklist file
     -g, --games <GAMES>          Number of games to simulate [default: 100]
     -h, --help                   Print help information
-    -s, --strategy <STRATEGY>    [possible values: pattern-hulk, aluren]
-    -v, --verbose                
+    -s, --strategy <STRATEGY>    The name of the deck strategy to use [possible values:
+                                 pattern-hulk, aluren]
+    -v, --verbose                Print game actions debug output (slow)
     -V, --version                Print version information
+
 ```
 
 You can run debug builds of the tool with
@@ -37,10 +40,16 @@ For faster simulations adjust the `simulated_games` variable in `main.rs` and ru
 $ cargo run --release --strategy pattern-hulk --games 100000
 ```
 
+To use your own custom decklist provide a path to the file:
+
+```console
+$ cargo run --release --strategy pattern-hulk --games 100000 -d ./path/to/your/decklist.txt
+```
+
 ## Supported mechanics and deck strategies
 
-- [ ] Selecting used strategy with a parameter
-- [ ] Reading decklist from a file
+- [x] Selecting used strategy with a parameter
+- [x] Reading decklist from a file
 - [ ] Tracking damage taken from lands
 - [ ] Playing lands that produce most / best cards that can be played
 - [ ] Echo payments

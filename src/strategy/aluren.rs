@@ -9,6 +9,8 @@ use crate::mana::PaymentAndFloating;
 use crate::strategy::Strategy;
 use crate::utils::*;
 
+const DEFAULT_DECKLIST: &str = include_str!("../../resources/aluren.txt");
+
 struct ComboStatus {
     mana_sources: usize,
     lands: usize,
@@ -20,8 +22,6 @@ struct ComboStatus {
     soul_wardens: usize,
     maggot_carriers: usize,
 }
-
-const DEFAULT_DECKLIST: &str = include_str!("../../resources/aluren.txt");
 
 pub struct Aluren {}
 
@@ -123,7 +123,7 @@ impl Aluren {
 }
 
 impl Strategy for Aluren {
-    fn decklist(&self) -> Decklist {
+    fn default_decklist(&self) -> Decklist {
         DEFAULT_DECKLIST.parse::<Decklist>().unwrap()
     }
 
@@ -686,7 +686,7 @@ mod tests {
     use super::*;
 
     fn setup_game(cards_and_zones: Vec<(&str, Zone)>, strategy: &impl Strategy) -> GameState {
-        let game = GameState::new(strategy.decklist());
+        let game = GameState::new(&strategy.default_decklist());
 
         for (name, zone) in cards_and_zones {
             game.game_objects

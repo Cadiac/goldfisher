@@ -1,9 +1,12 @@
 use clap::Parser;
 use env_logger::Env;
 use std::collections::HashMap;
+use std::fs;
+use std::error::Error;
 
 use goldfisher::game::{GameState, GameStatus};
 use goldfisher::strategy::{Strategy, pattern_hulk, aluren};
+use goldfisher::deck::Decklist;
 
 #[macro_use]
 extern crate log;
@@ -21,14 +24,20 @@ struct Args {
     #[clap(short, long, value_parser, default_value_t = 100)]
     games: u32,
 
+    /// Print game actions debug output (slow)
     #[clap(short, long, action)]
     verbose: bool,
 
+    /// The name of the deck strategy to use.
     #[clap(short, long, value_enum)]
     strategy: DeckStrategy,
+
+    /// Path to custom decklist file
+    #[clap(short, long)]
+    decklist: Option<String>,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let cli = Args::parse();
     init_logger(cli.verbose);
 
@@ -41,8 +50,13 @@ fn main() {
         DeckStrategy::Aluren => Box::new(aluren::Aluren {}),
     };
 
+    let decklist: Decklist = match cli.decklist {
+        Some(path) => fs::read_to_string(path)?.parse()?,
+        None => strategy.default_decklist()
+    };
+
     for _ in 0..simulated_games {
-        match simulate_game(&strategy) {
+        match simulate_game(&strategy, &decklist) {
             GameStatus::Continue => panic!("stuck game"),
             GameStatus::Win(turn) => *win_statistics.entry(turn).or_insert(0) += 1,
             GameStatus::Lose(turn) => *loss_statistics.entry(turn).or_insert(0) += 1,
@@ -73,11 +87,13 @@ fn main() {
         loss_cumulative += loss_percentage;
         info!("Turn {turn:002}: {losses} losses ({loss_percentage:.1}%) - cumulative {loss_cumulative:.1}%");
     }
+
+    Ok(())
 }
 
-fn simulate_game(strategy: &Box<dyn Strategy>) -> GameStatus {
+fn simulate_game(strategy: &Box<dyn Strategy>, decklist: &Decklist) -> GameStatus {
     debug!("====================[ START OF GAME ]=======================");
-    let mut game = GameState::new(strategy.decklist());
+    let mut game = GameState::new(decklist);
 
     game.find_starting_hand(strategy);
 

@@ -326,7 +326,7 @@ impl PatternHulk {
 }
 
 impl Strategy for PatternHulk {
-    fn decklist(&self) -> Decklist {
+    fn default_decklist(&self) -> Decklist {
         DEFAULT_DECKLIST.parse::<Decklist>().unwrap()
     }
 

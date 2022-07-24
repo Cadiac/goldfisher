@@ -9,7 +9,7 @@ pub mod aluren;
 pub mod pattern_hulk;
 
 pub trait Strategy {
-    fn decklist(&self) -> Decklist;
+    fn default_decklist(&self) -> Decklist;
     fn game_status(&self, game: &GameState) -> GameStatus {
         if game.life_total <= 0 && game.damage_dealt >= 20 {
             return GameStatus::Draw(game.turn);
@@ -100,7 +100,7 @@ mod tests {
         game_objects.shuffle(&mut thread_rng());
 
         let mut game = GameState {
-            deck: Deck::new(Decklist { maindeck: vec![], sideboard: vec![] }).unwrap(),
+            deck: Deck::new(&Decklist { maindeck: vec![], sideboard: vec![] }).unwrap(),
             game_objects,
             turn: 0,
             life_total: 20,

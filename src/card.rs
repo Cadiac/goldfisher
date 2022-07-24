@@ -232,7 +232,19 @@ impl Card {
             "Engineered Plague" => Card {
                 name,
                 card_type: CardType::Enchantment,
-                cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 1)]),
+                cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Circle of Protection: Red" => Card {
+                name,
+                card_type: CardType::Enchantment,
+                cost: HashMap::from([(Mana::White, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Warmth" => Card {
+                name,
+                card_type: CardType::Enchantment,
+                cost: HashMap::from([(Mana::White, 1), (Mana::Colorless, 1)]),
                 ..Default::default()
             },
             "Goblin Bombardment" => Card {
