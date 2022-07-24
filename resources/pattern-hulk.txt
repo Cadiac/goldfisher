@@ -1,0 +1,37 @@
+1 Phyrexian Ghoul
+2 Karmic Guide
+2 Volrath's Shapeshifter
+1 Worship
+1 Caves of Koilos
+4 Carrion Feeder
+3 Nantuko Husk
+2 Phyrexian Tower
+3 Mesmeric Fiend
+1 Caller of the Claw
+4 Birds of Paradise
+4 Pattern of Rebirth
+4 Cabal Therapy
+1 Iridescent Drake
+2 Yavimaya Coast
+3 Llanowar Elves
+4 Academy Rector
+1 Body Snatcher
+1 Akroma, Angel of Wrath
+1 Goblin Bombardment
+2 Forest
+2 Gemstone Mine
+1 Plains
+1 Reflecting Pool
+1 Swamp
+4 City of Brass
+4 Llanowar Wastes
+
+// Sideboard
+3 Duress
+2 Engineered Plague
+2 Circle of Protection: Red
+2 Xantid Swarm
+2 Swords to Plowshares
+2 Naturalize
+1 Warmth
+1 Seal of Cleansing

@@ -81,10 +81,10 @@ pub struct Card {
 }
 
 impl Card {
-    pub fn new(card_name: &str) -> Card {
+    pub fn new(card_name: &str) -> Result<Card, String> {
         let name = card_name.to_owned();
 
-        match name.as_str() {
+        let card = match name.as_str() {
             "Llanowar Elves" => Card {
                 name,
                 card_type: CardType::Creature,
@@ -623,16 +623,20 @@ impl Card {
                 produced_mana: HashMap::from([(Mana::White, 1), (Mana::Black, 1)]),
                 ..Default::default()
             },
-            name => unimplemented!("{}", name),
-        }
+            name => {
+                return Err(format!("unimplemented card: \"{name}\""));
+            }
+        };
+
+        Ok(card)
     }
 
     pub fn new_as_ref(name: &str) -> CardRef {
-        Rc::new(RefCell::new(Card::new(name)))
+        Rc::new(RefCell::new(Card::new(name).unwrap()))
     }
 
     pub fn new_with_zone(name: &str, zone: Zone) -> CardRef {
-        let mut card = Card::new(name);
+        let mut card = Card::new(name).unwrap();
         card.zone = zone;
         Rc::new(RefCell::new(card))
     }

@@ -7,7 +7,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'goldfisher'",
+            "name": "Debug 'Aluren' with executable 'goldfisher'",
             "cargo": {
                 "args": [
                     "build",
@@ -19,7 +19,25 @@
                     "kind": "bin"
                 }
             },
-            "args": ["--games", "1", "-v"],
+            "args": ["--strategy", "aluren", "--games", "1", "-v"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug 'Pattern Hulk' with executable 'goldfisher'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=goldfisher",
+                    "--package=goldfisher"
+                ],
+                "filter": {
+                    "name": "goldfisher",
+                    "kind": "bin"
+                }
+            },
+            "args": ["--strategy", "pattern-hulk", "--games", "1", "-v"],
             "cwd": "${workspaceFolder}"
         },
         {

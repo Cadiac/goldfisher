@@ -1,0 +1,38 @@
+4 Birds of Paradise
+4 Cabal Therapy
+1 Soul Warden
+2 Unearth
+3 Cavern Harpy
+1 Cloud of Faeries
+4 Impulse
+4 Living Wish
+1 Ray of Revelation
+2 Wall of Roots
+4 Intuition
+3 Raven Familiar
+1 Wirewood Savage
+4 Aluren
+4 City of Brass
+3 Gemstone Mine
+4 Hickory Woodlot
+2 Llanowar Wastes
+2 Underground River
+3 Yavimaya Coast
+2 Forest
+1 Swamp
+1 Island
+
+// Sideboard
+1 Cavern Harpy
+1 Wirewood Savage
+1 Soul Warden
+1 Maggot Carrier
+1 Raven Familiar
+1 Auramancer
+1 Monk Realist
+1 Plague Spitter
+2 Naturalize
+1 Crippling Fatigue
+1 Uktabi Orangutan
+1 Bone Shredder
+2 Hydroblast
