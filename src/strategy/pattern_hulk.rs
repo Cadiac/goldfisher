@@ -22,9 +22,9 @@ struct ComboStatus {
     pattern_on_sac_outlet: bool,
 }
 
-pub struct PatternRector {}
+pub struct PatternHulk {}
 
-impl PatternRector {
+impl PatternHulk {
     fn cast_pattern_of_rebirth(&self, game: &mut GameState) -> bool {
         let castable = game.find_castable();
 
@@ -323,7 +323,7 @@ impl PatternRector {
     }
 }
 
-impl Strategy for PatternRector {
+impl Strategy for PatternHulk {
     fn decklist(&self) -> Decklist {
         // Decklist {
         //     maindeck: vec![

@@ -2,10 +2,10 @@
 
 This tool aims to [goldfish](https://mtg.fandom.com/wiki/Goldfishing) the fastest possible wins with the given decks in non-interactive games of Magic: The Gathering. This data can be used to gather statistics on average winning turns with different versions of the decks, helping to gauge effects of deck building.
 
-For now, the only supported deck is my build of [Premodern Pattern Rector](https://scryfall.com/@Cadiac/decks/79289c7a-f60c-4eff-809e-d83f86dd37c0), which contains a deterministic combo kill if the following condition is met:
+For now, the only supported deck is my build of [Premodern Pattern Hulk](https://scryfall.com/@Cadiac/decks/79289c7a-f60c-4eff-809e-d83f86dd37c0), which contains a deterministic combo kill if the following condition is met:
 1. Any repeatable sac outlet is available
 2. You control a creature that isn't the sac outlet
-3. You resolve a Pattern of Rector on the creature or you have Academy Rector on the battlefield
+3. You resolve a Pattern of Rebirth on the creature or you have Academy Rector on the battlefield
 
 ## Installation
 
@@ -15,29 +15,32 @@ Follow [Rust](https://www.rust-lang.org/en-US/install.html) installation instruc
 
 ```console
 USAGE:
-    goldfisher [OPTIONS]
+    goldfisher [OPTIONS] --strategy <STRATEGY>
 
 OPTIONS:
-    -g, --games <GAMES>    Number of games to simulate [default: 100]
-    -h, --help             Print help information
-    -v, --verbose          
-    -V, --version          Print version information
+    -g, --games <GAMES>          Number of games to simulate [default: 100]
+    -h, --help                   Print help information
+    -s, --strategy <STRATEGY>    [possible values: pattern-hulk, aluren]
+    -v, --verbose                
+    -V, --version                Print version information
 ```
 
 You can run debug builds of the tool with
 
 ```console
-$ cargo run -- --games 10 -v
+$ cargo run -- --strategy pattern-hulk --games 10 -v
 ```
 
 For faster simulations adjust the `simulated_games` variable in `main.rs` and run executable as release build:
 
 ```console
-$ cargo run --release --games 100000
+$ cargo run --release --strategy pattern-hulk --games 100000
 ```
 
 ## Supported mechanics and deck strategies
 
+- [ ] Selecting used strategy with a parameter
+- [ ] Reading decklist from a file
 - [ ] Tracking damage taken from lands
 - [ ] Playing lands that produce most / best cards that can be played
 - [ ] Echo payments

@@ -3,12 +3,16 @@ use env_logger::Env;
 use std::collections::HashMap;
 
 use goldfisher::game::{GameState, GameStatus};
-use goldfisher::strategy::{Strategy};
-// use goldfisher::strategy::pattern_rector::PatternRector;
-use goldfisher::strategy::aluren::Aluren;
+use goldfisher::strategy::{Strategy, pattern_hulk, aluren};
 
 #[macro_use]
 extern crate log;
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+enum DeckStrategy {
+    PatternHulk,
+    Aluren,
+}
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -19,6 +23,9 @@ struct Args {
 
     #[clap(short, long, action)]
     verbose: bool,
+
+    #[clap(short, long, value_enum)]
+    strategy: DeckStrategy,
 }
 
 fn main() {
@@ -29,8 +36,10 @@ fn main() {
     let mut loss_statistics: HashMap<usize, usize> = HashMap::new();
     let simulated_games = cli.games;
 
-    // let strategy = PatternRector {};
-    let strategy = Aluren {};
+    let strategy: Box<dyn Strategy> = match cli.strategy {
+        DeckStrategy::PatternHulk => Box::new(pattern_hulk::PatternHulk {}),
+        DeckStrategy::Aluren => Box::new(aluren::Aluren {}),
+    };
 
     for _ in 0..simulated_games {
         match simulate_game(&strategy) {
@@ -66,7 +75,7 @@ fn main() {
     }
 }
 
-fn simulate_game(strategy: &impl Strategy) -> GameStatus {
+fn simulate_game(strategy: &Box<dyn Strategy>) -> GameStatus {
     debug!("====================[ START OF GAME ]=======================");
     let mut game = GameState::new(strategy.decklist());
 

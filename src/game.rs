@@ -154,7 +154,7 @@ impl GameState {
         }
     }
 
-    pub fn take_game_actions(&mut self, strategy: &impl Strategy) -> GameStatus {
+    pub fn take_game_actions(&mut self, strategy: &Box<dyn Strategy>) -> GameStatus {
         loop {
             let action_taken = strategy.take_game_action(self);
             match strategy.game_status(self) {
@@ -519,7 +519,7 @@ impl GameState {
             .count()
     }
 
-    pub fn cleanup(&mut self, strategy: &impl Strategy) {
+    pub fn cleanup(&mut self, strategy: &Box<dyn Strategy>) {
         let cards_to_discard = strategy.discard_to_hand_size(self, 7);
         if !cards_to_discard.is_empty() {
             debug!(
@@ -545,7 +545,7 @@ impl GameState {
         self.turn += 1;
     }
 
-    pub fn find_starting_hand(&mut self, strategy: &impl Strategy) {
+    pub fn find_starting_hand(&mut self, strategy: &Box<dyn Strategy>) {
         let mut mulligan_count = 0;
 
         loop {

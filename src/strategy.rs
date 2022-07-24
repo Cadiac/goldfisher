@@ -6,7 +6,7 @@ use crate::game::{GameState, GameStatus};
 use crate::utils::*;
 
 pub mod aluren;
-pub mod pattern_rector;
+pub mod pattern_hulk;
 
 pub trait Strategy {
     fn decklist(&self) -> Decklist;
@@ -76,7 +76,7 @@ mod tests {
 
     use crate::card::{Card, Zone};
     use crate::deck::{Deck, Decklist};
-    use crate::strategy::pattern_rector::{PatternRector};
+    use crate::strategy::pattern_hulk::{PatternHulk};
     
     use rand::seq::SliceRandom;
     use rand::thread_rng;
@@ -110,7 +110,7 @@ mod tests {
             available_land_drops: 10,
         };
 
-        let strategy = PatternRector{};
+        let strategy = PatternHulk{};
 
         for land_drops in 1..=10 {
             assert_eq!(true, strategy.play_land(&mut game));
