@@ -36,6 +36,36 @@ For faster simulations adjust the `simulated_games` variable in `main.rs` and ru
 $ cargo run --release --games 100000
 ```
 
+## Supported mechanics and deck strategies
+
+- [ ] Tracking damage taken from lands
+- [ ] Playing lands that produce most / best cards that can be played
+- [ ] Echo payments
+- [ ] Cycling
+- [ ] Flashback
+
+### Pattern Hulk (Premodern)
+
+- [x] Determining winning boardstate
+- [x] Living Wish
+- [x] Worldly Tutor
+- [ ] Intuition
+- [ ] Unwinnable games
+- [ ] Wins by combat
+- [ ] Actually simulating the kills
+
+### Aluren (Premodern)
+
+- [x] Free creature spells with Aluren
+- [x] Tracking damage taken from Cavern Harpy and Maggot Carrier
+- [x] Intuition
+- [x] Living Wish
+- [x] Impulse / Raven Familiar
+- [ ] Tracking damage taken from lands
+- [ ] Considering impact of tutors and Impulses when taking mulligans
+- [ ] Returning Aluren from graveyard with Auramancer
+- [ ] Fact or Fiction
+
 ## Example game
 
 ```
@@ -75,7 +105,7 @@ $ cargo run --release --games 100000
 [DEBUG] [Turn 03][Graveyard]: 
 ```
 
-## Results
+## Example results
 
 ```
 [INFO ] =======================[ RESULTS ]==========================
