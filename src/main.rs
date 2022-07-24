@@ -1,12 +1,12 @@
 use clap::Parser;
 use env_logger::Env;
 use std::collections::HashMap;
-use std::fs;
 use std::error::Error;
+use std::fs;
 
-use goldfisher::game::{GameState, GameStatus};
-use goldfisher::strategy::{Strategy, pattern_hulk, aluren};
 use goldfisher::deck::Decklist;
+use goldfisher::game::{GameState, GameStatus};
+use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
 
 #[macro_use]
 extern crate log;
@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let decklist: Decklist = match cli.decklist {
         Some(path) => fs::read_to_string(path)?.parse()?,
-        None => strategy.default_decklist()
+        None => strategy.default_decklist(),
     };
 
     for _ in 0..simulated_games {
@@ -70,7 +70,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     wins_by_turn.sort();
     losses_by_turn.sort();
 
+    let total_wins: usize = wins_by_turn.iter().map(|(_, wins)| *wins).sum();
+    let average_turn = wins_by_turn
+        .iter()
+        .map(|(turn, wins)| *turn * *wins)
+        .sum::<usize>() as f32
+        / total_wins as f32;
+
     info!("=======================[ RESULTS ]==========================");
+    info!("                   Average turn: {average_turn:.2}");
     info!("              Wins per turn after {simulated_games} games:");
     info!("============================================================");
 
@@ -109,14 +117,14 @@ fn simulate_game(strategy: &Box<dyn Strategy>, decklist: &Decklist) -> GameStatu
 
         match game.draw() {
             GameStatus::Continue => (),
-            result => break result
+            result => break result,
         }
 
         game.print_game_state();
 
         match game.take_game_actions(strategy) {
             GameStatus::Continue => (),
-            result => break result
+            result => break result,
         }
 
         game.cleanup(strategy);

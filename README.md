@@ -50,6 +50,7 @@ $ cargo run --release --strategy pattern-hulk --games 100000 -d ./path/to/your/d
 
 - [x] Selecting used strategy with a parameter
 - [x] Reading decklist from a file
+- [x] Average turn
 - [ ] Tracking damage taken from lands
 - [ ] Playing lands that produce most / best cards that can be played
 - [ ] Echo payments
