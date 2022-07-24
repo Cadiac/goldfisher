@@ -21,6 +21,8 @@ struct ComboStatus {
     maggot_carriers: usize,
 }
 
+const DEFAULT_DECKLIST: &str = include_str!("../../resources/aluren.txt");
+
 pub struct Aluren {}
 
 impl Aluren {
@@ -122,48 +124,7 @@ impl Aluren {
 
 impl Strategy for Aluren {
     fn decklist(&self) -> Decklist {
-        Decklist {
-            maindeck: vec![
-                ("Birds of Paradise", 4),
-                ("Cabal Therapy", 4),
-                ("Soul Warden", 1),
-                ("Unearth", 2),
-                ("Cavern Harpy", 3),
-                ("Cloud of Faeries", 1),
-                ("Impulse", 4),
-                ("Living Wish", 4),
-                ("Ray of Revelation", 1),
-                ("Wall of Roots", 2),
-                ("Intuition", 4),
-                ("Raven Familiar", 3),
-                ("Wirewood Savage", 1),
-                ("Aluren", 4),
-                ("City of Brass", 4),
-                ("Gemstone Mine", 3),
-                ("Hickory Woodlot", 4), // TODO: These don't enter tapped yet
-                ("Llanowar Wastes", 2),
-                ("Underground River", 2),
-                ("Yavimaya Coast", 3),
-                ("Forest", 2),
-                ("Swamp", 1),
-                ("Island", 1),
-            ],
-            sideboard: vec![
-                ("Cavern Harpy", 1),
-                ("Wirewood Savage", 1),
-                ("Soul Warden", 1),
-                ("Maggot Carrier", 1),
-                ("Raven Familiar", 1),
-                ("Auramancer", 1),
-                ("Monk Realist", 1),
-                ("Plague Spitter", 1),
-                ("Naturalize", 2),
-                ("Crippling Fatigue", 1),
-                ("Uktabi Orangutan", 1),
-                ("Bone Shredder", 1),
-                ("Hydroblast", 2),
-            ],
-        }
+        DEFAULT_DECKLIST.parse::<Decklist>().unwrap()
     }
 
     fn is_keepable_hand(&self, game: &GameState, mulligan_count: usize) -> bool {

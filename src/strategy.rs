@@ -100,7 +100,7 @@ mod tests {
         game_objects.shuffle(&mut thread_rng());
 
         let mut game = GameState {
-            deck: Deck::from(Decklist { maindeck: vec![], sideboard: vec![] }),
+            deck: Deck::new(Decklist { maindeck: vec![], sideboard: vec![] }).unwrap(),
             game_objects,
             turn: 0,
             life_total: 20,

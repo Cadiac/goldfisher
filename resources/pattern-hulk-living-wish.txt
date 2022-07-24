@@ -1,0 +1,40 @@
+4 Birds of Paradise
+4 Veteran Explorer
+3 Carrion Feeder
+2 Nantuko Husk
+3 Academy Rector
+2 Mesmeric Fiend
+1 Xantid Swarm
+1 Volrath's Shapeshifter
+1 Body Snatcher
+1 Iridescent Drake
+2 Karmic Guide
+4 Cabal Therapy
+4 Living Wish
+1 Goblin Bombardment
+1 Pernicious Deed
+1 Recurring Nightmare
+4 Pattern of Rebirth
+4 City of Brass
+3 Gemstone Mine
+4 Llanowar Wastes
+1 Brushland
+1 Caves of Koilos
+6 Forest
+1 Plains
+1 Swamp
+
+// Sideboard
+1 Carrion Feeder
+1 Xantid Swarm
+1 Mesmeric Fiend
+1 Monk Realist
+1 Uktabi Orangutan
+1 Academy Rector
+1 Ravenous Baloth
+2 Swords to Plowshares
+2 Naturalize
+1 Seal of Cleansing
+1 City of Solitude
+1 Engineered Plague
+1 Worship

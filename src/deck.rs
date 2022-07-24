@@ -11,43 +11,8 @@ use rand::thread_rng;
 use crate::card::{Card, CardRef, Zone};
 
 pub struct Decklist {
-    pub maindeck: Vec<(&'static str, usize)>,
-    pub sideboard: Vec<(&'static str, usize)>,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct Deck {
-    pub maindeck: VecDeque<CardRef>,
-    pub sideboard: Vec<CardRef>,
-}
-
-impl From<Decklist> for Deck {
-    fn from(decklist: Decklist) -> Deck {
-        let mut maindeck = Vec::with_capacity(60);
-        let mut sideboard = Vec::with_capacity(15);
-
-        for (card_name, quantity) in decklist.maindeck {
-            let card = Card::new(card_name).unwrap();
-
-            for _ in 0..quantity {
-                maindeck.push(Rc::new(RefCell::new(card.clone())));
-            }
-        }
-
-        for (card_name, quantity) in decklist.sideboard {
-            let mut card = Card::new(card_name).unwrap();
-            card.zone = Zone::Outside;
-
-            for _ in 0..quantity {
-                sideboard.push(Rc::new(RefCell::new(card.clone())));
-            }
-        }
-
-        Deck {
-            maindeck: VecDeque::from(maindeck),
-            sideboard,
-        }
-    }
+    pub maindeck: Vec<(String, usize)>,
+    pub sideboard: Vec<(String, usize)>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -61,7 +26,7 @@ impl std::fmt::Display for ParseDeckError {
     }
 }
 
-impl FromStr for Deck {
+impl FromStr for Decklist {
     type Err = ParseDeckError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -94,20 +59,49 @@ impl FromStr for Deck {
                 )))
             })?;
 
-            let mut card = Card::new(card_name).or_else(|msg| {
-                Err(ParseDeckError(format!(
-                    "on line {line_number}: failed to create card: {msg}",
-                    line_number = index + 1
-                )))
+            if is_maindeck {
+                maindeck.push((card_name.to_owned(), quantity));
+            } else {
+                sideboard.push((card_name.to_owned(), quantity));
+            }
+        }
+
+        Ok(Decklist {
+            maindeck,
+            sideboard,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Deck {
+    pub maindeck: VecDeque<CardRef>,
+    pub sideboard: Vec<CardRef>,
+}
+
+impl Deck {
+    pub fn new(decklist: Decklist) -> Result<Self, ParseDeckError> {
+        let mut maindeck = Vec::with_capacity(60);
+        let mut sideboard = Vec::with_capacity(15);
+
+        for (card_name, quantity) in decklist.maindeck {
+            let card = Card::new(&card_name).or_else(|msg| {
+                Err(ParseDeckError(format!("failed to create deck: {msg}")))
             })?;
 
             for _ in 0..quantity {
-                if is_maindeck {
-                    maindeck.push(Rc::new(RefCell::new(card.clone())));
-                } else {
-                    card.zone = Zone::Outside;
-                    sideboard.push(Rc::new(RefCell::new(card.clone())));
-                }
+                maindeck.push(Rc::new(RefCell::new(card.clone())));
+            }
+        }
+
+        for (card_name, quantity) in decklist.sideboard {
+            let mut card = Card::new(&card_name).or_else(|msg| {
+                Err(ParseDeckError(format!("failed to create deck: {msg}")))
+            })?;
+            card.zone = Zone::Outside;
+
+            for _ in 0..quantity {
+                sideboard.push(Rc::new(RefCell::new(card.clone())));
             }
         }
 
@@ -116,9 +110,6 @@ impl FromStr for Deck {
             sideboard,
         })
     }
-}
-
-impl Deck {
     pub fn draw(&mut self) -> Option<CardRef> {
         self.maindeck.pop_back()
     }
@@ -180,7 +171,7 @@ mod tests {
             2 Engineered Plague\n\
             3 Naturalize\n";
 
-        let result = decklist.parse::<Deck>();
+        let result = decklist.parse::<Decklist>();
         assert_eq!(true, result.is_ok());
         let deck = result.unwrap();
 
@@ -188,52 +179,20 @@ mod tests {
         assert_eq!(5, deck.sideboard.len());
         assert_eq!(
             vec![
-                "Llanowar Elves",
-                "Llanowar Elves",
-                "Llanowar Elves",
-                "Llanowar Elves",
-                "Birds of Paradise",
-                "Forest",
-                "Forest",
-                "Swamp",
-                "Island",
-                "Island",
-                "Island",
-                "Island",
-                "Island"
+                (String::from("Llanowar Elves"), 4),
+                (String::from("Birds of Paradise"), 1),
+                (String::from("Forest"), 2),
+                (String::from("Swamp"), 1),
+                (String::from("Island"), 5),
             ],
             deck.maindeck
-                .iter()
-                .map(|card| card.borrow().name.clone())
-                .collect::<Vec<_>>()
         );
         assert_eq!(
             vec![
-                "Engineered Plague",
-                "Engineered Plague",
-                "Naturalize",
-                "Naturalize",
-                "Naturalize"
+                (String::from("Engineered Plague"), 2),
+                (String::from("Naturalize"), 3),
             ],
             deck.sideboard
-                .iter()
-                .map(|card| card.borrow().name.clone())
-                .collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
-    fn it_handles_unknown_cards() {
-        let decklist = "1 Birds of Paradise\n\
-            4 Unknown Card\n\
-            4 More Unknown";
-
-        let result = decklist.parse::<Deck>();
-        assert_eq!(
-            Some(ParseDeckError(
-                "on line 2: failed to create card: unimplemented card: \"Unknown Card\"".to_owned()
-            )),
-            result.err()
         );
     }
 
@@ -243,7 +202,7 @@ mod tests {
             BrokenLine\n\
             4 Llanowar Elves";
 
-        let result = decklist.parse::<Deck>();
+        let result = decklist.parse::<Decklist>();
         assert_eq!(
             Some(ParseDeckError(
                 "on line 2: malformed quantity and name: \"BrokenLine\"".to_owned()
@@ -258,7 +217,7 @@ mod tests {
             4foobar Llanowar Elves\n\
             20 Forest";
 
-        let result = decklist.parse::<Deck>();
+        let result = decklist.parse::<Decklist>();
         assert_eq!(
             Some(ParseDeckError(
                 "on line 2: failed to parse quantity: invalid digit found in string".to_owned()

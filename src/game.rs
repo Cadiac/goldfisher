@@ -29,7 +29,7 @@ pub struct GameState {
 
 impl GameState {
     pub fn new(decklist: Decklist) -> Self {
-        let mut deck: Deck = decklist.into();
+        let mut deck = Deck::new(decklist).unwrap();
 
         let mut game_objects = Vec::with_capacity(deck.len());
         for card in deck.iter() {
@@ -763,7 +763,7 @@ mod tests {
         game_objects.shuffle(&mut thread_rng());
 
         let game = GameState {
-            deck: Deck::from(Decklist { maindeck: vec![], sideboard: vec![] }),
+            deck: Deck::new(Decklist { maindeck: vec![], sideboard: vec![] }).unwrap(),
             game_objects,
             turn: 0,
             life_total: 20,
@@ -812,7 +812,7 @@ mod tests {
         let llanowar_elves = Card::new_with_zone("Llanowar Elves", Zone::Hand);
 
         let mut game = GameState {
-            deck: Deck::from(Decklist { maindeck: vec![], sideboard: vec![] }),
+            deck: Deck::new(Decklist { maindeck: vec![], sideboard: vec![] }).unwrap(),
             game_objects: vec![tapland.clone(), llanowar_elves.clone()],
             turn: 0,
             life_total: 20,
