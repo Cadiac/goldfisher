@@ -57,6 +57,7 @@ pub enum Effect {
     SearchAndPutTopOfLibrary(Option<SearchFilter>),
     SearchAndPutBattlefield(Option<SearchFilter>),
     Impulse(usize),
+    Intuition,
     CavernHarpy,
     Unearth,
     UntapLands(usize),
@@ -387,7 +388,7 @@ impl Card {
                 name,
                 card_type: CardType::Instant,
                 cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 2)]),
-                on_resolve: Some(Effect::SearchAndPutHand(None)),
+                on_resolve: Some(Effect::Intuition),
                 ..Default::default()
             },
             "Raven Familiar" => Card {

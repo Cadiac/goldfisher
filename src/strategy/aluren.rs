@@ -1,4 +1,4 @@
-use log::debug;
+use log::{debug, warn};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -6,7 +6,7 @@ use crate::card::{CardRef, CardType, Zone};
 use crate::deck::Decklist;
 use crate::game::GameState;
 use crate::mana::PaymentAndFloating;
-use crate::strategy::{GameStatus, Strategy};
+use crate::strategy::Strategy;
 use crate::utils::*;
 
 struct ComboStatus {
@@ -166,22 +166,6 @@ impl Strategy for Aluren {
         }
     }
 
-    fn game_status(&self, game: &GameState) -> GameStatus {
-        if game.life_total <= 0 && game.damage_dealt >= 20 {
-            return GameStatus::Draw(game.turn);
-        }
-
-        if game.life_total <= 0 {
-            return GameStatus::Lose(game.turn);
-        }
-
-        if game.damage_dealt >= 20 {
-            return GameStatus::Win(game.turn);
-        }
-
-        GameStatus::Continue
-    }
-
     fn is_keepable_hand(&self, game: &GameState, mulligan_count: usize) -> bool {
         if mulligan_count >= 3 {
             // Just keep the hand with 4 cards
@@ -224,7 +208,7 @@ impl Strategy for Aluren {
         false
     }
 
-    fn find_best_card(
+    fn select_best(
         &self,
         game: &GameState,
         cards: HashMap<String, Vec<CardRef>>,
@@ -235,6 +219,20 @@ impl Strategy for Aluren {
         if battlefield.alurens >= 1 {
             if status.cavern_harpies == 0 {
                 let card = find_named(&cards, "Cavern Harpy");
+                if card.is_some() {
+                    return card;
+                }
+            }
+
+            if status.soul_wardens == 0
+                && status.wirewood_savages == 0
+                && status.raven_familiars == 0
+            {
+                let card = find_named(&cards, "Wirewood Savage");
+                if card.is_some() {
+                    return card;
+                }
+                let card = find_named(&cards, "Raven Familiar");
                 if card.is_some() {
                     return card;
                 }
@@ -355,6 +353,71 @@ impl Strategy for Aluren {
 
         // Otherwise just pick anything
         cards.values().flatten().cloned().next()
+    }
+
+    fn select_intuition(&self, game: &GameState) -> Vec<CardRef> {
+        let searchable = apply_search_filter(game, None);
+        if let Some(found) = self.select_best(game, group_by_name(searchable)) {
+            let mut cards = Vec::with_capacity(3);
+
+            let priority_list = if found.borrow().name == "Aluren" {
+                // Just grab three copies of Aluren, assume there are enough in the deck
+                vec!["Aluren"]
+            } else if found.borrow().name == "Cavern Harpy" {
+                vec!["Cavern Harpy", "Unearth"]
+            } else if found.borrow().name == "Wirewood Savage"
+                || found.borrow().name == "Raven Familiar"
+            {
+                vec!["Wirewood Savage", "Raven Familiar"]
+            } else if found.borrow().name == "Birds of Paradise" {
+                vec![
+                    "Birds of Paradise",
+                    "Wall of Roots",
+                    "City of Brass",
+                    "Gemstone Mine",
+                ]
+            } else if found.borrow().card_type == CardType::Land {
+                vec![
+                    "City of Brass",
+                    "Gemstone Mine",
+                    "Llawnowar Wastes",
+                    "Forest",
+                ]
+            } else if found.borrow().card_type == CardType::Creature {
+                cards.push(found);
+                vec![
+                    "Unearth",
+                    "Raven Familiar",
+                    "Soul Warden",
+                    "Wirewood Savage",
+                ]
+            } else {
+                // Can't Intuition for Living Wish or the game might become unwinnable.
+                // Intuition as target also doesn't make any sense.
+                // Shouldn't really even cast Intuition at this point - but grab some random stuff instead.
+                vec![
+                    "Unearth",
+                    "Raven Familiar",
+                    "Soul Warden",
+                    "Wirewood Savage",
+                    "Impulse",
+                ]
+            };
+
+            for card in find_n_with_priority(game, 3 - cards.len(), &priority_list) {
+                cards.push(card);
+            }
+
+            debug!("Found {:?}", cards);
+            if cards.len() != 3 && cards.len() != game.deck.len() {
+                warn!("Unexpected number of cards found, ignoring...")
+            }
+
+            cards
+        } else {
+            // Empty deck
+            vec![]
+        }
     }
 
     fn discard_to_hand_size(&self, game: &GameState, hand_size: usize) -> Vec<CardRef> {
@@ -484,29 +547,60 @@ impl Strategy for Aluren {
         }
 
         let battlefield = self.combo_status(game, vec![Zone::Battlefield]);
+        let hand = self.combo_status(game, vec![Zone::Hand]);
 
         if battlefield.alurens == 0 {
             let castable = game.find_castable();
 
-            let priority_order = [
-                "Aluren",
-                "Intuition",
-                "Living Wish",
-                "Impulse",
-                "Soul Warden",
-                "Maggot Carrier",
-                "Cloud of Faeries",
-                "Wirewood Savage",
-            ];
+            if hand.alurens == 0 {
+                let priority_order = [
+                    "Aluren",
+                    "Intuition",
+                    "Living Wish",
+                    "Impulse",
+                    "Soul Warden",
+                    "Maggot Carrier",
+                    "Cloud of Faeries",
+                    "Raven Familiar",
+                    "Wirewood Savage",
+                    "Cavern Harpy",
+                ];
 
-            for card_name in priority_order {
-                if self.cast_named(game, castable.clone(), card_name) {
+                for card_name in priority_order {
+                    if self.cast_named(game, castable.clone(), card_name) {
+                        return true;
+                    }
+                }
+
+                if self.cast_mana_dork(game) {
                     return true;
                 }
-            }
+            } else {
+                if self.cast_named(game, castable.clone(), "Aluren") {
+                    return true;
+                }
 
-            if self.cast_mana_dork(game) {
-                return true;
+                if self.cast_mana_dork(game) {
+                    return true;
+                }
+
+                let priority_order = [
+                    "Intuition",
+                    "Living Wish",
+                    "Impulse",
+                    "Soul Warden",
+                    "Maggot Carrier",
+                    "Cloud of Faeries",
+                    "Raven Familiar",
+                    "Wirewood Savage",
+                    "Cavern Harpy",
+                ];
+
+                for card_name in priority_order {
+                    if self.cast_named(game, castable.clone(), card_name) {
+                        return true;
+                    }
+                }
             }
         } else {
             let cavern_harpy_on_battlefield = game
@@ -532,14 +626,32 @@ impl Strategy for Aluren {
                 return true;
             }
 
-            let priority_order = [
+            let have_cavern_harpy = game.game_objects.iter().any(|card| {
+                let card = card.borrow();
+                (card.zone == Zone::Battlefield || card.zone == Zone::Hand)
+                    && card.name == "Cavern Harpy"
+            });
+            let have_soul_warden = game.game_objects.iter().any(|card| {
+                let card = card.borrow();
+                (card.zone == Zone::Battlefield || card.zone == Zone::Hand)
+                    && card.name == "Soul Warden"
+            });
+            let have_draw_engine = game.game_objects.iter().any(|card| {
+                let card = card.borrow();
+                (card.zone == Zone::Battlefield || card.zone == Zone::Hand)
+                    && (card.name == "Wirewood Savage" || card.name == "Raven Familiar")
+            });
+
+            let mut priority_order = vec![
                 "Soul Warden",
                 "Maggot Carrier",
-                "Living Wish",
-                "Intuition",
                 "Wirewood Savage",
+                "Living Wish",
             ];
 
+            if !(have_cavern_harpy && have_soul_warden && have_draw_engine) {
+                priority_order.push("Intuition");
+            }
             for card_name in priority_order {
                 if self.cast_named(game, castable.clone(), card_name) {
                     return true;
@@ -551,8 +663,6 @@ impl Strategy for Aluren {
                 return true;
             }
 
-            let hand = self.combo_status(game, vec![Zone::Hand]);
-
             let land_count = game
                 .game_objects
                 .iter()
@@ -562,7 +672,7 @@ impl Strategy for Aluren {
             if hand.cloud_of_faeries >= 1
                 && hand.cavern_harpies >= 1
                 && land_count > 0
-                && game.floating_mana.values().sum::<usize>() < 10
+                && game.floating_mana.values().sum::<usize>() < 5
             {
                 // Can generate mana at the cost of life, or infinite if we also have soul warden
                 game.float_mana();
@@ -638,7 +748,7 @@ mod tests {
                 .collect(),
         );
 
-        let best_card = Aluren {}.find_best_card(&game, cards);
+        let best_card = Aluren {}.select_best(&game, cards);
 
         assert_eq!(true, best_card.is_some());
         assert_eq!(expected, best_card.unwrap().borrow().name);
@@ -659,7 +769,7 @@ mod tests {
                 .collect(),
         );
 
-        let best_card = Aluren {}.find_best_card(&game, cards);
+        let best_card = Aluren {}.select_best(&game, cards);
 
         assert_eq!(true, best_card.is_some());
         assert_eq!(expected, best_card.unwrap().borrow().name);

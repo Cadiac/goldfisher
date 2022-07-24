@@ -10,7 +10,22 @@ pub mod pattern_rector;
 
 pub trait Strategy {
     fn decklist(&self) -> Decklist;
-    fn game_status(&self, game: &GameState) -> GameStatus;
+    fn game_status(&self, game: &GameState) -> GameStatus {
+        if game.life_total <= 0 && game.damage_dealt >= 20 {
+            return GameStatus::Draw(game.turn);
+        }
+
+        if game.life_total <= 0 {
+            return GameStatus::Lose(game.turn);
+        }
+
+        if game.damage_dealt >= 20 {
+            return GameStatus::Win(game.turn);
+        }
+
+        GameStatus::Continue
+    }
+
     fn is_keepable_hand(&self, game: &GameState, mulligan_count: usize) -> bool;
     fn take_game_action(&self, game: &mut GameState) -> bool;
     fn play_land(&self, game: &mut GameState) -> bool {
@@ -35,11 +50,21 @@ pub trait Strategy {
         }
         false
     }
-    fn find_best_card(
+    fn select_best(
         &self,
         game: &GameState,
         cards: HashMap<String, Vec<CardRef>>,
     ) -> Option<CardRef>;
+
+    fn select_intuition(&self, game: &GameState) -> Vec<CardRef> {
+        game.game_objects
+            .iter()
+            .filter(is_library)
+            .take(3)
+            .cloned()
+            .collect()
+    }
+
     fn discard_to_hand_size(&self, game: &GameState, hand_size: usize) -> Vec<CardRef>;
 }
 

@@ -168,3 +168,39 @@ pub fn group_by_name(game_objects: Vec<CardRef>) -> HashMap<String, Vec<CardRef>
 pub fn find_named(cards: &HashMap<String, Vec<CardRef>>, name: &str) -> Option<CardRef> {
     cards.get(name).and_then(|copies| copies.first()).cloned()
 }
+
+pub fn find_n_with_priority(
+    game: &GameState,
+    count: usize,
+    priority_list: &[&str],
+) -> Vec<CardRef> {
+    let mut found = Vec::with_capacity(count);
+
+    for card_name in priority_list {
+        let to_find = count - found.len();
+
+        for card in game
+            .game_objects
+            .iter()
+            .filter(|card| is_library(card) && card.borrow().name == *card_name)
+            .take(to_find)
+        {
+            // Place these outside the game temporarily
+            card.borrow_mut().zone = Zone::Outside;
+            found.push(card.clone());
+        }
+    }
+
+    if found.len() < count {
+        // Find anything from library to meet the desired count the best we can
+        found.extend(
+            game.game_objects
+                .iter()
+                .filter(is_library)
+                .take(count - found.len())
+                .cloned(),
+        );
+    }
+
+    found
+}

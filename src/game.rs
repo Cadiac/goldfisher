@@ -274,7 +274,7 @@ impl GameState {
         match effect {
             Effect::SearchAndPutTopOfLibrary(search_filter) => {
                 let searchable = apply_search_filter(self, search_filter);
-                if let Some(found) = strategy.find_best_card(self, group_by_name(searchable)) {
+                if let Some(found) = strategy.select_best(self, group_by_name(searchable)) {
                     debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it on top of the library.",
                         turn = self.turn,
                         card_name = found.borrow().name);
@@ -286,7 +286,7 @@ impl GameState {
             }
             Effect::SearchAndPutHand(search_filter) => {
                 let searchable = apply_search_filter(self, search_filter.clone());
-                if let Some(found) = strategy.find_best_card(self, group_by_name(searchable)) {
+                if let Some(found) = strategy.select_best(self, group_by_name(searchable)) {
                     if search_filter == Some(SearchFilter::LivingWish) {
                         debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" from sideboard and put it in hand.",
                                     turn = self.turn,
@@ -309,6 +309,10 @@ impl GameState {
                         "[Turn {turn:002}][Action]: Failed to find.",
                         turn = self.turn
                     );
+                }
+
+                if search_filter == Some(SearchFilter::LivingWish) {
+                    game_object.borrow_mut().zone = Zone::Exile;
                 }
             }
             Effect::Impulse(n) => {
@@ -338,8 +342,7 @@ impl GameState {
                     turn = self.turn
                 );
 
-                if let Some(selected) = strategy.find_best_card(self, group_by_name(cards.clone()))
-                {
+                if let Some(selected) = strategy.select_best(self, group_by_name(cards.clone())) {
                     debug!(
                         "[Turn {turn:002}][Action]: Selected \"{card_name}\" and put it in hand.",
                         turn = self.turn,
@@ -367,7 +370,7 @@ impl GameState {
                     .cloned()
                     .collect();
 
-                if let Some(target) = strategy.find_best_card(self, group_by_name(graveyard)) {
+                if let Some(target) = strategy.select_best(self, group_by_name(graveyard)) {
                     debug!(
                         "[Turn {turn:002}][Action]: Returning \"{card_name}\" on the battlefield.",
                         turn = self.turn,
@@ -403,6 +406,20 @@ impl GameState {
                 }
             }
             Effect::CavernHarpy => {
+                let maggot_carrier_to_return = self.game_objects.iter().find(|card| {
+                    let card = card.borrow();
+                    card.zone == Zone::Battlefield && card.name == "Maggot Carrier"
+                });
+
+                if let Some(card) = maggot_carrier_to_return {
+                    debug!(
+                        "[Turn {turn:002}][Action]: Bouncing \"Maggot Carrier\" back to hand.",
+                        turn = self.turn
+                    );
+                    card.borrow_mut().zone = Zone::Hand;
+                    return;
+                }
+
                 let etb_draw_triggers = self
                     .game_objects
                     .iter()
@@ -421,20 +438,6 @@ impl GameState {
                     return;
                 }
 
-                let maggot_carrier_to_return = self.game_objects.iter().find(|card| {
-                    let card = card.borrow();
-                    card.zone == Zone::Battlefield && card.name == "Maggot Carrier"
-                });
-
-                if let Some(card) = maggot_carrier_to_return {
-                    debug!(
-                        "[Turn {turn:002}][Action]: Bouncing \"Maggot Carrier\" back to hand.",
-                        turn = self.turn
-                    );
-                    card.borrow_mut().zone = Zone::Hand;
-                    return;
-                }
-
                 let cloud_of_faeries_to_return = self.game_objects.iter().find(|card| {
                     let card = card.borrow();
                     card.zone == Zone::Battlefield && card.name == "Cloud of Faeries"
@@ -449,7 +452,6 @@ impl GameState {
                     return;
                 }
 
-                // TODO: Decide whether we want to untap or untap lands?
                 let raven_familiar_to_return = self.game_objects.iter().find(|card| {
                     let card = card.borrow();
                     card.zone == Zone::Battlefield && card.name == "Raven Familiar"
@@ -463,10 +465,45 @@ impl GameState {
                     card.borrow_mut().zone = Zone::Hand;
                     return;
                 }
+
+                // Otherwise we must bounce the Harpy back to hand
+                debug!(
+                    "[Turn {turn:002}][Action]: Bouncing \"Cavern Harpy\" back to hand.",
+                    turn = self.turn
+                );
+                game_object.borrow_mut().zone = Zone::Hand;
             }
             Effect::DamageEach(damage) => {
-                self.take_damage(damage as i32);
-                self.deal_damage(damage as i32);
+                self.damage_each(damage as i32);
+            }
+            Effect::Intuition => {
+                let mut found = strategy.select_intuition(self);
+                let found_str = found
+                    .iter()
+                    .map(|card| format!("\"{}\"", card.borrow().name))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                debug!("[Turn {turn:002}][Action]: Searched for cards: {found_str} with Intuition.",
+                    turn = self.turn);
+                
+                if let Some(card) = found.pop() {
+                    self.deck.remove(&card);
+                    card.borrow_mut().zone = Zone::Hand;
+
+                    debug!("[Turn {turn:002}][Action]: Put \"{card_name}\" to hand.",
+                        card_name = card.borrow().name,
+                        turn = self.turn);
+                }
+
+                for card in found.into_iter() {
+                    self.deck.remove(&card);
+                    card.borrow_mut().zone = Zone::Graveyard;
+
+                    debug!("[Turn {turn:002}][Action]: Put \"{card_name}\" to graveyard.",
+                        card_name = card.borrow().name,
+                        turn = self.turn);
+                }
             }
             _ => unimplemented!(),
         }
@@ -573,18 +610,22 @@ impl GameState {
         self.print_life();
     }
 
+    pub fn damage_each(&mut self, amount: i32) {
+        self.life_total -= amount;
+        self.damage_dealt += amount;
+        self.print_life();
+    }
+
     pub fn float_mana(&mut self) {
         // Produce colors in this priority order for now, producing 2 of each color first
         // TODO: Consider life loss here
         let colors = [Mana::Green, Mana::Blue, Mana::Black, Mana::White, Mana::Red];
 
-        for land in self
-            .game_objects
-            .iter()
-            .filter(|card| is_battlefield(card) && is_card_type(card, CardType::Land) && !is_tapped(card))
-        {
+        for land in self.game_objects.iter().filter(|card| {
+            is_battlefield(card) && is_card_type(card, CardType::Land) && !is_tapped(card)
+        }) {
             let mut land_used = false;
-            // First try to produce colors we have the least of 
+            // First try to produce colors we have the least of
             for color in colors.iter() {
                 let land_name = land.borrow().name.clone();
                 let floating = self.floating_mana.entry(*color).or_insert(0);
@@ -606,7 +647,7 @@ impl GameState {
                 for (color, mana) in land.borrow().produced_mana.iter() {
                     let land_name = land.borrow().name.clone();
                     let floating = self.floating_mana.entry(*color).or_insert(0);
-    
+
                     debug!(
                         "[Turn {turn:002}][Action]: Floating {mana} {color:?} mana from \"{land_name}\".",
                         turn = self.turn
@@ -614,7 +655,7 @@ impl GameState {
                     *floating += mana;
                     land_used = true;
                     break;
-                }   
+                }
             }
 
             land.borrow_mut().is_tapped = land_used;

@@ -127,7 +127,7 @@ impl PatternRector {
                 .filter(|card| is_library(card) && is_basic(card))
                 .cloned()
                 .collect();
-            if let Some(land) = self.find_best_card(game, group_by_name(basics)) {
+            if let Some(land) = self.select_best(game, group_by_name(basics)) {
                 land.borrow_mut().zone = Zone::Battlefield;
                 debug!(
                     "[Turn {turn:002}][Action]: Searched for \"{card_name}\" with \"Veteran Explorer\" dies trigger.",
@@ -590,7 +590,7 @@ impl Strategy for PatternRector {
         false
     }
 
-    fn find_best_card(
+    fn select_best(
         &self,
         game: &GameState,
         cards: HashMap<String, Vec<CardRef>>,
