@@ -206,7 +206,8 @@ impl GameState {
         source.borrow_mut().attached_to = attach_to;
 
         if source.borrow().card_type == CardType::Creature {
-            source.borrow_mut().is_summoning_sick = true;
+            let has_haste = source.borrow().is_haste;
+            source.borrow_mut().is_summoning_sick = !has_haste;
 
             if source.borrow().sub_types.contains(&SubType::Beast) {
                 let etb_draw_triggers = self

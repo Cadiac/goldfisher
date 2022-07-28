@@ -76,6 +76,7 @@ pub struct Card {
     pub is_sac_outlet: bool,
     pub is_summoning_sick: bool,
     pub is_tapped: bool,
+    pub is_haste: bool,
     pub on_resolve: Option<Effect>,
     pub attached_to: Option<CardRef>,
 }
@@ -323,6 +324,7 @@ impl Card {
                 card_type: CardType::Creature,
                 produced_mana: HashMap::from([(Mana::Green, 1)]),
                 remaining_uses: Some(5),
+                is_haste: true,
                 cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 1)]),
                 ..Default::default()
             },

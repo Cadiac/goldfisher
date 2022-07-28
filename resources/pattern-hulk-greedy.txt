@@ -1,0 +1,36 @@
+1 Phyrexian Ghoul
+3 Nantuko Husk
+4 Carrion Feeder
+4 Pattern of Rebirth
+4 Academy Rector
+4 Birds of Paradise
+3 Fyndhorn Elves
+2 Llanowar Elves
+1 Elvish Spirit Guide
+2 Karmic Guide
+1 Volrath's Shapeshifter
+1 Iridescent Drake
+1 Body Snatcher
+2 Xantid Swarm
+1 Akroma, Angel of Wrath
+2 Goblin Bombardment
+1 Worship
+2 Worldly Tutor
+1 Forest
+2 Caves of Koilos
+2 Phyrexian Tower
+2 Ancient Tomb
+4 Gemstone Mine
+2 Reflecting Pool
+4 City of Brass
+4 Llanowar Wastes
+
+// Sideboard
+3 Mesmeric Fiend
+3 Cabal Therapy
+1 Caller of the Claw
+2 Naturalize
+1 Seal of Cleansing
+1 Phantom Nishoba
+2 Circle of Protection: Red
+2 Engineered Plague
