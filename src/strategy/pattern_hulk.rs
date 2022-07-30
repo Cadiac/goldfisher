@@ -2,7 +2,7 @@ use log::debug;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::card::{CardRef, CardType, Zone};
+use crate::card::{CardRef, CardType, Zone, ZONES};
 use crate::deck::Decklist;
 use crate::game::GameState;
 use crate::mana::Mana;
@@ -12,6 +12,17 @@ use crate::utils::*;
 use super::GameStatus;
 
 const DEFAULT_DECKLIST: &str = include_str!("../../resources/pattern-hulk.txt");
+const COMBO_PIECES: &[&str] = &[
+    "Body Snatcher",
+    "Iridescent Drake",
+    "Pattern of Rebirth",
+    "Karmic Guide",
+    "Volrath's Shapeshifter",
+    "Academy Rector",
+    "Goblin Bombardment",
+    "Akroma, Angel of Wrath",
+    "Caller of the Claw",
+];
 
 struct ComboStatus {
     mana_sources: usize,
@@ -341,70 +352,61 @@ impl Strategy for PatternHulk {
 
         let status = self.combo_status(game, false, true);
 
-        let mut count_in_library: HashMap<&str, usize> = HashMap::new();
-        let combo_pieces = [
-            "Body Snatcher",
-            "Iridescent Drake",
-            "Pattern of Rebirth",
-            "Karmic Guide",
-            "Volrath's Shapeshifter",
-            "Academy Rector",
-            "Goblin Bombardment",
-            "Akroma, Angel of Wrath",
-            "Caller of the Claw",
-        ];
-        for name in combo_pieces {
-            let count = game
-                .game_objects
-                .iter()
-                .filter(|card| is_library(&card) && is_named(&card, name))
-                .count();
+        let mut by_zone: HashMap<(&str, Zone), usize> = HashMap::new();
 
-            *count_in_library.entry(name).or_insert(0) = count
+        for zone in ZONES {
+            for name in COMBO_PIECES {
+                let count = game
+                    .game_objects
+                    .iter()
+                    .filter(|card| is_zone(&card, zone) && is_named(&card, name))
+                    .count();
+
+                *by_zone.entry((name, zone.clone())).or_insert(0) = count
+            }
         }
-
-        let is_goblin_bombardment_on_battlefield = game
-            .game_objects
-            .iter()
-            .any(|card| is_battlefield(&card) && is_named(&card, "Goblin Bombardment"));
-
-        let is_goblin_bombardment_in_hand = game
-            .game_objects
-            .iter()
-            .any(|card| is_hand(&card) && is_named(&card, "Goblin Bombardment"));
 
         // Make sure required combo pieces are still in library
         // NOTE: This is not be 100% accurate, and is probably missing some lines that
         // involve just playing out the cards from hand.
-        // TODO: Handle at least cases where we have the bombardment in hand but we just haven't cast it.
-        let simple_kill_available = is_goblin_bombardment_on_battlefield
-            && *count_in_library.get("Iridescent Drake").unwrap() >= 1
-            && (*count_in_library.get("Volrath's Shapeshifter").unwrap()
-                + *count_in_library.get("Karmic Guide").unwrap()
-                + *count_in_library.get("Body Snatcher").unwrap()
-                >= 2);
+        let simple_kill_available = (*by_zone.get(&("Goblin Bombardment", Zone::Battlefield)).unwrap() > 0
+            || *by_zone.get(&("Goblin Bombardment", Zone::Hand)).unwrap() > 0)
+            && ((*by_zone.get(&("Iridescent Drake", Zone::Library)).unwrap() >= 1)
+                && (*by_zone.get(&("Volrath's Shapeshifter", Zone::Library)).unwrap()
+                    + *by_zone.get(&("Karmic Guide", Zone::Library)).unwrap()
+                    + *by_zone.get(&("Body Snatcher", Zone::Library)).unwrap()
+                    >= 2))
+            || ((*by_zone.get(&("Iridescent Drake", Zone::Library)).unwrap()
+                + *by_zone.get(&("Body Snatcher", Zone::Library)).unwrap()
+                >= 1)
+                && (*by_zone.get(&("Volrath's Shapeshifter", Zone::Library)).unwrap()
+                    + *by_zone.get(&("Karmic Guide", Zone::Library)).unwrap()
+                    >= 2));
 
-        let main_kill_available = (*count_in_library.get("Volrath's Shapeshifter").unwrap()
-            + *count_in_library.get("Karmic Guide").unwrap()
-            + *count_in_library.get("Body Snatcher").unwrap()
+        let main_kill_available = (*by_zone.get(&("Volrath's Shapeshifter", Zone::Library)).unwrap()
+            + *by_zone.get(&("Karmic Guide", Zone::Library)).unwrap()
+            + *by_zone.get(&("Body Snatcher", Zone::Library)).unwrap()
             >= 3)
-            && (*count_in_library.get("Iridescent Drake").unwrap() >= 1
-                || *count_in_library.get("Body Snatcher").unwrap() >= 1)
-            && *count_in_library.get("Academy Rector").unwrap() >= 1
-            && *count_in_library.get("Pattern of Rebirth").unwrap() >= 1
-            && *count_in_library.get("Goblin Bombardment").unwrap() >= 1;
+            && (*by_zone.get(&("Iridescent Drake", Zone::Library)).unwrap() >= 1
+                || *by_zone.get(&("Body Snatcher", Zone::Library)).unwrap() >= 1)
+            && *by_zone.get(&("Academy Rector", Zone::Library)).unwrap() >= 1
+            && *by_zone.get(&("Pattern of Rebirth", Zone::Library)).unwrap() >= 1
+            && *by_zone.get(&("Goblin Bombardment", Zone::Library)).unwrap() >= 1;
 
-        let backup_kill_available = *count_in_library.get("Volrath's Shapeshifter").unwrap() >= 2
-            && (*count_in_library.get("Karmic Guide").unwrap()
-                + *count_in_library.get("Body Snatcher").unwrap()
+        let backup_kill_available = *by_zone.get(&("Volrath's Shapeshifter", Zone::Library)).unwrap() >= 2
+            && (*by_zone.get(&("Karmic Guide", Zone::Library)).unwrap()
+                + *by_zone.get(&("Body Snatcher", Zone::Library)).unwrap()
                 >= 2)
-            && *count_in_library.get("Academy Rector").unwrap() >= 1
-            && *count_in_library.get("Pattern of Rebirth").unwrap() >= 1
-            && *count_in_library.get("Akroma, Angel of Wrath").unwrap() >= 1
-            && *count_in_library.get("Caller of the Claw").unwrap() >= 1;
+            && *by_zone.get(&("Academy Rector", Zone::Library)).unwrap() >= 1
+            && *by_zone.get(&("Pattern of Rebirth", Zone::Library)).unwrap() >= 1
+            && *by_zone.get(&("Akroma, Angel of Wrath", Zone::Library)).unwrap() >= 1
+            && *by_zone.get(&("Caller of the Claw", Zone::Library)).unwrap() >= 1;
 
         // TODO: This doesn't seem to be accurate
-        if !simple_kill_available && !main_kill_available && !backup_kill_available && !is_goblin_bombardment_in_hand {
+        if !simple_kill_available
+            && !main_kill_available
+            && !backup_kill_available
+        {
             debug!(
                 "[Turn {turn:002}][Game]: Can't combo anymore, lost the game!",
                 turn = game.turn
@@ -414,7 +416,7 @@ impl Strategy for PatternHulk {
 
         // Winning combinations:
 
-        // TODO: Treat Bombardment + Karmic Guide loop as a wincon.
+        // TODO: Treat Bombardment + Karmic Guide loop as a wincon (without Pattern/Rector)
 
         // TODO: Add a flag to toggle treating a non-summoning sick Carrion Feeded / Nantuko Husk attacker as wincon
 

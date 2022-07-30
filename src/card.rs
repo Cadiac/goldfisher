@@ -28,7 +28,7 @@ pub enum SubType {
     Beast,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Zone {
     Library,
     Hand,
@@ -37,6 +37,15 @@ pub enum Zone {
     Exile,
     Outside
 }
+
+pub const ZONES: &[Zone] = &[
+    Zone::Library,
+    Zone::Hand,
+    Zone::Battlefield,
+    Zone::Graveyard,
+    Zone::Exile,
+    Zone::Outside
+];
 
 impl Default for Zone {
     fn default() -> Self {
@@ -198,6 +207,12 @@ impl Card {
                 name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::White, 3), (Mana::Colorless, 5)]),
+                ..Default::default()
+            },
+            "Phantom Nishoba" => Card {
+                name,
+                card_type: CardType::Creature,
+                cost: HashMap::from([(Mana::White, 1), (Mana::Green, 1), (Mana::Colorless, 5)]),
                 ..Default::default()
             },
             "Worship" => Card {

@@ -60,6 +60,10 @@ pub fn is_card_type(card: &&CardRef, card_type: CardType) -> bool {
     card.borrow().card_type == card_type
 }
 
+pub fn is_zone(card: &&CardRef, zone: &Zone) -> bool {
+    card.borrow().zone == *zone
+}
+
 pub fn is_named(card: &&CardRef, name: &str) -> bool {
     card.borrow().name == name
 }
