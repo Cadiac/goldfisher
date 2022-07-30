@@ -317,7 +317,7 @@ impl Strategy for Aluren {
     }
 
     fn select_intuition(&self, game: &Game) -> Vec<CardRef> {
-        let searchable = apply_search_filter(game, None);
+        let searchable = apply_search_filter(game, &None);
         if let Some(found) = self.select_best(game, group_by_name(searchable)) {
             let mut cards = Vec::with_capacity(3);
 

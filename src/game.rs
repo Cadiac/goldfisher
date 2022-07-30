@@ -1,8 +1,8 @@
-use log::{debug, warn};
+use log::{debug};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::card::{CardRef, CardType, Effect, SearchFilter, SubType, Zone};
+use crate::card::{CardRef, CardType, SubType, Zone};
 use crate::deck::{Deck, Decklist};
 use crate::mana::find_payment_for;
 use crate::mana::{Mana, PaymentAndFloating};
@@ -33,6 +33,7 @@ pub struct Game {
 }
 
 impl Game {
+    /// Creates a new game with given decklist
     pub fn new(decklist: &Decklist) -> Self {
         let mut deck = Deck::new(decklist).unwrap();
 
@@ -57,6 +58,17 @@ impl Game {
         }
     }
 
+    /// Runs the game to completion.
+    ///
+    /// ```
+    /// use goldfisher::strategy::{pattern_hulk, Strategy};
+    /// use goldfisher::game::{Game};
+    ///
+    /// let strategy: Box<dyn Strategy> = Box::new(pattern_hulk::PatternHulk {});
+    /// let mut game = Game::new(&strategy.default_decklist());
+    ///
+    /// game.run(&strategy);
+    /// ```
     pub fn run(&mut self, strategy: &Box<dyn Strategy>) -> (GameResult, usize) {
         debug!("====================[ START OF GAME ]=======================");
         
@@ -96,6 +108,7 @@ impl Game {
         (result, self.turn)
     }
 
+    /// Finds all castable game objects with their payments and floating mana left over afterwards.
     pub fn find_castable(&self) -> Vec<(CardRef, Option<PaymentAndFloating>)> {
         let nonlands_in_hand = self.game_objects.iter().filter(|card| {
             let card = card.borrow();
@@ -146,6 +159,7 @@ impl Game {
         castable.collect()
     }
 
+    /// Plays a land drop if possible.
     pub fn play_land(&mut self, land_card: CardRef) {
         if self.available_land_drops > 0 {
             self.available_land_drops -= 1;
@@ -161,12 +175,21 @@ impl Game {
         }
     }
 
-    pub fn draw_n(&mut self, amount: usize) {
+    /// Draw `amount` cards from the library.
+    /// If there aren't enough cards to draw the game ends in a loss.
+    pub fn draw_n(&mut self, amount: usize) -> GameStatus {
         for _ in 0..amount {
-            self.draw();
+            let status = self.draw();
+            if let GameStatus::Finished(_) = status {
+                return status;
+            }
         }
+
+        GameStatus::Continue
     }
 
+    /// Draw a card from the library.
+    /// If there aren't enough cards to draw the game ends in a loss.
     pub fn draw(&mut self) -> GameStatus {
         if self.turn == 0 || (self.turn == 1 && !self.is_first_player) || self.turn > 1 {
             if let Some(card) = self.deck.draw() {
@@ -187,6 +210,7 @@ impl Game {
         GameStatus::Continue
     }
 
+    /// Untaps all the lands and clears summoning sickness
     pub fn untap(&mut self) {
         for card in self.game_objects.iter() {
             let mut card = card.borrow_mut();
@@ -198,6 +222,7 @@ impl Game {
         }
     }
 
+    /// Takes game actions until no further actions are taken or game ends
     pub fn take_game_actions(&mut self, strategy: &Box<dyn Strategy>) -> GameStatus {
         loop {
             let action_taken = strategy.take_game_action(self);
@@ -212,6 +237,9 @@ impl Game {
         }
     }
 
+    /// Casts the spell, paying its cost with the payment.
+    /// The payment has to be fresh, as this function trusts that it is a valid payment
+    /// at the time the spell is cast.
     pub fn cast_spell(
         &mut self,
         strategy: &impl Strategy,
@@ -310,250 +338,15 @@ impl Game {
         self.handle_on_resolve_effects(source, strategy);
     }
 
-    fn handle_on_resolve_effects(&mut self, game_object: &CardRef, strategy: &impl Strategy) {
-        let effect = match game_object.borrow().on_resolve.clone() {
-            Some(e) => e,
-            _ => return,
-        };
-
-        match effect {
-            Effect::SearchAndPutTopOfLibrary(search_filter) => {
-                let searchable = apply_search_filter(self, search_filter);
-                if let Some(found) = strategy.select_best(self, group_by_name(searchable)) {
-                    debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it on top of the library.",
-                        turn = self.turn,
-                        card_name = found.borrow().name);
-
-                    self.deck.remove(&found);
-                    self.deck.shuffle();
-                    self.deck.put_top(found);
-                }
-            }
-            Effect::SearchAndPutHand(search_filter) => {
-                let searchable = apply_search_filter(self, search_filter.clone());
-                if let Some(found) = strategy.select_best(self, group_by_name(searchable)) {
-                    if search_filter == Some(SearchFilter::LivingWish) {
-                        debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" from sideboard and put it in hand.",
-                                    turn = self.turn,
-                                    card_name = found.borrow().name);
-
-                        self.deck.remove_sideboard(&found);
-                        found.borrow_mut().zone = Zone::Hand;
-                        self.game_objects.push(found);
-                    } else {
-                        debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it in hand.",
-                            turn = self.turn,
-                            card_name = found.borrow().name);
-
-                        self.deck.remove(&found);
-                        found.borrow_mut().zone = Zone::Hand;
-                        self.deck.shuffle();
-                    }
-                } else {
-                    debug!(
-                        "[Turn {turn:002}][Action]: Failed to find.",
-                        turn = self.turn
-                    );
-                }
-
-                if search_filter == Some(SearchFilter::LivingWish) {
-                    game_object.borrow_mut().zone = Zone::Exile;
-                }
-            }
-            Effect::Impulse(n) => {
-                let mut cards = Vec::with_capacity(n);
-                for _ in 0..n {
-                    // This isn't actually "draw"
-                    if let Some(card) = self.deck.draw() {
-                        if card.borrow().zone != Zone::Library {
-                            warn!(
-                                "Card {} is on the wrong zone {:?}!",
-                                card.borrow().name,
-                                card.borrow().zone
-                            );
-                            panic!("wrong zone");
-                        }
-                        cards.push(card);
-                    }
-                }
-
-                let revealed_str = cards
-                    .iter()
-                    .map(|card| format!("\"{}\"", card.borrow().name.clone()))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                debug!(
-                    "[Turn {turn:002}][Action]: Looking at cards: {revealed_str}",
-                    turn = self.turn
-                );
-
-                if let Some(selected) = strategy.select_best(self, group_by_name(cards.clone())) {
-                    debug!(
-                        "[Turn {turn:002}][Action]: Selected \"{card_name}\" and put it in hand.",
-                        turn = self.turn,
-                        card_name = selected.borrow().name
-                    );
-                    cards.retain(|card| !Rc::ptr_eq(card, &selected));
-
-                    selected.borrow_mut().zone = Zone::Hand;
-                }
-
-                for card in cards {
-                    self.deck.put_bottom(card);
-                }
-            }
-            Effect::Unearth => {
-                let graveyard = self
-                    .game_objects
-                    .iter()
-                    .filter(|card| {
-                        let card = card.borrow();
-                        card.zone == Zone::Graveyard
-                            && card.card_type == CardType::Creature
-                            && card.cost.values().sum::<usize>() <= 3
-                    })
-                    .cloned()
-                    .collect();
-
-                if let Some(target) = strategy.select_best(self, group_by_name(graveyard)) {
-                    debug!(
-                        "[Turn {turn:002}][Action]: Returning \"{card_name}\" on the battlefield.",
-                        turn = self.turn,
-                        card_name = target.borrow().name
-                    );
-                    target.borrow_mut().zone = Zone::Battlefield;
-                    self.handle_on_resolve_effects(&target, strategy)
-                }
-            }
-            Effect::UntapLands(n) => {
-                for _ in 0..n {
-                    let mut tapped_lands = self
-                        .game_objects
-                        .iter()
-                        .filter(|card| {
-                            is_battlefield(card)
-                                && is_card_type(card, CardType::Land)
-                                && is_tapped(card)
-                        })
-                        .cloned()
-                        .collect::<Vec<_>>();
-
-                    tapped_lands.sort_by(sort_by_best_mana_to_play);
-
-                    if let Some(card) = tapped_lands.last() {
-                        debug!(
-                            "[Turn {turn:002}][Action]: Untapping \"{card_name}\".",
-                            card_name = card.borrow().name,
-                            turn = self.turn
-                        );
-                        card.borrow_mut().is_tapped = false;
-                    }
-                }
-            }
-            Effect::CavernHarpy => {
-                let maggot_carrier_to_return = self.game_objects.iter().find(|card| {
-                    let card = card.borrow();
-                    card.zone == Zone::Battlefield && card.name == "Maggot Carrier"
-                });
-
-                if let Some(card) = maggot_carrier_to_return {
-                    debug!(
-                        "[Turn {turn:002}][Action]: Bouncing \"Maggot Carrier\" back to hand.",
-                        turn = self.turn
-                    );
-                    card.borrow_mut().zone = Zone::Hand;
-                    return;
-                }
-
-                let etb_draw_triggers = self
-                    .game_objects
-                    .iter()
-                    .filter(|card| {
-                        let card = card.borrow();
-                        card.zone == Zone::Battlefield && card.name == "Wirewood Savage"
-                    })
-                    .count();
-
-                if etb_draw_triggers > 0 && self.deck.len() > 1 {
-                    debug!(
-                        "[Turn {turn:002}][Action]: Bouncing \"Cavern Harpy\" back to hand.",
-                        turn = self.turn
-                    );
-                    game_object.borrow_mut().zone = Zone::Hand;
-                    return;
-                }
-
-                let cloud_of_faeries_to_return = self.game_objects.iter().find(|card| {
-                    let card = card.borrow();
-                    card.zone == Zone::Battlefield && card.name == "Cloud of Faeries"
-                });
-
-                if let Some(card) = cloud_of_faeries_to_return {
-                    debug!(
-                        "[Turn {turn:002}][Action]: Bouncing \"Cloud of Faeries\" back to hand.",
-                        turn = self.turn
-                    );
-                    card.borrow_mut().zone = Zone::Hand;
-                    return;
-                }
-
-                let raven_familiar_to_return = self.game_objects.iter().find(|card| {
-                    let card = card.borrow();
-                    card.zone == Zone::Battlefield && card.name == "Raven Familiar"
-                });
-
-                if let Some(card) = raven_familiar_to_return {
-                    debug!(
-                        "[Turn {turn:002}][Action]: Bouncing \"Raven Familiar\" back to hand.",
-                        turn = self.turn
-                    );
-                    card.borrow_mut().zone = Zone::Hand;
-                    return;
-                }
-
-                // Otherwise we must bounce the Harpy back to hand
-                debug!(
-                    "[Turn {turn:002}][Action]: Bouncing \"Cavern Harpy\" back to hand.",
-                    turn = self.turn
-                );
-                game_object.borrow_mut().zone = Zone::Hand;
-            }
-            Effect::DamageEach(damage) => {
-                self.damage_each(damage as i32);
-            }
-            Effect::Intuition => {
-                let mut found = strategy.select_intuition(self);
-                let found_str = found
-                    .iter()
-                    .map(|card| format!("\"{}\"", card.borrow().name))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-
-                debug!("[Turn {turn:002}][Action]: Searched for cards: {found_str} with Intuition.",
-                    turn = self.turn);
-                
-                if let Some(card) = found.pop() {
-                    self.deck.remove(&card);
-                    card.borrow_mut().zone = Zone::Hand;
-
-                    debug!("[Turn {turn:002}][Action]: Put \"{card_name}\" to hand.",
-                        card_name = card.borrow().name,
-                        turn = self.turn);
-                }
-
-                for card in found.into_iter() {
-                    self.deck.remove(&card);
-                    card.borrow_mut().zone = Zone::Graveyard;
-
-                    debug!("[Turn {turn:002}][Action]: Put \"{card_name}\" to graveyard.",
-                        card_name = card.borrow().name,
-                        turn = self.turn);
-                }
-            }
-            _ => unimplemented!(),
+    /// Applies any effects to the game the game object resolving might cause
+    pub fn handle_on_resolve_effects(&mut self, source: &CardRef, strategy: &impl Strategy) {
+        let on_resolve = source.borrow().on_resolve.clone();
+        if let Some(effect) = on_resolve {
+            effect.resolve(self, source, strategy)
         }
     }
 
+    /// Returns the count of available mana sources on battlefield
     pub fn mana_sources_count(&self) -> usize {
         self.game_objects
             .iter()
@@ -564,6 +357,7 @@ impl Game {
             .count()
     }
 
+    /// Cleanup phase, discards cards to hand size
     pub fn cleanup(&mut self, strategy: &Box<dyn Strategy>) {
         let cards_to_discard = strategy.discard_to_hand_size(self, 7);
         if !cards_to_discard.is_empty() {
@@ -585,11 +379,13 @@ impl Game {
         self.floating_mana.clear();
     }
 
+    /// Begins the turn, resetting land drops and advancing turn counter
     pub fn begin_turn(&mut self) {
         self.available_land_drops = 1;
         self.turn += 1;
     }
 
+    /// Takes starting hands and decides whether to keep or mulligan them based on the strategy.
     pub fn find_starting_hand(&mut self, strategy: &Box<dyn Strategy>) {
         let mut mulligan_count = 0;
 
@@ -645,22 +441,26 @@ impl Game {
         }
     }
 
+    /// Deals `amount` damage to self
     pub fn take_damage(&mut self, amount: i32) {
         self.life_total -= amount;
         self.print_life();
     }
 
+    /// Deals `amount` damage to the opponent
     pub fn deal_damage(&mut self, amount: i32) {
         self.damage_dealt += amount;
         self.print_life();
     }
 
+    /// Deals `amount` damage to both players
     pub fn damage_each(&mut self, amount: i32) {
         self.life_total -= amount;
         self.damage_dealt += amount;
         self.print_life();
     }
 
+    /// Floats mana from all lands, trying to produce even amount of colors
     pub fn float_mana(&mut self) {
         // Produce colors in this priority order for now, producing 2 of each color first
         // TODO: Consider life loss here

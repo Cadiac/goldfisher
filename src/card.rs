@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::mana::Mana;
+use crate::effect::Effect;
 
 pub type CardRef = Rc<RefCell<Card>>;
 
@@ -58,19 +59,6 @@ pub enum SearchFilter {
     Creature,
     LivingWish,
     EnchantmentArtifact,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Effect {
-    SearchAndPutHand(Option<SearchFilter>),
-    SearchAndPutTopOfLibrary(Option<SearchFilter>),
-    SearchAndPutBattlefield(Option<SearchFilter>),
-    Impulse(usize),
-    Intuition,
-    CavernHarpy,
-    Unearth,
-    UntapLands(usize),
-    DamageEach(usize),
 }
 
 #[derive(Clone, Debug, Default)]

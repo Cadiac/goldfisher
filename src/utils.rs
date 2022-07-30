@@ -119,7 +119,7 @@ pub fn sort_by_cmc(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
         .unwrap()
 }
 
-pub fn apply_search_filter(game: &Game, search_filter: Option<SearchFilter>) -> Vec<CardRef> {
+pub fn apply_search_filter(game: &Game, search_filter: &Option<SearchFilter>) -> Vec<CardRef> {
     match search_filter {
         Some(SearchFilter::Creature) => game
             .game_objects
