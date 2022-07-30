@@ -5,7 +5,7 @@ use std::error::Error;
 use std::fs;
 
 use goldfisher::deck::Decklist;
-use goldfisher::game::{GameState, GameStatus};
+use goldfisher::game::{Game, GameResult};
 use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
 
 #[macro_use]
@@ -56,11 +56,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     for _ in 0..simulated_games {
-        match simulate_game(&strategy, &decklist) {
-            GameStatus::Continue => panic!("stuck game"),
-            GameStatus::Win(turn) => *win_statistics.entry(turn).or_insert(0) += 1,
-            GameStatus::Lose(turn) => *loss_statistics.entry(turn).or_insert(0) += 1,
-            GameStatus::Draw(turn) => *loss_statistics.entry(turn).or_insert(0) += 1,
+        let mut game = Game::new(&decklist);
+        match game.run(&strategy) {
+            (GameResult::Win, turn) => *win_statistics.entry(turn).or_insert(0) += 1,
+            (GameResult::Lose, turn) => *loss_statistics.entry(turn).or_insert(0) += 1,
+            (GameResult::Draw, turn) => *loss_statistics.entry(turn).or_insert(0) += 1,
         }
     }
 
@@ -97,48 +97,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
-}
-
-fn simulate_game(strategy: &Box<dyn Strategy>, decklist: &Decklist) -> GameStatus {
-    debug!("====================[ START OF GAME ]=======================");
-    let mut game = GameState::new(decklist);
-
-    game.find_starting_hand(strategy);
-
-    let result = loop {
-        game.begin_turn();
-
-        debug!(
-            "======================[ TURN {turn:002} ]===========================",
-            turn = game.turn
-        );
-
-        game.untap();
-
-        match game.draw() {
-            GameStatus::Continue => (),
-            result => break result,
-        }
-
-        game.print_game_state();
-
-        match game.take_game_actions(strategy) {
-            GameStatus::Continue => (),
-            result => break result,
-        }
-
-        game.cleanup(strategy);
-    };
-
-    debug!("=====================[ END OF GAME ]========================");
-    debug!(
-        "                 Won the game on turn {turn}!",
-        turn = game.turn
-    );
-    debug!("============================================================");
-    game.print_game_state();
-
-    result
 }
 
 fn init_logger(verbose: bool) {

@@ -9,14 +9,19 @@ use crate::mana::{Mana, PaymentAndFloating};
 use crate::strategy::Strategy;
 use crate::utils::*;
 
-pub enum GameStatus {
-    Continue,
-    Draw(usize),
-    Win(usize),
-    Lose(usize),
+#[derive(Debug)]
+pub enum GameResult {
+    Win,
+    Lose,
+    Draw
 }
 
-pub struct GameState {
+pub enum GameStatus {
+    Continue,
+    Finished(GameResult),
+}
+
+pub struct Game {
     pub turn: usize,
     pub game_objects: Vec<CardRef>,
     pub available_land_drops: usize,
@@ -27,7 +32,7 @@ pub struct GameState {
     pub is_first_player: bool,
 }
 
-impl GameState {
+impl Game {
     pub fn new(decklist: &Decklist) -> Self {
         let mut deck = Deck::new(decklist).unwrap();
 
@@ -50,6 +55,45 @@ impl GameState {
             is_first_player: true,
             available_land_drops: 1,
         }
+    }
+
+    pub fn run(&mut self, strategy: &Box<dyn Strategy>) -> (GameResult, usize) {
+        debug!("====================[ START OF GAME ]=======================");
+        
+        self.find_starting_hand(strategy);
+        
+        let result = loop {
+            self.begin_turn();
+    
+            debug!(
+                "======================[ TURN {turn:002} ]===========================",
+                turn = self.turn
+            );
+    
+            self.untap();
+    
+            if let GameStatus::Finished(result) = self.draw() {
+                break result;
+            }
+    
+            self.print_game_state();
+    
+            if let GameStatus::Finished(result) = self.take_game_actions(strategy) {
+                break result;
+            }
+    
+            self.cleanup(strategy);
+        };
+
+        debug!("=====================[ END OF GAME ]========================");
+        debug!(
+            "                    {result:?} on turn {turn}!",
+            turn = self.turn
+        );
+        debug!("============================================================");
+        self.print_game_state();
+    
+        (result, self.turn)
     }
 
     pub fn find_castable(&self) -> Vec<(CardRef, Option<PaymentAndFloating>)> {
@@ -137,7 +181,7 @@ impl GameState {
                 );
                 return GameStatus::Continue;
             } else {
-                return GameStatus::Lose(self.turn);
+                return GameStatus::Finished(GameResult::Lose);
             }
         }
         GameStatus::Continue
@@ -763,7 +807,7 @@ mod tests {
         // Should work in any order
         game_objects.shuffle(&mut thread_rng());
 
-        let game = GameState {
+        let game = Game {
             deck: Deck::new(&Decklist { maindeck: vec![], sideboard: vec![] }).unwrap(),
             game_objects,
             turn: 0,
@@ -812,7 +856,7 @@ mod tests {
         let tapland = Card::new_with_zone("Hickory Woodlot", Zone::Hand);
         let llanowar_elves = Card::new_with_zone("Llanowar Elves", Zone::Hand);
 
-        let mut game = GameState {
+        let mut game = Game {
             deck: Deck::new(&Decklist { maindeck: vec![], sideboard: vec![] }).unwrap(),
             game_objects: vec![tapland.clone(), llanowar_elves.clone()],
             turn: 0,

@@ -1,6 +1,6 @@
 use crate::{
     card::{CardRef, CardType, SearchFilter, Zone},
-    game::GameState,
+    game::Game,
 };
 use std::collections::HashMap;
 
@@ -119,7 +119,7 @@ pub fn sort_by_cmc(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
         .unwrap()
 }
 
-pub fn apply_search_filter(game: &GameState, search_filter: Option<SearchFilter>) -> Vec<CardRef> {
+pub fn apply_search_filter(game: &Game, search_filter: Option<SearchFilter>) -> Vec<CardRef> {
     match search_filter {
         Some(SearchFilter::Creature) => game
             .game_objects
@@ -174,7 +174,7 @@ pub fn find_named(cards: &HashMap<String, Vec<CardRef>>, name: &str) -> Option<C
 }
 
 pub fn find_n_with_priority(
-    game: &GameState,
+    game: &Game,
     count: usize,
     priority_list: &[&str],
 ) -> Vec<CardRef> {

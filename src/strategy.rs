@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::card::{CardRef, CardType};
 use crate::deck::Decklist;
-use crate::game::{GameState, GameStatus};
+use crate::game::{Game, GameStatus, GameResult};
 use crate::utils::*;
 
 pub mod aluren;
@@ -10,25 +10,25 @@ pub mod pattern_hulk;
 
 pub trait Strategy {
     fn default_decklist(&self) -> Decklist;
-    fn game_status(&self, game: &GameState) -> GameStatus {
+    fn game_status(&self, game: &Game) -> GameStatus {
         if game.life_total <= 0 && game.damage_dealt >= 20 {
-            return GameStatus::Draw(game.turn);
+            return GameStatus::Finished(GameResult::Draw);
         }
 
         if game.life_total <= 0 {
-            return GameStatus::Lose(game.turn);
+            return GameStatus::Finished(GameResult::Lose);
         }
 
         if game.damage_dealt >= 20 {
-            return GameStatus::Win(game.turn);
+            return GameStatus::Finished(GameResult::Win);
         }
 
         GameStatus::Continue
     }
 
-    fn is_keepable_hand(&self, game: &GameState, mulligan_count: usize) -> bool;
-    fn take_game_action(&self, game: &mut GameState) -> bool;
-    fn play_land(&self, game: &mut GameState) -> bool {
+    fn is_keepable_hand(&self, game: &Game, mulligan_count: usize) -> bool;
+    fn take_game_action(&self, game: &mut Game) -> bool;
+    fn play_land(&self, game: &mut Game) -> bool {
         if game.available_land_drops > 0 {
             let mut lands_in_hand = game
                 .game_objects
@@ -52,11 +52,11 @@ pub trait Strategy {
     }
     fn select_best(
         &self,
-        game: &GameState,
+        game: &Game,
         cards: HashMap<String, Vec<CardRef>>,
     ) -> Option<CardRef>;
 
-    fn select_intuition(&self, game: &GameState) -> Vec<CardRef> {
+    fn select_intuition(&self, game: &Game) -> Vec<CardRef> {
         game.game_objects
             .iter()
             .filter(is_library)
@@ -65,7 +65,7 @@ pub trait Strategy {
             .collect()
     }
 
-    fn discard_to_hand_size(&self, game: &GameState, hand_size: usize) -> Vec<CardRef>;
+    fn discard_to_hand_size(&self, game: &Game, hand_size: usize) -> Vec<CardRef>;
 }
 
 #[cfg(test)]
@@ -99,7 +99,7 @@ mod tests {
         // Should work in any order
         game_objects.shuffle(&mut thread_rng());
 
-        let mut game = GameState {
+        let mut game = Game {
             deck: Deck::new(&Decklist { maindeck: vec![], sideboard: vec![] }).unwrap(),
             game_objects,
             turn: 0,

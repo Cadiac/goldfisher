@@ -4,12 +4,10 @@ use std::rc::Rc;
 
 use crate::card::{CardRef, CardType, Zone, ZONES};
 use crate::deck::Decklist;
-use crate::game::GameState;
+use crate::game::{Game, GameResult, GameStatus};
 use crate::mana::Mana;
 use crate::strategy::Strategy;
 use crate::utils::*;
-
-use super::GameStatus;
 
 const DEFAULT_DECKLIST: &str = include_str!("../../resources/pattern-hulk.txt");
 const COMBO_PIECES: &[&str] = &[
@@ -38,7 +36,7 @@ struct ComboStatus {
 pub struct PatternHulk {}
 
 impl PatternHulk {
-    fn cast_pattern_of_rebirth(&self, game: &mut GameState) -> bool {
+    fn cast_pattern_of_rebirth(&self, game: &mut Game) -> bool {
         let castable = game.find_castable();
 
         let is_creature_on_battlefield = game
@@ -83,7 +81,7 @@ impl PatternHulk {
         false
     }
 
-    fn cast_academy_rector(&self, game: &mut GameState) -> bool {
+    fn cast_academy_rector(&self, game: &mut Game) -> bool {
         let castable = game.find_castable();
 
         let rector = castable.iter().find(|(card, _)| is_rector(&card));
@@ -102,7 +100,7 @@ impl PatternHulk {
         false
     }
 
-    fn cast_mana_dork(&self, game: &mut GameState) -> bool {
+    fn cast_mana_dork(&self, game: &mut Game) -> bool {
         let castable = game.find_castable();
 
         let mut mana_dorks = castable
@@ -130,7 +128,7 @@ impl PatternHulk {
         false
     }
 
-    fn sac_veteran_explorer(&self, game: &mut GameState, veteran_explorer: CardRef) {
+    fn sac_veteran_explorer(&self, game: &mut Game, veteran_explorer: CardRef) {
         veteran_explorer.borrow_mut().zone = Zone::Graveyard;
 
         for _ in 0..2 {
@@ -151,7 +149,7 @@ impl PatternHulk {
         }
     }
 
-    fn ramp_with_veteran_explorer(&self, game: &mut GameState) -> bool {
+    fn ramp_with_veteran_explorer(&self, game: &mut Game) -> bool {
         let veteran_explorer = match game
             .game_objects
             .iter()
@@ -215,7 +213,7 @@ impl PatternHulk {
         false
     }
 
-    fn cast_sac_outlet(&self, game: &mut GameState) -> bool {
+    fn cast_sac_outlet(&self, game: &mut Game) -> bool {
         let castable = game.find_castable();
 
         let mut sac_outlets = castable
@@ -234,7 +232,7 @@ impl PatternHulk {
         false
     }
 
-    fn cast_other_creature(&self, game: &mut GameState) -> bool {
+    fn cast_other_creature(&self, game: &mut Game) -> bool {
         let castable = game.find_castable();
 
         let mut creatures = castable
@@ -253,7 +251,7 @@ impl PatternHulk {
         false
     }
 
-    fn cast_others(&self, game: &mut GameState) -> bool {
+    fn cast_others(&self, game: &mut Game) -> bool {
         let mut castable = game.find_castable();
 
         // Cast the cheapest first
@@ -269,7 +267,7 @@ impl PatternHulk {
 
     fn combo_status(
         &self,
-        game: &GameState,
+        game: &Game,
         include_hand: bool,
         include_battlefield: bool,
     ) -> ComboStatus {
@@ -341,13 +339,13 @@ impl Strategy for PatternHulk {
         DEFAULT_DECKLIST.parse::<Decklist>().unwrap()
     }
 
-    fn game_status(&self, game: &GameState) -> super::GameStatus {
+    fn game_status(&self, game: &Game) -> super::GameStatus {
         if game.life_total <= 0 {
             debug!(
                 "[Turn {turn:002}][Game]: Out of life points, lost the game!",
                 turn = game.turn
             );
-            return GameStatus::Lose(game.turn);
+            return GameStatus::Finished(GameResult::Lose);
         }
 
         let status = self.combo_status(game, false, true);
@@ -411,7 +409,7 @@ impl Strategy for PatternHulk {
                 "[Turn {turn:002}][Game]: Can't combo anymore, lost the game!",
                 turn = game.turn
             );
-            return GameStatus::Lose(game.turn);
+            return GameStatus::Finished(GameResult::Lose);
         }
 
         // Winning combinations:
@@ -425,25 +423,25 @@ impl Strategy for PatternHulk {
             && status.patterns >= 1
             && !status.pattern_on_sac_outlet
         {
-            return GameStatus::Win(game.turn);
+            return GameStatus::Finished(GameResult::Win);
         }
 
         // 2) One sac outlet with pattern + one sac outlet without + Pattern of Rebirth on a sac outlet
         if status.multi_use_sac_outlets >= 2 && status.patterns >= 1 && status.pattern_on_sac_outlet
         {
-            return GameStatus::Win(game.turn);
+            return GameStatus::Finished(GameResult::Win);
         }
 
         // 3) Sac outlet + Academy Rector + any redundant creature
         if status.multi_use_sac_outlets >= 1 && status.academy_rectors >= 1 && status.creatures >= 3
         {
-            return GameStatus::Win(game.turn);
+            return GameStatus::Finished(GameResult::Win);
         }
 
         // 4) At least one Academy Rector + Pattern of Rebirth on a creature + Cabal Therapy in graveyard / Phyrexian Tower
         if status.academy_rectors >= 1 && status.patterns >= 1 && status.single_use_sac_outlets >= 1
         {
-            return GameStatus::Win(game.turn);
+            return GameStatus::Finished(GameResult::Win);
         }
 
         // 5) At least two Academy Rectors + at least one single use sac outlet + at least three creatures total
@@ -451,19 +449,19 @@ impl Strategy for PatternHulk {
             && status.single_use_sac_outlets >= 1
             && status.creatures >= 3
         {
-            return GameStatus::Win(game.turn);
+            return GameStatus::Finished(GameResult::Win);
         }
 
         // 6) At least two Academy Rectors + at least two single use sac outlets available
         // Sac first, get Pattern on second, sac the second, get Drake + Bombardment
         if status.academy_rectors >= 2 && status.single_use_sac_outlets >= 2 {
-            return GameStatus::Win(game.turn);
+            return GameStatus::Finished(GameResult::Win);
         }
 
         GameStatus::Continue
     }
 
-    fn is_keepable_hand(&self, game: &GameState, mulligan_count: usize) -> bool {
+    fn is_keepable_hand(&self, game: &Game, mulligan_count: usize) -> bool {
         if mulligan_count >= 3 {
             // Just keep the hand with 4 cards
             return true;
@@ -516,7 +514,7 @@ impl Strategy for PatternHulk {
 
     fn select_best(
         &self,
-        game: &GameState,
+        game: &Game,
         cards: HashMap<String, Vec<CardRef>>,
     ) -> Option<CardRef> {
         let status = self.combo_status(game, true, true);
@@ -625,7 +623,7 @@ impl Strategy for PatternHulk {
         cards.values().flatten().cloned().next()
     }
 
-    fn discard_to_hand_size(&self, game: &GameState, hand_size: usize) -> Vec<CardRef> {
+    fn discard_to_hand_size(&self, game: &Game, hand_size: usize) -> Vec<CardRef> {
         let mut ordered_hand = Vec::new();
         let mut lands = Vec::with_capacity(7);
         let mut patterns_or_rectors = Vec::with_capacity(7);
@@ -703,7 +701,7 @@ impl Strategy for PatternHulk {
             .collect()
     }
 
-    fn take_game_action(&self, game: &mut GameState) -> bool {
+    fn take_game_action(&self, game: &mut Game) -> bool {
         self.play_land(game)
             || self.cast_pattern_of_rebirth(game)
             || self.cast_academy_rector(game)

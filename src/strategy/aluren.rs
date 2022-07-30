@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::card::{CardRef, CardType, Zone};
 use crate::deck::Decklist;
-use crate::game::GameState;
+use crate::game::Game;
 use crate::mana::PaymentAndFloating;
 use crate::strategy::Strategy;
 use crate::utils::*;
@@ -26,7 +26,7 @@ struct ComboStatus {
 pub struct Aluren {}
 
 impl Aluren {
-    fn cast_mana_dork(&self, game: &mut GameState) -> bool {
+    fn cast_mana_dork(&self, game: &mut Game) -> bool {
         let castable = game.find_castable();
 
         let mut mana_dorks = castable
@@ -47,7 +47,7 @@ impl Aluren {
 
     fn cast_named(
         &self,
-        game: &mut GameState,
+        game: &mut Game,
         castable: Vec<(CardRef, Option<PaymentAndFloating>)>,
         card_name: &str,
     ) -> bool {
@@ -61,7 +61,7 @@ impl Aluren {
         false
     }
 
-    fn combo_status(&self, game: &GameState, zones: Vec<Zone>) -> ComboStatus {
+    fn combo_status(&self, game: &Game, zones: Vec<Zone>) -> ComboStatus {
         let game_objects = game
             .game_objects
             .iter()
@@ -127,7 +127,7 @@ impl Strategy for Aluren {
         DEFAULT_DECKLIST.parse::<Decklist>().unwrap()
     }
 
-    fn is_keepable_hand(&self, game: &GameState, mulligan_count: usize) -> bool {
+    fn is_keepable_hand(&self, game: &Game, mulligan_count: usize) -> bool {
         if mulligan_count >= 3 {
             // Just keep the hand with 4 cards
             return true;
@@ -171,7 +171,7 @@ impl Strategy for Aluren {
 
     fn select_best(
         &self,
-        game: &GameState,
+        game: &Game,
         cards: HashMap<String, Vec<CardRef>>,
     ) -> Option<CardRef> {
         let status = self.combo_status(game, vec![Zone::Hand, Zone::Battlefield]);
@@ -316,7 +316,7 @@ impl Strategy for Aluren {
         cards.values().flatten().cloned().next()
     }
 
-    fn select_intuition(&self, game: &GameState) -> Vec<CardRef> {
+    fn select_intuition(&self, game: &Game) -> Vec<CardRef> {
         let searchable = apply_search_filter(game, None);
         if let Some(found) = self.select_best(game, group_by_name(searchable)) {
             let mut cards = Vec::with_capacity(3);
@@ -381,7 +381,7 @@ impl Strategy for Aluren {
         }
     }
 
-    fn discard_to_hand_size(&self, game: &GameState, hand_size: usize) -> Vec<CardRef> {
+    fn discard_to_hand_size(&self, game: &Game, hand_size: usize) -> Vec<CardRef> {
         let mut ordered_hand = Vec::new();
 
         let mut lands = Vec::with_capacity(7);
@@ -502,7 +502,7 @@ impl Strategy for Aluren {
             .collect()
     }
 
-    fn take_game_action(&self, game: &mut GameState) -> bool {
+    fn take_game_action(&self, game: &mut Game) -> bool {
         if self.play_land(game) {
             return true;
         }
@@ -685,8 +685,8 @@ impl Strategy for Aluren {
 mod tests {
     use super::*;
 
-    fn setup_game(cards_and_zones: Vec<(&str, Zone)>, strategy: &impl Strategy) -> GameState {
-        let game = GameState::new(&strategy.default_decklist());
+    fn setup_game(cards_and_zones: Vec<(&str, Zone)>, strategy: &impl Strategy) -> Game {
+        let game = Game::new(&strategy.default_decklist());
 
         for (name, zone) in cards_and_zones {
             game.game_objects
