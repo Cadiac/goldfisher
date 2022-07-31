@@ -14,3 +14,5 @@ goldfisher = { path = "../goldfisher" }
 web-sys = { version = "0.3", features = ["EventTarget", "HtmlSelectElement"] }
 wasm-bindgen = "0.2.78"
 wasm-bindgen-futures = "0.4.32"
+gloo-worker = "0.2.0"
+wee_alloc = "0.4.5"

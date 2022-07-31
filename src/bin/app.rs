@@ -1,8 +1,8 @@
+use gloo_worker::{Spawnable, WorkerBridge};
 use log::info;
 use std::collections::HashMap;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
-use wasm_bindgen_futures::spawn_local;
 use web_sys::{EventTarget, HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 
@@ -10,7 +10,10 @@ use goldfisher::deck::Decklist;
 use goldfisher::game::{Game, GameResult};
 use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
 
-mod components;
+use goldfisher_web::Goldfish;
+
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[derive(Debug)]
 pub enum Msg {
@@ -28,22 +31,24 @@ pub struct App {
     simulations: usize,
     statistics: HashMap<(GameResult, usize), usize>,
     result: Option<String>,
-}
-
-// https://github.com/yewstack/yew/issues/364#issuecomment-737138847
-async fn wrap<F: std::future::Future>(f: F, finished_callback: yew::Callback<F::Output>) {
-    finished_callback.emit(f.await);
+    worker: WorkerBridge<Goldfish>,
 }
 
 impl Component for App {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_ctx: &Context<Self>) -> Self {
+    fn create(ctx: &Context<Self>) -> Self {
         let strategies: Vec<Rc<Box<dyn Strategy>>> = vec![
             Rc::new(Box::new(pattern_hulk::PatternHulk {})),
             Rc::new(Box::new(aluren::Aluren {})),
         ];
+
+        let link = ctx.link().clone();
+
+        let worker = Goldfish::spawner()
+            .callback(move |results| link.send_message(Msg::FinishSimulation(results)))
+            .spawn("/worker.js");
 
         Self {
             strategies,
@@ -53,6 +58,7 @@ impl Component for App {
             simulations: 100,
             statistics: HashMap::new(),
             result: None,
+            worker,
         }
     }
 
@@ -60,7 +66,7 @@ impl Component for App {
 
     fn destroy(&mut self, _: &Context<Self>) {}
 
-    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         info!("[Update]: {msg:?}");
 
         match msg {
@@ -78,21 +84,18 @@ impl Component for App {
                 self.simulations = count;
             }
             Msg::BeginSimulation => {
-                let linkc = ctx.link().clone();
-                let simulations = self.simulations;
-                let decklist = self.decklist.as_ref().unwrap().clone();
-                let strategy = self.current_strategy.as_ref().unwrap().clone();
-
                 self.is_busy = true;
-
-                spawn_local(wrap(
-                    run_simulation(simulations, decklist, strategy),
-                    linkc.callback(|results| Msg::FinishSimulation(results)),
+                self.worker.send((
+                    pattern_hulk::NAME.to_owned(),
+                    self.decklist.as_ref().unwrap().clone(),
+                    self.simulations,
                 ));
             }
             Msg::FinishSimulation(statistics) => {
                 self.statistics = statistics;
                 self.is_busy = false;
+
+                let total_games: usize = self.statistics.values().sum();
 
                 let mut wins_by_turn = self
                     .statistics
@@ -126,8 +129,7 @@ impl Component for App {
                     "                    Average turn: {average_turn:.2}"
                 ));
                 output.push(format!(
-                    "               Wins per turn after {simulations} games:",
-                    simulations = self.simulations
+                    "               Wins per turn after {total_games} games:"
                 ));
                 output.push(format!(
                     "============================================================"
@@ -231,21 +233,6 @@ impl Component for App {
             </div>
         }
     }
-}
-
-async fn run_simulation(
-    simulations: usize,
-    decklist: Decklist,
-    strategy: Rc<Box<dyn Strategy>>,
-) -> HashMap<(GameResult, usize), usize> {
-    let mut statistics = HashMap::new();
-    for _ in 0..simulations {
-        let mut game = Game::new(&decklist);
-        let (result, turn) = game.run(&strategy);
-        *statistics.entry((result, turn)).or_insert(0) += 1;
-    }
-
-    statistics
 }
 
 fn main() {
