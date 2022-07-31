@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 
+use rayon::prelude::*;
+
 use goldfisher::deck::Decklist;
 use goldfisher::game::{Game, GameResult};
 use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
@@ -55,9 +57,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         None => strategy.default_decklist(),
     };
 
-    for _ in 0..simulated_games {
-        let mut game = Game::new(&decklist);
-        match game.run(&strategy) {
+    let results: Vec<_> = (0..simulated_games)
+        .into_par_iter()
+        .map(|_| {
+            let strategy: Box<dyn Strategy> = match cli.strategy {
+                DeckStrategy::PatternHulk => Box::new(pattern_hulk::PatternHulk {}),
+                DeckStrategy::Aluren => Box::new(aluren::Aluren {}),
+            };
+
+            let mut game = Game::new(&decklist);
+            game.run(&strategy)
+        })
+        .collect();
+
+    for result in results {
+        match result {
             (GameResult::Win, turn) => *win_statistics.entry(turn).or_insert(0) += 1,
             (GameResult::Lose, turn) => *loss_statistics.entry(turn).or_insert(0) += 1,
             (GameResult::Draw, turn) => *loss_statistics.entry(turn).or_insert(0) += 1,
