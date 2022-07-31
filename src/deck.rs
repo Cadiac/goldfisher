@@ -2,14 +2,18 @@ use std::cell::RefCell;
 use std::collections::vec_deque::Iter;
 use std::collections::VecDeque;
 use std::error::Error;
+use std::fmt;
 use std::rc::Rc;
 use std::str::FromStr;
+
+use serde::{Deserialize, Serialize};
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
 use crate::card::{Card, CardRef, Zone};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Decklist {
     pub maindeck: Vec<(String, usize)>,
     pub sideboard: Vec<(String, usize)>,
@@ -23,6 +27,24 @@ impl Error for ParseDeckError {}
 impl std::fmt::Display for ParseDeckError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "failed to parse deck: {}", self.0)
+    }
+}
+
+impl fmt::Display for Decklist {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let maindeck = self
+            .maindeck
+            .iter()
+            .map(|(name, amount)| format!("{amount} {name}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let sideboard = self
+            .sideboard
+            .iter()
+            .map(|(name, amount)| format!("{amount} {name}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        write!(f, "{maindeck}\n\n// Sideboard\n{sideboard}")
     }
 }
 
@@ -85,9 +107,8 @@ impl Deck {
         let mut sideboard = Vec::with_capacity(15);
 
         for (card_name, quantity) in decklist.maindeck.iter() {
-            let card = Card::new(card_name).or_else(|msg| {
-                Err(ParseDeckError(format!("failed to create deck: {msg}")))
-            })?;
+            let card = Card::new(card_name)
+                .or_else(|msg| Err(ParseDeckError(format!("failed to create deck: {msg}"))))?;
 
             for _ in 0..*quantity {
                 maindeck.push(Rc::new(RefCell::new(card.clone())));
@@ -95,9 +116,8 @@ impl Deck {
         }
 
         for (card_name, quantity) in decklist.sideboard.iter() {
-            let mut card = Card::new(card_name).or_else(|msg| {
-                Err(ParseDeckError(format!("failed to create deck: {msg}")))
-            })?;
+            let mut card = Card::new(card_name)
+                .or_else(|msg| Err(ParseDeckError(format!("failed to create deck: {msg}"))))?;
             card.zone = Zone::Outside;
 
             for _ in 0..*quantity {

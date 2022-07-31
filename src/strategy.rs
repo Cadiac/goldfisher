@@ -2,13 +2,14 @@ use std::collections::HashMap;
 
 use crate::card::{CardRef, CardType};
 use crate::deck::Decklist;
-use crate::game::{Game, GameStatus, GameResult};
+use crate::game::{Game, GameResult, GameStatus};
 use crate::utils::*;
 
 pub mod aluren;
 pub mod pattern_hulk;
 
 pub trait Strategy {
+    fn name(&self) -> String;
     fn default_decklist(&self) -> Decklist;
     fn game_status(&self, game: &Game) -> GameStatus {
         if game.life_total <= 0 && game.damage_dealt >= 20 {
@@ -50,11 +51,7 @@ pub trait Strategy {
         }
         false
     }
-    fn select_best(
-        &self,
-        game: &Game,
-        cards: HashMap<String, Vec<CardRef>>,
-    ) -> Option<CardRef>;
+    fn select_best(&self, game: &Game, cards: HashMap<String, Vec<CardRef>>) -> Option<CardRef>;
 
     fn select_intuition(&self, game: &Game) -> Vec<CardRef> {
         game.game_objects

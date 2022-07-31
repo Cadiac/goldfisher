@@ -10,6 +10,7 @@ use crate::strategy::Strategy;
 use crate::utils::*;
 
 const DEFAULT_DECKLIST: &str = include_str!("../../resources/aluren.txt");
+pub const NAME: &str = "Premodern - Aluren";
 
 struct ComboStatus {
     mana_sources: usize,
@@ -123,6 +124,8 @@ impl Aluren {
 }
 
 impl Strategy for Aluren {
+    fn name(&self) -> String { NAME.to_owned() }
+
     fn default_decklist(&self) -> Decklist {
         DEFAULT_DECKLIST.parse::<Decklist>().unwrap()
     }

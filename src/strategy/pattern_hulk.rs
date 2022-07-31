@@ -21,6 +21,7 @@ const COMBO_PIECES: &[&str] = &[
     "Akroma, Angel of Wrath",
     "Caller of the Claw",
 ];
+pub const NAME: &str = "Premodern - Pattern Hulk";
 
 struct ComboStatus {
     mana_sources: usize,
@@ -335,6 +336,8 @@ impl PatternHulk {
 }
 
 impl Strategy for PatternHulk {
+    fn name(&self) -> String { NAME.to_owned() }
+
     fn default_decklist(&self) -> Decklist {
         DEFAULT_DECKLIST.parse::<Decklist>().unwrap()
     }

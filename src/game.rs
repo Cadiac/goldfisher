@@ -1,4 +1,5 @@
 use log::{debug};
+use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -9,7 +10,7 @@ use crate::mana::{Mana, PaymentAndFloating};
 use crate::strategy::Strategy;
 use crate::utils::*;
 
-#[derive(Debug)]
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GameResult {
     Win,
     Lose,
