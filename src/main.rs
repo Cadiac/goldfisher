@@ -1,8 +1,9 @@
-use log::debug;
+use log::info;
 use std::collections::HashMap;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
-use web_sys::{EventTarget, HtmlSelectElement, HtmlInputElement};
+use wasm_bindgen_futures::spawn_local;
+use web_sys::{EventTarget, HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 
 use goldfisher::deck::Decklist;
@@ -16,16 +17,22 @@ pub enum Msg {
     SelectStrategy(String),
     ChangeSimulationsCount(usize),
     BeginSimulation,
-    FinishSimulation,
+    FinishSimulation(HashMap<(GameResult, usize), usize>),
 }
 
 pub struct App {
     strategies: Vec<Rc<Box<dyn Strategy>>>,
     current_strategy: Option<Rc<Box<dyn Strategy>>>,
     decklist: Option<Decklist>,
+    is_busy: bool,
     simulations: usize,
     statistics: HashMap<(GameResult, usize), usize>,
     result: Option<String>,
+}
+
+// https://github.com/yewstack/yew/issues/364#issuecomment-737138847
+async fn wrap<F: std::future::Future>(f: F, finished_callback: yew::Callback<F::Output>) {
+    finished_callback.emit(f.await);
 }
 
 impl Component for App {
@@ -42,6 +49,7 @@ impl Component for App {
             strategies,
             current_strategy: None,
             decklist: None,
+            is_busy: false,
             simulations: 100,
             statistics: HashMap::new(),
             result: None,
@@ -53,7 +61,7 @@ impl Component for App {
     fn destroy(&mut self, _: &Context<Self>) {}
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
-        debug!("[Update]: {msg:?}");
+        info!("[Update]: {msg:?}");
 
         match msg {
             Msg::SelectStrategy(name) => {
@@ -70,16 +78,22 @@ impl Component for App {
                 self.simulations = count;
             }
             Msg::BeginSimulation => {
-                for _ in 0..self.simulations {
-                    let mut game = Game::new(self.decklist.as_ref().unwrap());
-                    let (result, turn) = game.run(&self.current_strategy.as_ref().unwrap());
-                    *self.statistics.entry((result, turn)).or_insert(0) += 1;
-                }
-                let link = ctx.link();
+                let linkc = ctx.link().clone();
+                let simulations = self.simulations;
+                let decklist = self.decklist.as_ref().unwrap().clone();
+                let strategy = self.current_strategy.as_ref().unwrap().clone();
 
-                link.send_message(Msg::FinishSimulation);
+                self.is_busy = true;
+
+                spawn_local(wrap(
+                    run_simulation(simulations, decklist, strategy),
+                    linkc.callback(|results| Msg::FinishSimulation(results)),
+                ));
             }
-            Msg::FinishSimulation => {
+            Msg::FinishSimulation(statistics) => {
+                self.statistics = statistics;
+                self.is_busy = false;
+
                 let mut wins_by_turn = self
                     .statistics
                     .iter()
@@ -105,10 +119,19 @@ impl Component for App {
                     / total_wins as f32;
 
                 let mut output = vec![];
-                output.push(format!("=======================[ RESULTS ]=========================="));
-                output.push(format!("                   Average turn: {average_turn:.2}"));
-                output.push(format!("              Wins per turn after {simulations} games:", simulations = self.simulations));
-                output.push(format!("============================================================"));
+                output.push(format!(
+                    "=======================[ RESULTS ]=========================="
+                ));
+                output.push(format!(
+                    "                    Average turn: {average_turn:.2}"
+                ));
+                output.push(format!(
+                    "               Wins per turn after {simulations} games:",
+                    simulations = self.simulations
+                ));
+                output.push(format!(
+                    "============================================================"
+                ));
 
                 let mut cumulative = 0.0;
                 for (turn, wins) in wins_by_turn {
@@ -188,7 +211,11 @@ impl Component for App {
 
                 <div>
                     <label for="run-simulation">{"Run simulation:"}</label>
-                    <button type="button" onclick={link.callback(|_| Msg::BeginSimulation)}>{"Start"}</button>
+                    <button type="button"
+                        disabled={self.is_busy || self.current_strategy.is_none() || self.decklist.is_none()}
+                        onclick={link.callback(|_| Msg::BeginSimulation)}>
+                        { "Run simulation" }
+                    </button>
                 </div>
 
                 <div>
@@ -204,6 +231,21 @@ impl Component for App {
             </div>
         }
     }
+}
+
+async fn run_simulation(
+    simulations: usize,
+    decklist: Decklist,
+    strategy: Rc<Box<dyn Strategy>>,
+) -> HashMap<(GameResult, usize), usize> {
+    let mut statistics = HashMap::new();
+    for _ in 0..simulations {
+        let mut game = Game::new(&decklist);
+        let (result, turn) = game.run(&strategy);
+        *statistics.entry((result, turn)).or_insert(0) += 1;
+    }
+
+    statistics
 }
 
 fn main() {
