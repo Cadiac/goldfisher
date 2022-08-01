@@ -10,7 +10,7 @@ use goldfisher::deck::Decklist;
 use goldfisher::game::{Game, GameResult};
 use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
 
-use goldfisher_web::Goldfish;
+use goldfisher_web::{Goldfish, Status};
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -20,6 +20,7 @@ pub enum Msg {
     SelectStrategy(String),
     ChangeSimulationsCount(usize),
     BeginSimulation,
+    UpdateProgress(usize, usize, HashMap<(GameResult, usize), usize>),
     FinishSimulation(HashMap<(GameResult, usize), usize>),
 }
 
@@ -29,8 +30,8 @@ pub struct App {
     decklist: Option<Decklist>,
     is_busy: bool,
     simulations: usize,
-    statistics: HashMap<(GameResult, usize), usize>,
-    result: Option<String>,
+    results: HashMap<(GameResult, usize), usize>,
+    output: Option<String>,
     worker: WorkerBridge<Goldfish>,
 }
 
@@ -47,7 +48,14 @@ impl Component for App {
         let link = ctx.link().clone();
 
         let worker = Goldfish::spawner()
-            .callback(move |results| link.send_message(Msg::FinishSimulation(results)))
+            .callback(move |results| {
+                match results {
+                    Status::InProgress(current, total, results) => {
+                        link.send_message(Msg::UpdateProgress(current, total, results))
+                    }
+                    Status::Complete(results) => link.send_message(Msg::FinishSimulation(results)),
+                };
+            })
             .spawn("/worker.js");
 
         Self {
@@ -56,8 +64,8 @@ impl Component for App {
             decklist: None,
             is_busy: false,
             simulations: 100,
-            statistics: HashMap::new(),
-            result: None,
+            results: HashMap::new(),
+            output: None,
             worker,
         }
     }
@@ -91,21 +99,33 @@ impl Component for App {
                     self.simulations,
                 ));
             }
-            Msg::FinishSimulation(statistics) => {
-                self.statistics = statistics;
+            Msg::UpdateProgress(current, total_simulations, results) => {
+                self.results = results;
+
+                let output = vec![
+                    format!("=======================[ RUNNING ]=========================="),
+                    format!("                In progress: {current}/{total_simulations}"),
+                    format!("============================================================"),
+                ];
+
+                self.output = Some(output.join("\n"))
+                
+            }
+            Msg::FinishSimulation(results) => {
+                self.results = results;
                 self.is_busy = false;
 
-                let total_games: usize = self.statistics.values().sum();
+                let total_games: usize = self.results.values().sum();
 
                 let mut wins_by_turn = self
-                    .statistics
+                    .results
                     .iter()
                     .filter(|((result, _), _)| *result == GameResult::Win)
                     .map(|((_, turn), count)| (*turn, *count))
                     .collect::<Vec<_>>();
 
                 let mut losses_by_turn = self
-                    .statistics
+                    .results
                     .iter()
                     .filter(|((result, _), _)| *result == GameResult::Lose)
                     .map(|((_, turn), count)| (*turn, *count))
@@ -149,7 +169,7 @@ impl Component for App {
                     output.push(format!("Turn {turn:002}: {losses} losses ({loss_percentage:.1}%) - cumulative {loss_cumulative:.1}%"));
                 }
 
-                self.result = Some(output.join("\n"));
+                self.output = Some(output.join("\n"));
             }
         }
 
@@ -221,9 +241,9 @@ impl Component for App {
                 </div>
 
                 <div>
-                    {if let Some(result) = &self.result {
+                    {if let Some(output) = &self.output {
                         html! {
-                            <pre>{result}</pre>
+                            <pre>{output}</pre>
                         }
                     } else {
                         html! {}
