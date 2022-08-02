@@ -1,13 +1,14 @@
-use std::rc::Rc;
-use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
 use gloo_worker::{HandlerId, Worker, WorkerScope};
+use serde::{Deserialize, Serialize};
+use std::rc::Rc;
 
 use wasm_bindgen_futures::spawn_local;
 
-use goldfisher::deck::{Decklist};
+use goldfisher::deck::Decklist;
 use goldfisher::game::{Game, GameResult};
-use goldfisher::strategy::{Strategy, pattern_hulk, aluren};
+use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
+
+const MAX_BATCH_SIZE: usize = 250;
 
 #[derive(Debug)]
 pub enum Msg<T> {
@@ -16,23 +17,27 @@ pub enum Msg<T> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Status {
-    InProgress(usize, usize, Results),
-    Complete(Results),
+    InProgress(usize, usize, Vec<(GameResult, usize)>),
+    Complete(usize, Vec<(GameResult, usize)>),
 }
-
-type Results = HashMap<(GameResult, usize), usize>;
 
 pub struct Goldfish {}
 
 impl Goldfish {
-    fn run_simulations(strategy: &Rc<Box<dyn Strategy>>, decklist: &Decklist, count: usize) {
-        let mut results = HashMap::new();
+    fn run_simulations(
+        strategy: &Rc<Box<dyn Strategy>>,
+        decklist: &Decklist,
+        batch_size: usize,
+    ) -> Vec<(GameResult, usize)> {
+        let mut results = Vec::new();
 
-        for _ in 0..count {
+        for _ in 0..batch_size {
             let mut game = Game::new(&decklist);
-            let (result, turn) = game.run(strategy);
-            *results.entry((result, turn)).or_insert(0) += 1;
+            let result = game.run(strategy);
+            results.push(result);
         }
+
+        results
     }
 }
 
@@ -52,37 +57,43 @@ impl Worker for Goldfish {
         scope.respond(id, output);
     }
 
-    fn received(&mut self, scope: &WorkerScope<Self>, msg: Self::Input, who: HandlerId) {
-        let (strategy_name, decklist, simulations) = msg;
+    fn received(&mut self, scope: &WorkerScope<Self>, msg: Self::Input, id: HandlerId) {
+        let (strategy_name, decklist, total_simulations) = msg;
 
-        let mut results = HashMap::new();
         let strategy: Rc<Box<dyn Strategy>> = match strategy_name.as_str() {
             pattern_hulk::NAME => Rc::new(Box::new(pattern_hulk::PatternHulk {})),
             aluren::NAME => Rc::new(Box::new(aluren::Aluren {})),
-            _ => unimplemented!()
+            _ => unimplemented!(),
         };
 
-        for current_simulation in 0..10 {
-            let sc = strategy.clone();
-            let dc = decklist.clone();
+        let mut progress = 0;
+        while progress < total_simulations {
+            let batch_size = if progress + MAX_BATCH_SIZE > total_simulations {
+                total_simulations - progress
+            } else {
+                MAX_BATCH_SIZE
+            };
+
+            progress += batch_size;
+
+            let strategy = strategy.clone();
+            let decklist = decklist.clone();
+            let scope = scope.clone();
 
             spawn_local(async move {
-                Goldfish::run_simulations(&sc, &dc, 100);
+                let results = Goldfish::run_simulations(&strategy, &decklist, batch_size);
+                if progress == total_simulations {
+                    scope.respond(
+                        id,
+                        Status::Complete(total_simulations, results),
+                    );
+                } else {
+                    scope.respond(
+                        id,
+                        Status::InProgress(progress, total_simulations, results),
+                    );
+                }
             });
-
-            scope.send_message(Msg::Respond { output: Status::InProgress(current_simulation, simulations, results.clone()), id: who });
         }
-
-        // for current_simulation in 0..simulations {
-        //     let mut game = Game::new(&decklist);
-        //     let (result, turn) = game.run(&strategy);
-        //     *results.entry((result, turn)).or_insert(0) += 1;
-
-        //     if current_simulation % 100 == 0 {
-        //         scope.send_message(Msg::Respond { output: Status::InProgress(current_simulation, simulations, results.clone()), id: who });
-        //     }
-        // }
-
-        scope.send_message(Msg::Respond { output: Status::Complete(results), id: who });
     }
 }

@@ -20,8 +20,8 @@ pub enum Msg {
     SelectStrategy(String),
     ChangeSimulationsCount(usize),
     BeginSimulation,
-    UpdateProgress(usize, usize, HashMap<(GameResult, usize), usize>),
-    FinishSimulation(HashMap<(GameResult, usize), usize>),
+    UpdateProgress(usize, usize, Vec<(GameResult, usize)>),
+    FinishSimulation(usize, Vec<(GameResult, usize)>),
 }
 
 pub struct App {
@@ -30,9 +30,85 @@ pub struct App {
     decklist: Option<Decklist>,
     is_busy: bool,
     simulations: usize,
+    progress: (usize, usize),
     results: HashMap<(GameResult, usize), usize>,
     output: Option<String>,
     worker: WorkerBridge<Goldfish>,
+}
+
+impl App {
+    fn update_output(&mut self) {
+        let progress: usize = self.progress.0;
+        let total_simulations = self.progress.1;
+
+        let mut wins_by_turn = self
+            .results
+            .iter()
+            .filter(|((result, _), _)| *result == GameResult::Win)
+            .map(|((_, turn), count)| (*turn, *count))
+            .collect::<Vec<_>>();
+
+        let mut losses_by_turn = self
+            .results
+            .iter()
+            .filter(|((result, _), _)| *result == GameResult::Lose)
+            .map(|((_, turn), count)| (*turn, *count))
+            .collect::<Vec<_>>();
+
+        wins_by_turn.sort();
+        losses_by_turn.sort();
+
+        let total_wins: usize = wins_by_turn.iter().map(|(_, wins)| *wins).sum();
+        let average_turn = wins_by_turn
+            .iter()
+            .map(|(turn, wins)| *turn * *wins)
+            .sum::<usize>() as f32
+            / total_wins as f32;
+
+        let mut output = vec![];
+        if self.is_busy {
+            output.push(format!(
+                "=======================[ RUNNING ]=========================="
+            ));
+            output.push(format!(
+                "                   In progress: {progress}/{total_simulations}",
+            ));
+        } else {
+            output.push(format!(
+                "=======================[ RESULTS ]=========================="
+            ));
+            output.push(format!(
+                "                    Finished: {progress}/{total_simulations}",
+            ));
+        }
+        output.push(format!(
+            "                    Average turn: {average_turn:.2}"
+        ));
+        output.push(format!(
+            "               Wins per turn after {progress} games:"
+        ));
+        output.push(format!(
+            "============================================================"
+        ));
+
+        let mut cumulative = 0.0;
+        for (turn, wins) in wins_by_turn {
+            let win_percentage = 100.0 * wins as f32 / progress as f32;
+            cumulative += win_percentage;
+            output.push(format!(
+                "Turn {turn:002}: {wins} wins ({win_percentage:.1}%) - cumulative {cumulative:.1}%"
+            ));
+        }
+
+        let mut loss_cumulative = 0.0;
+        for (turn, losses) in losses_by_turn {
+            let loss_percentage = 100.0 * losses as f32 / progress as f32;
+            loss_cumulative += loss_percentage;
+            output.push(format!("Turn {turn:002}: {losses} losses ({loss_percentage:.1}%) - cumulative {loss_cumulative:.1}%"));
+        }
+
+        self.output = Some(output.join("\n"));
+    }
 }
 
 impl Component for App {
@@ -53,7 +129,7 @@ impl Component for App {
                     Status::InProgress(current, total, results) => {
                         link.send_message(Msg::UpdateProgress(current, total, results))
                     }
-                    Status::Complete(results) => link.send_message(Msg::FinishSimulation(results)),
+                    Status::Complete(total, results) => link.send_message(Msg::FinishSimulation(total, results))
                 };
             })
             .spawn("/worker.js");
@@ -64,6 +140,7 @@ impl Component for App {
             decklist: None,
             is_busy: false,
             simulations: 100,
+            progress: (0, 0),
             results: HashMap::new(),
             output: None,
             worker,
@@ -99,77 +176,22 @@ impl Component for App {
                     self.simulations,
                 ));
             }
-            Msg::UpdateProgress(current, total_simulations, results) => {
-                self.results = results;
+            Msg::UpdateProgress(progress, total_simulations, results) => {
+                for result in results {
+                    *self.results.entry(result).or_insert(0) += 1;
+                }
 
-                let output = vec![
-                    format!("=======================[ RUNNING ]=========================="),
-                    format!("                In progress: {current}/{total_simulations}"),
-                    format!("============================================================"),
-                ];
-
-                self.output = Some(output.join("\n"))
-                
+                self.progress = (progress, total_simulations);
+                self.update_output();
             }
-            Msg::FinishSimulation(results) => {
-                self.results = results;
+            Msg::FinishSimulation(total_simulations, results) => {
+                for result in results {
+                    *self.results.entry(result).or_insert(0) += 1;
+                }
+
+                self.progress = (total_simulations, total_simulations);
                 self.is_busy = false;
-
-                let total_games: usize = self.results.values().sum();
-
-                let mut wins_by_turn = self
-                    .results
-                    .iter()
-                    .filter(|((result, _), _)| *result == GameResult::Win)
-                    .map(|((_, turn), count)| (*turn, *count))
-                    .collect::<Vec<_>>();
-
-                let mut losses_by_turn = self
-                    .results
-                    .iter()
-                    .filter(|((result, _), _)| *result == GameResult::Lose)
-                    .map(|((_, turn), count)| (*turn, *count))
-                    .collect::<Vec<_>>();
-
-                wins_by_turn.sort();
-                losses_by_turn.sort();
-
-                let total_wins: usize = wins_by_turn.iter().map(|(_, wins)| *wins).sum();
-                let average_turn = wins_by_turn
-                    .iter()
-                    .map(|(turn, wins)| *turn * *wins)
-                    .sum::<usize>() as f32
-                    / total_wins as f32;
-
-                let mut output = vec![];
-                output.push(format!(
-                    "=======================[ RESULTS ]=========================="
-                ));
-                output.push(format!(
-                    "                    Average turn: {average_turn:.2}"
-                ));
-                output.push(format!(
-                    "               Wins per turn after {total_games} games:"
-                ));
-                output.push(format!(
-                    "============================================================"
-                ));
-
-                let mut cumulative = 0.0;
-                for (turn, wins) in wins_by_turn {
-                    let win_percentage = 100.0 * wins as f32 / self.simulations as f32;
-                    cumulative += win_percentage;
-                    output.push(format!("Turn {turn:002}: {wins} wins ({win_percentage:.1}%) - cumulative {cumulative:.1}%"));
-                }
-
-                let mut loss_cumulative = 0.0;
-                for (turn, losses) in losses_by_turn {
-                    let loss_percentage = 100.0 * losses as f32 / self.simulations as f32;
-                    loss_cumulative += loss_percentage;
-                    output.push(format!("Turn {turn:002}: {losses} losses ({loss_percentage:.1}%) - cumulative {loss_cumulative:.1}%"));
-                }
-
-                self.output = Some(output.join("\n"));
+                self.update_output();
             }
         }
 
