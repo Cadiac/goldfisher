@@ -10,7 +10,7 @@ use crate::mana::{Mana, PaymentAndFloating};
 use crate::strategy::Strategy;
 use crate::utils::*;
 
-#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GameResult {
     Win,
     Lose,
