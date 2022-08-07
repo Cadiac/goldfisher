@@ -101,6 +101,15 @@ pub struct Deck {
     pub sideboard: Vec<CardRef>,
 }
 
+impl FromStr for Deck {
+    type Err = ParseDeckError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.parse::<Decklist>()
+            .and_then(|decklist| Deck::new(&decklist))
+    }
+}
+
 impl Deck {
     pub fn new(decklist: &Decklist) -> Result<Self, ParseDeckError> {
         let mut maindeck = Vec::with_capacity(60);
