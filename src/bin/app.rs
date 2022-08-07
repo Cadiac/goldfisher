@@ -1,13 +1,14 @@
 use gloo_worker::{Spawnable, WorkerBridge};
 use log::info;
 use std::collections::HashMap;
+use std::fmt;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
-use web_sys::{EventTarget, HtmlInputElement, HtmlSelectElement};
+use web_sys::{EventTarget, HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
 use goldfisher::deck::Decklist;
-use goldfisher::game::{Game, GameResult};
+use goldfisher::game::GameResult;
 use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
 
 use goldfisher_web::{Goldfish, Status};
@@ -17,17 +18,35 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 #[derive(Debug)]
 pub enum Msg {
-    SelectStrategy(String),
+    ChangeStrategy(String),
     ChangeSimulationsCount(usize),
+    ChangeDecklist(String),
     BeginSimulation,
     UpdateProgress(usize, usize, Vec<(GameResult, usize)>),
     FinishSimulation(usize, Vec<(GameResult, usize)>),
+    SimulationError(String),
+}
+
+impl fmt::Display for Msg {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Msg::ChangeStrategy(name) => write!(f, "ChangeStrategy(\"{name}\")"),
+            Msg::ChangeSimulationsCount(count) => write!(f, "ChangeSimulationsCount({count})"),
+            Msg::ChangeDecklist(_decklist) => write!(f, "ChangeDecklist"),
+            Msg::BeginSimulation => write!(f, "BeginSimulation"),
+            Msg::UpdateProgress(current, total, _results) => {
+                write!(f, "UpdateProgress({current}, {total})")
+            }
+            Msg::FinishSimulation(total, _results) => write!(f, "FinishSimulation({total})"),
+            Msg::SimulationError(message) => write!(f, "SimulationError({message:?})"),
+        }
+    }
 }
 
 pub struct App {
     strategies: Vec<Rc<Box<dyn Strategy>>>,
     current_strategy: Option<Rc<Box<dyn Strategy>>>,
-    decklist: Option<Decklist>,
+    decklist: String,
     is_busy: bool,
     simulations: usize,
     progress: (usize, usize),
@@ -63,7 +82,7 @@ impl App {
             .iter()
             .map(|(turn, wins)| *turn * *wins)
             .sum::<usize>() as f32
-            / total_wins as f32;
+            / usize::max(total_wins, 1) as f32;
 
         let mut output = vec![];
         if self.is_busy {
@@ -129,7 +148,10 @@ impl Component for App {
                     Status::InProgress(current, total, results) => {
                         link.send_message(Msg::UpdateProgress(current, total, results))
                     }
-                    Status::Complete(total, results) => link.send_message(Msg::FinishSimulation(total, results))
+                    Status::Complete(total, results) => {
+                        link.send_message(Msg::FinishSimulation(total, results))
+                    }
+                    Status::Error(message) => link.send_message(Msg::SimulationError(message)),
                 };
             })
             .spawn("/worker.js");
@@ -137,7 +159,7 @@ impl Component for App {
         Self {
             strategies,
             current_strategy: None,
-            decklist: None,
+            decklist: String::new(),
             is_busy: false,
             simulations: 100,
             progress: (0, 0),
@@ -152,29 +174,38 @@ impl Component for App {
     fn destroy(&mut self, _: &Context<Self>) {}
 
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
-        info!("[Update]: {msg:?}");
+        info!("[Update]: {msg}");
 
         match msg {
-            Msg::SelectStrategy(name) => {
+            Msg::ChangeStrategy(name) => {
                 if let Some(strategy) = self
                     .strategies
                     .iter()
                     .find(|strategy| strategy.name() == name)
                 {
-                    self.decklist = Some(strategy.default_decklist());
+                    self.decklist = strategy.default_decklist().to_string();
                     self.current_strategy = Some(strategy.clone());
                 }
             }
             Msg::ChangeSimulationsCount(count) => {
                 self.simulations = count;
             }
+            Msg::ChangeDecklist(decklist_str) => match decklist_str.parse::<Decklist>() {
+                Ok(_) => {
+                    self.decklist = decklist_str;
+                }
+                Err(err) => self.output = Some(err.to_string()),
+            },
             Msg::BeginSimulation => {
-                self.is_busy = true;
-                self.worker.send((
-                    pattern_hulk::NAME.to_owned(),
-                    self.decklist.as_ref().unwrap().clone(),
-                    self.simulations,
-                ));
+                if !self.decklist.is_empty() {
+                    self.is_busy = true;
+                    self.results.clear();
+                    self.worker.send((
+                        pattern_hulk::NAME.to_owned(),
+                        self.decklist.clone(),
+                        self.simulations,
+                    ));
+                }
             }
             Msg::UpdateProgress(progress, total_simulations, results) => {
                 for result in results {
@@ -193,6 +224,10 @@ impl Component for App {
                 self.is_busy = false;
                 self.update_output();
             }
+            Msg::SimulationError(message) => {
+                self.is_busy = false;
+                self.output = Some(message);
+            }
         }
 
         true
@@ -203,14 +238,14 @@ impl Component for App {
 
         html! {
             <div>
-                <h1>{ "Goldfisher" }</h1>
+                <h1>{ "Goldfisher 🎣" }</h1>
 
                 <div>
                     <label for="strategy-select">{"Choose a deck strategy:"}</label>
                     <select name="strategies" id="strategy-select" onchange={link.batch_callback(move |e: Event| {
                         let target: Option<EventTarget> = e.target();
                         let select = target.and_then(|t| t.dyn_into::<HtmlSelectElement>().ok());
-                        select.map(|select| Msg::SelectStrategy(select.value()))
+                        select.map(|select| Msg::ChangeStrategy(select.value()))
                     })}>
                         <option selected={self.current_strategy.is_none()} value={""}>{"-- Please select a strategy --"}</option>
                         {
@@ -231,12 +266,16 @@ impl Component for App {
 
                 <div>
                     <label for="decklist">{"Decklist:"}</label>
-                    <textarea id="decklist" name="decklist" rows="30" cols="35" placeholder="Choose deck strategy.." value={
-                        match &self.decklist {
-                            None => String::new(),
-                            Some(decklist) => decklist.to_string()
-                        }
-                    }/>
+                    <textarea id="decklist" name="decklist" rows="30" cols="35" placeholder="Choose deck strategy.." value={self.decklist.clone()}
+                        onchange={link.batch_callback(move |e: Event| {
+                            let target: Option<EventTarget> = e.target();
+                            let textarea = target.and_then(|t| t.dyn_into::<HtmlTextAreaElement>().ok());
+                            textarea.map(|textarea| {
+                                let decklist = textarea.value();
+                                Msg::ChangeDecklist(decklist)
+                            })
+                        })}
+                    />
                 </div>
 
                 <div>
@@ -256,7 +295,7 @@ impl Component for App {
                 <div>
                     <label for="run-simulation">{"Run simulation:"}</label>
                     <button type="button"
-                        disabled={self.is_busy || self.current_strategy.is_none() || self.decklist.is_none()}
+                        disabled={self.is_busy || self.current_strategy.is_none() || self.decklist.is_empty()}
                         onclick={link.callback(|_| Msg::BeginSimulation)}>
                         { "Run simulation" }
                     </button>
@@ -280,9 +319,4 @@ impl Component for App {
 fn main() {
     wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
     yew::start_app::<App>();
-
-    let strategy: Box<dyn Strategy> = Box::new(pattern_hulk::PatternHulk {});
-    let decklist = strategy.default_decklist();
-    let mut game = Game::new(&decklist);
-    game.run(&strategy);
 }
