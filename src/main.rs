@@ -65,7 +65,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 DeckStrategy::Aluren => Box::new(aluren::Aluren {}),
             };
 
-            let mut game = Game::new(&decklist);
+            let mut game = match Game::new(&decklist) {
+                Ok(game) => game,
+                Err(err) => {
+                    panic!("failed to initialize game: {err:?}");
+                }
+            };
+
             game.run(&strategy)
         })
         .collect();
