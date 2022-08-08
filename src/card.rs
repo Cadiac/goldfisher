@@ -641,7 +641,7 @@ impl Card {
                 ..Default::default()
             },
             name => {
-                return Err(format!("unimplemented card: \"{name}\""));
+                return Err(format!("unimplemented card: {name}"));
             }
         };
 

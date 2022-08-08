@@ -689,7 +689,7 @@ mod tests {
     use super::*;
 
     fn setup_game(cards_and_zones: Vec<(&str, Zone)>, strategy: &impl Strategy) -> Game {
-        let game = Game::new(&strategy.default_decklist());
+        let game = Game::new(&strategy.default_decklist()).unwrap();
 
         for (name, zone) in cards_and_zones {
             game.game_objects

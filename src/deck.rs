@@ -69,7 +69,7 @@ impl FromStr for Decklist {
 
             let (quantity_str, card_name) = line.split_once(" ").ok_or_else(|| {
                 ParseDeckError(format!(
-                    "on line {line_number}: malformed quantity and name: \"{line}\"",
+                    "on line {line_number}: malformed quantity and name: {line}",
                     line_number = index + 1
                 ))
             })?;
@@ -204,8 +204,8 @@ mod tests {
         assert_eq!(true, result.is_ok());
         let deck = result.unwrap();
 
-        assert_eq!(13, deck.maindeck.len());
-        assert_eq!(5, deck.sideboard.len());
+        assert_eq!(5, deck.maindeck.len());
+        assert_eq!(2, deck.sideboard.len());
         assert_eq!(
             vec![
                 (String::from("Llanowar Elves"), 4),
@@ -250,6 +250,36 @@ mod tests {
         assert_eq!(
             Some(ParseDeckError(
                 "on line 2: failed to parse quantity: invalid digit found in string".to_owned()
+            )),
+            result.err()
+        );
+    }
+
+    #[test]
+    fn it_parses_deck() {
+        let decklist = "4 Llanowar Elves\n\
+            1 Birds of Paradise\n\
+            2 Forest\n\
+            1 Swamp\n\
+            5 Island\n\
+            \n\
+            // Sideboard\n\
+            2 Engineered Plague\n\
+            3 Naturalize\n";
+
+        let result = decklist.parse::<Deck>();
+        assert_eq!(true, result.is_ok());
+    }
+
+    #[test]
+    fn it_handles_deck_parse_errors() {
+        let decklist = "1 Unknown Card\n\
+            4 Llanowar Elves";
+
+        let result = decklist.parse::<Deck>();
+        assert_eq!(
+            Some(ParseDeckError(
+                "failed to create deck: unimplemented card: Unknown Card".to_owned()
             )),
             result.err()
         );

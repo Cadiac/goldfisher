@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::card::{CardRef, CardType, SubType, Zone};
-use crate::deck::{Deck, Decklist};
+use crate::deck::{Deck, Decklist, ParseDeckError};
 use crate::mana::find_payment_for;
 use crate::mana::{Mana, PaymentAndFloating};
 use crate::strategy::Strategy;
@@ -35,8 +35,8 @@ pub struct Game {
 
 impl Game {
     /// Creates a new game with given decklist
-    pub fn new(decklist: &Decklist) -> Self {
-        let mut deck = Deck::new(decklist).unwrap();
+    pub fn new(decklist: &Decklist) -> Result<Self, ParseDeckError> {
+        let mut deck = Deck::new(decklist)?;
 
         let mut game_objects = Vec::with_capacity(deck.len());
         for card in deck.iter() {
@@ -47,7 +47,7 @@ impl Game {
 
         deck.shuffle();
 
-        Self {
+        Ok(Self {
             deck,
             game_objects,
             turn: 0,
@@ -56,7 +56,7 @@ impl Game {
             floating_mana: HashMap::new(),
             is_first_player: true,
             available_land_drops: 1,
-        }
+        })
     }
 
     /// Runs the game to completion.
