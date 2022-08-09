@@ -11,7 +11,7 @@ use goldfisher::deck::Decklist;
 use goldfisher::game::GameResult;
 use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
 
-use goldfisher_web::{Goldfish, Status};
+use goldfisher_web::{Goldfish, Status, Cmd};
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -22,6 +22,7 @@ pub enum Msg {
     ChangeSimulationsCount(usize),
     ChangeDecklist(String),
     BeginSimulation,
+    CancelSimulation,
     UpdateProgress(usize, usize, Vec<(GameResult, usize)>),
     FinishSimulation(usize, Vec<(GameResult, usize)>),
     SimulationError(String),
@@ -34,6 +35,7 @@ impl fmt::Display for Msg {
             Msg::ChangeSimulationsCount(count) => write!(f, "ChangeSimulationsCount({count})"),
             Msg::ChangeDecklist(_decklist) => write!(f, "ChangeDecklist"),
             Msg::BeginSimulation => write!(f, "BeginSimulation"),
+            Msg::CancelSimulation => write!(f, "CancelSimulation"),
             Msg::UpdateProgress(current, total, _results) => {
                 write!(f, "UpdateProgress({current}, {total})")
             }
@@ -200,12 +202,11 @@ impl Component for App {
                 if !self.decklist.is_empty() {
                     self.is_busy = true;
                     self.results.clear();
-                    self.worker.send((
-                        pattern_hulk::NAME.to_owned(),
-                        self.decklist.clone(),
-                        self.simulations,
-                    ));
+                    self.worker.send(Cmd::Begin(pattern_hulk::NAME.to_owned(), self.decklist.clone(), self.simulations));
                 }
+            }
+            Msg::CancelSimulation => {
+                self.worker.send(Cmd::Cancel);
             }
             Msg::UpdateProgress(progress, total_simulations, results) => {
                 for result in results {
@@ -298,6 +299,11 @@ impl Component for App {
                         disabled={self.is_busy || self.current_strategy.is_none() || self.decklist.is_empty()}
                         onclick={link.callback(|_| Msg::BeginSimulation)}>
                         { "Run simulation" }
+                    </button>
+
+                    <label for="run-simulation">{"Cancel:"}</label>
+                    <button type="button" onclick={link.callback(|_| Msg::CancelSimulation)}>
+                        { "Cancel" }
                     </button>
                 </div>
 

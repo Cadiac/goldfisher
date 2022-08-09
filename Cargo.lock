@@ -209,6 +209,7 @@ dependencies = [
  "getrandom",
  "gloo-worker",
  "goldfisher",
+ "js-sys",
  "log",
  "serde",
  "wasm-bindgen",

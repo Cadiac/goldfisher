@@ -12,6 +12,7 @@ wasm-logger = "0.2.0"
 getrandom = { version = "0.2", features = ["js"] }
 goldfisher = { path = "../goldfisher" }
 web-sys = { version = "0.3", features = ["EventTarget", "HtmlSelectElement", "HtmlTextAreaElement"] }
+js-sys = { version = "0.3" }
 wasm-bindgen = "0.2.78"
 wasm-bindgen-futures = "0.4.32"
 gloo-worker = "0.2.0"
