@@ -2,10 +2,10 @@ use gloo_worker::{HandlerId, Worker, WorkerScope};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use async_mutex::Mutex;
 
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast};
 use wasm_bindgen_futures::{spawn_local, JsFuture};
 use js_sys::Promise;
 use web_sys::WorkerGlobalScope;
@@ -41,20 +41,19 @@ pub enum Status {
     Error(String),
 }
 
-/// Worker timer, in which setTimeout is created by WorkerGlobalScope
+/// Yields execution from worker by creating a `setTimeout(0)` with `WorkerGlobalScope`
 /// This is necessary because worker has no access to `window`.
-/// Source: extraymond @ https://extraymond.github.io/posts/2019-08-25-let-s-create-a-task-manager-in-webworker/
-pub async fn worker_timer(ms: i32) -> Result<(), JsValue> {
+/// Modified from: extraymond @ https://extraymond.github.io/posts/2019-08-25-let-s-create-a-task-manager-in-webworker/
+pub async fn yield_now() {
     let promise = Promise::new(&mut |yes, _| {
         let global = js_sys::global();
         let scope = global.dyn_into::<WorkerGlobalScope>().unwrap();
         scope
-            .set_timeout_with_callback_and_timeout_and_arguments_0(&yes, ms)
+            .set_timeout_with_callback_and_timeout_and_arguments_0(&yes, 0)
             .unwrap();
     });
     let js_fut = JsFuture::from(promise);
-    js_fut.await?;
-    Ok(())
+    js_fut.await.unwrap();
 }
 
 pub struct Goldfish {
@@ -71,7 +70,7 @@ impl Goldfish {
         total_simulations: usize,
     ) {
         {
-            let mut state = state.lock().unwrap();
+            let mut state = state.lock().await;
             if *state != State::Idle {
                 return;
             }
@@ -113,14 +112,11 @@ impl Goldfish {
                 break;
             }
 
-            {
-                let state = state.lock().unwrap();
-                if *state == State::Cancelling {
-                    break;
-                }
+            if State::Cancelling == *state.lock().await {
+                break;
             }
 
-            worker_timer(0).await.unwrap();
+            yield_now().await;
 
             let batch_size = if progress + MAX_BATCH_SIZE > total_simulations {
                 total_simulations - progress
@@ -147,8 +143,7 @@ impl Goldfish {
             }
         }
 
-        let mut state = state.lock().unwrap();
-        *state = State::Idle;
+        *state.lock().await = State::Idle;
     }
 
     fn run_batch(
@@ -168,8 +163,8 @@ impl Goldfish {
         Ok(results)
     }
 
-    fn cancel(&mut self) {
-        let mut state = self.state.lock().unwrap();
+    async fn cancel(state: Arc<Mutex<State>>) {
+        let mut state = state.lock().await;
         *state = State::Cancelling;
     }
 }
@@ -205,7 +200,13 @@ impl Worker for Goldfish {
                             ).await;
                         });
                     }
-                    Cmd::Cancel => self.cancel(),
+                    Cmd::Cancel => {
+                        let state = Arc::clone(&self.state);
+
+                        spawn_local(async move {
+                            Goldfish::cancel(state).await;
+                        });
+                    }
                 }
             }
         }
