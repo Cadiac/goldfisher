@@ -18,7 +18,7 @@ const MAX_BATCH_SIZE: usize = 10;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Cmd {
-    Begin(String, String, usize),
+    Begin{ strategy: String, decklist: String, simulations: usize },
     Cancel,
 }
 
@@ -41,8 +41,8 @@ pub enum Status {
     Error(String),
 }
 
-/// Worker timer, which setTimeout is created by WorkerGlobalScope
-/// This is necessary because worker has no access to windows.
+/// Worker timer, in which setTimeout is created by WorkerGlobalScope
+/// This is necessary because worker has no access to `window`.
 /// Source: extraymond @ https://extraymond.github.io/posts/2019-08-25-let-s-create-a-task-manager-in-webworker/
 pub async fn worker_timer(ms: i32) -> Result<(), JsValue> {
     let promise = Promise::new(&mut |yes, _| {
@@ -191,7 +191,7 @@ impl Worker for Goldfish {
         match msg {
             Msg::Command { cmd, id } => {
                 match cmd {
-                    Cmd::Begin(strategy_name, decklist_str, total_simulations) => {
+                    Cmd::Begin{ strategy, decklist, simulations } => {
                         let (state, scope) = (Arc::clone(&self.state), scope.clone());
 
                         spawn_local(async move {
@@ -199,9 +199,9 @@ impl Worker for Goldfish {
                                 state,
                                 scope,
                                 id,
-                                strategy_name,
-                                decklist_str,
-                                total_simulations,
+                                strategy,
+                                decklist,
+                                simulations,
                             ).await;
                         });
                     }

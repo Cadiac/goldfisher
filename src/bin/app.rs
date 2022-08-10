@@ -202,7 +202,11 @@ impl Component for App {
                 if !self.decklist.is_empty() {
                     self.is_busy = true;
                     self.results.clear();
-                    self.worker.send(Cmd::Begin(pattern_hulk::NAME.to_owned(), self.decklist.clone(), self.simulations));
+                    self.worker.send(Cmd::Begin{
+                        strategy: pattern_hulk::NAME.to_owned(),
+                        decklist: self.decklist.clone(),
+                        simulations: self.simulations
+                    });
                 }
             }
             Msg::CancelSimulation => {
