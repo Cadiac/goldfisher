@@ -36,6 +36,7 @@ pub enum Msg {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Status {
     InProgress(usize, usize, Vec<(GameResult, usize)>),
+    Cancelled(usize, usize),
     Complete(usize, Vec<(GameResult, usize)>),
     Error(String),
 }
@@ -112,6 +113,10 @@ impl Goldfish {
             }
 
             if State::Cancelling == *state.lock().unwrap() {
+                scope.respond(
+                    id,
+                    Status::Cancelled(progress, total_simulations),
+                );
                 break;
             }
 

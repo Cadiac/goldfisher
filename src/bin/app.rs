@@ -11,7 +11,7 @@ use goldfisher::deck::Decklist;
 use goldfisher::game::GameResult;
 use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
 
-use goldfisher_web::{Goldfish, Status, Cmd};
+use goldfisher_web::{Cmd, Goldfish, Status};
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -24,7 +24,7 @@ pub enum Msg {
     BeginSimulation,
     CancelSimulation,
     UpdateProgress(usize, usize, Vec<(GameResult, usize)>),
-    FinishSimulation(usize, Vec<(GameResult, usize)>),
+    FinishSimulation(usize, usize, Vec<(GameResult, usize)>),
     SimulationError(String),
 }
 
@@ -39,7 +39,9 @@ impl fmt::Display for Msg {
             Msg::UpdateProgress(current, total, _results) => {
                 write!(f, "UpdateProgress({current}, {total})")
             }
-            Msg::FinishSimulation(total, _results) => write!(f, "FinishSimulation({total})"),
+            Msg::FinishSimulation(current, total, _results) => {
+                write!(f, "FinishSimulation({current}, {total})")
+            }
             Msg::SimulationError(message) => write!(f, "SimulationError({message:?})"),
         }
     }
@@ -98,9 +100,15 @@ impl App {
             output.push(format!(
                 "=======================[ RESULTS ]=========================="
             ));
-            output.push(format!(
-                "                    Finished: {progress}/{total_simulations}",
-            ));
+            if self.progress.0 == self.progress.1 {
+                output.push(format!(
+                    "                    Finished: {progress}/{total_simulations}",
+                ));
+            } else {
+                output.push(format!(
+                    "                   Cancelled: {progress}/{total_simulations}",
+                ));
+            }
         }
         output.push(format!(
             "                    Average turn: {average_turn:.2}"
@@ -150,8 +158,11 @@ impl Component for App {
                     Status::InProgress(current, total, results) => {
                         link.send_message(Msg::UpdateProgress(current, total, results))
                     }
+                    Status::Cancelled(current, total) => {
+                        link.send_message(Msg::FinishSimulation(current, total, Vec::new()))
+                    }
                     Status::Complete(total, results) => {
-                        link.send_message(Msg::FinishSimulation(total, results))
+                        link.send_message(Msg::FinishSimulation(total, total, results))
                     }
                     Status::Error(message) => link.send_message(Msg::SimulationError(message)),
                 };
@@ -202,10 +213,10 @@ impl Component for App {
                 if !self.decklist.is_empty() {
                     self.is_busy = true;
                     self.results.clear();
-                    self.worker.send(Cmd::Begin{
+                    self.worker.send(Cmd::Begin {
                         strategy: pattern_hulk::NAME.to_owned(),
                         decklist: self.decklist.clone(),
-                        simulations: self.simulations
+                        simulations: self.simulations,
                     });
                 }
             }
@@ -220,12 +231,12 @@ impl Component for App {
                 self.progress = (progress, total_simulations);
                 self.update_output();
             }
-            Msg::FinishSimulation(total_simulations, results) => {
+            Msg::FinishSimulation(progress, total_simulations, results) => {
                 for result in results {
                     *self.results.entry(result).or_insert(0) += 1;
                 }
 
-                self.progress = (total_simulations, total_simulations);
+                self.progress = (progress, total_simulations);
                 self.is_busy = false;
                 self.update_output();
             }
