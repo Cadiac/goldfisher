@@ -219,11 +219,11 @@ impl Component for App {
                 self.decklist = decklist_str;
             },
             Msg::BeginSimulation => {
-                if !self.decklist.is_empty() {
+                if !self.decklist.is_empty() && self.current_strategy.is_some() {
                     self.is_busy = true;
                     self.results.clear();
                     self.worker.send(Cmd::Begin {
-                        strategy: pattern_hulk::NAME.to_owned(),
+                        strategy: self.current_strategy.as_ref().unwrap().name(),
                         decklist: self.decklist.clone(),
                         simulations: self.simulations,
                     });
@@ -336,7 +336,7 @@ impl Component for App {
                                 <button class={if is_ready { "button is-primary" } else { "button is-primary is-outlined" }} type="button"
                                     disabled={!is_ready}
                                     onclick={link.callback(|_| Msg::BeginSimulation)}>
-                                    <span>{ "Run simulation" }</span>
+                                    <span>{ "Run simulation ▶︎" }</span>
                                 </button>
 
                                 <button class="button" type="button" disabled={!self.is_busy} onclick={link.callback(|_| Msg::CancelSimulation)}>

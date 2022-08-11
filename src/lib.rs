@@ -13,7 +13,7 @@ use goldfisher::deck::Decklist;
 use goldfisher::game::{Game, GameResult};
 use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
 
-const MAX_BATCH_SIZE: usize = 10;
+const MAX_BATCH_SIZE: usize = 25;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Cmd {
