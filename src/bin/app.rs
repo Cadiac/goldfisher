@@ -1,5 +1,5 @@
 use gloo_worker::{Spawnable, WorkerBridge};
-use log::info;
+use log::debug;
 use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
@@ -7,7 +7,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{EventTarget, HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
-use goldfisher::deck::Decklist;
+use goldfisher::deck::Deck;
 use goldfisher::game::GameResult;
 use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
 
@@ -52,10 +52,11 @@ pub struct App {
     current_strategy: Option<Rc<Box<dyn Strategy>>>,
     decklist: String,
     is_busy: bool,
+    is_decklist_error: bool,
     simulations: usize,
     progress: (usize, usize),
     results: HashMap<(GameResult, usize), usize>,
-    output: Option<String>,
+    output: String,
     worker: WorkerBridge<Goldfish>,
 }
 
@@ -136,7 +137,7 @@ impl App {
             output.push(format!("Turn {turn:002}: {losses} losses ({loss_percentage:.1}%) - cumulative {loss_cumulative:.1}%"));
         }
 
-        self.output = Some(output.join("\n"));
+        self.output = output.join("\n");
     }
 }
 
@@ -174,10 +175,11 @@ impl Component for App {
             current_strategy: None,
             decklist: String::new(),
             is_busy: false,
-            simulations: 100,
+            is_decklist_error: false,
+            simulations: 10000,
             progress: (0, 0),
             results: HashMap::new(),
-            output: None,
+            output: String::from("========================[ READY ]==========================="),
             worker,
         }
     }
@@ -187,7 +189,7 @@ impl Component for App {
     fn destroy(&mut self, _: &Context<Self>) {}
 
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
-        info!("[Update]: {msg}");
+        debug!("[Update]: {msg}");
 
         match msg {
             Msg::ChangeStrategy(name) => {
@@ -198,16 +200,23 @@ impl Component for App {
                 {
                     self.decklist = strategy.default_decklist().to_string();
                     self.current_strategy = Some(strategy.clone());
+                } else {
+                    self.current_strategy = None;
                 }
             }
             Msg::ChangeSimulationsCount(count) => {
                 self.simulations = count;
             }
-            Msg::ChangeDecklist(decklist_str) => match decklist_str.parse::<Decklist>() {
-                Ok(_) => {
-                    self.decklist = decklist_str;
+            Msg::ChangeDecklist(decklist_str) => {
+                if let Err(err) = decklist_str.parse::<Deck>() {
+                    self.is_decklist_error = true;
+                    self.output = format!("========================[ ERROR ]===========================\n{}", err)
+                } else {
+                    self.is_decklist_error = false;
+                    self.output = String::from("========================[ READY ]===========================")
                 }
-                Err(err) => self.output = Some(err.to_string()),
+
+                self.decklist = decklist_str;
             },
             Msg::BeginSimulation => {
                 if !self.decklist.is_empty() {
@@ -242,7 +251,7 @@ impl Component for App {
             }
             Msg::SimulationError(message) => {
                 self.is_busy = false;
-                self.output = Some(message);
+                self.output = format!("========================[ ERROR ]===========================\n{}", message)
             }
         }
 
@@ -252,87 +261,109 @@ impl Component for App {
     fn view(&self, ctx: &Context<Self>) -> Html {
         let link = ctx.link();
 
+        let is_ready =
+            !self.is_busy && self.current_strategy.is_some() && !self.decklist.is_empty();
+
         html! {
-            <div>
-                <h1>{ "Goldfisher 🎣" }</h1>
+            <section class="section">
+                <div class="container">
+                    <h1 class="title">{ "Goldfisher 🎣" }</h1>
 
-                <div>
-                    <label for="strategy-select">{"Choose a deck strategy:"}</label>
-                    <select name="strategies" id="strategy-select" onchange={link.batch_callback(move |e: Event| {
-                        let target: Option<EventTarget> = e.target();
-                        let select = target.and_then(|t| t.dyn_into::<HtmlSelectElement>().ok());
-                        select.map(|select| Msg::ChangeStrategy(select.value()))
-                    })}>
-                        <option selected={self.current_strategy.is_none()} value={""}>{"-- Please select a strategy --"}</option>
-                        {
-                            self.strategies.iter().map(|strategy| {
-                                let name = strategy.name();
+                    <div class="columns">
+                        <div class="column">
+                            <div class="box">
+                                <div class="field">
+                                    <label class="label" for="strategy-select">{"Choose a deck strategy:"}</label>
+                                    <div class="select is-info">
+                                        <select name="strategies" id="strategy-select" onchange={link.batch_callback(move |e: Event| {
+                                            let target: Option<EventTarget> = e.target();
+                                            let select = target.and_then(|t| t.dyn_into::<HtmlSelectElement>().ok());
+                                            select.map(|select| Msg::ChangeStrategy(select.value()))
+                                        })}>
+                                            <option selected={self.current_strategy.is_none()} value={""}>{"-- Please select a strategy --"}</option>
+                                            {
+                                                self.strategies.iter().map(|strategy| {
+                                                    let name = strategy.name();
 
+                                                    html! {
+                                                        <option
+                                                            selected={name == self.current_strategy.as_ref().map(|s| s.name()).unwrap_or(String::from(""))}
+                                                            value={name.clone()}>
+                                                            {name}
+                                                        </option> }
+                                                })
+                                                .collect::<Html>()
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="field">
+                                    <label class="label" for="decklist">{"Decklist:"}</label>
+                                    <textarea class={if self.is_decklist_error { "textarea is-danger" } else { "textarea is-info"}}
+                                        id="decklist"
+                                        name="decklist"
+                                        rows="15"
+                                        placeholder="Choose deck strategy.."
+                                        value={self.decklist.clone()}
+                                        onchange={link.batch_callback(move |e: Event| {
+                                            let target: Option<EventTarget> = e.target();
+                                            let textarea = target.and_then(|t| t.dyn_into::<HtmlTextAreaElement>().ok());
+                                            textarea.map(|textarea| {
+                                                let decklist = textarea.value();
+                                                Msg::ChangeDecklist(decklist)
+                                            })
+                                        })}
+                                    />
+                                </div>
+
+                                <div class="field">
+                                    <label class="label" for="simulated-games">{"Games to simulate:"}</label>
+                                    <input class="input is-info" type="number" id="simulated-games" name="tentacles" min="1" max="1000000" value={self.simulations.to_string()}
+                                        onchange={link.batch_callback(move |e: Event| {
+                                            let target: Option<EventTarget> = e.target();
+                                            let select = target.and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
+                                            select.map(|select| {
+                                                let count = select.value();
+                                                Msg::ChangeSimulationsCount(count.parse().unwrap_or(100))
+                                            })
+                                        })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="buttons">
+                                <button class={if is_ready { "button is-primary" } else { "button is-primary is-outlined" }} type="button"
+                                    disabled={!is_ready}
+                                    onclick={link.callback(|_| Msg::BeginSimulation)}>
+                                    <span>{ "Run simulation" }</span>
+                                </button>
+
+                                <button class="button" type="button" disabled={!self.is_busy} onclick={link.callback(|_| Msg::CancelSimulation)}>
+                                    { "Cancel" }
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="column">
+                            <div class="box">
+                                <progress class="progress is-info" value={self.progress.0.to_string()} max={self.progress.1.to_string()}>
+                                    { format!("{}/{}", self.progress.0, self.progress.1) }
+                                </progress>
+                            </div>
+                            {if !self.output.is_empty() {
                                 html! {
-                                    <option
-                                        selected={name.clone() == self.current_strategy.as_ref().map(|s| s.name()).unwrap_or(String::from(""))}
-                                        value={name.clone()}>
-                                        {name}
-                                    </option> }
-                            })
-                            .collect::<Html>()
-                        }
-                    </select>
+                                    <div class="box">
+                                        <pre>{&self.output}</pre>
+                                    </div>
+                                }
+                            } else {
+                                html! {}
+                            }}
+                        </div>
+                    </div>
                 </div>
-
-                <div>
-                    <label for="decklist">{"Decklist:"}</label>
-                    <textarea id="decklist" name="decklist" rows="30" cols="35" placeholder="Choose deck strategy.." value={self.decklist.clone()}
-                        onchange={link.batch_callback(move |e: Event| {
-                            let target: Option<EventTarget> = e.target();
-                            let textarea = target.and_then(|t| t.dyn_into::<HtmlTextAreaElement>().ok());
-                            textarea.map(|textarea| {
-                                let decklist = textarea.value();
-                                Msg::ChangeDecklist(decklist)
-                            })
-                        })}
-                    />
-                </div>
-
-                <div>
-                    <label for="simulated-games">{"Games to simulate:"}</label>
-                    <input type="number" id="simulated-games" name="tentacles" min="1" max="1000000" value={self.simulations.to_string()}
-                        onchange={link.batch_callback(move |e: Event| {
-                            let target: Option<EventTarget> = e.target();
-                            let select = target.and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
-                            select.map(|select| {
-                                let count = select.value();
-                                Msg::ChangeSimulationsCount(count.parse().unwrap_or(100))
-                            })
-                        })}
-                    />
-                </div>
-
-                <div>
-                    <label for="run-simulation">{"Run simulation:"}</label>
-                    <button type="button"
-                        disabled={self.is_busy || self.current_strategy.is_none() || self.decklist.is_empty()}
-                        onclick={link.callback(|_| Msg::BeginSimulation)}>
-                        { "Run simulation" }
-                    </button>
-
-                    <label for="run-simulation">{"Cancel:"}</label>
-                    <button type="button" onclick={link.callback(|_| Msg::CancelSimulation)}>
-                        { "Cancel" }
-                    </button>
-                </div>
-
-                <div>
-                    {if let Some(output) = &self.output {
-                        html! {
-                            <pre>{output}</pre>
-                        }
-                    } else {
-                        html! {}
-                    }}
-                </div>
-
-            </div>
+            </section>
         }
     }
 }
