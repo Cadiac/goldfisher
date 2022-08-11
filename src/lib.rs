@@ -2,8 +2,7 @@ use gloo_worker::{HandlerId, Worker, WorkerScope};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::rc::Rc;
-use std::sync::Arc;
-use async_mutex::Mutex;
+use std::sync::{Mutex, Arc};
 
 use wasm_bindgen::{JsCast};
 use wasm_bindgen_futures::{spawn_local, JsFuture};
@@ -70,7 +69,7 @@ impl Goldfish {
         total_simulations: usize,
     ) {
         {
-            let mut state = state.lock().await;
+            let mut state = state.lock().unwrap();
             if *state != State::Idle {
                 return;
             }
@@ -112,7 +111,7 @@ impl Goldfish {
                 break;
             }
 
-            if State::Cancelling == *state.lock().await {
+            if State::Cancelling == *state.lock().unwrap() {
                 break;
             }
 
@@ -143,7 +142,7 @@ impl Goldfish {
             }
         }
 
-        *state.lock().await = State::Idle;
+        *state.lock().unwrap() = State::Idle;
     }
 
     fn run_batch(
@@ -161,11 +160,6 @@ impl Goldfish {
         }
 
         Ok(results)
-    }
-
-    async fn cancel(state: Arc<Mutex<State>>) {
-        let mut state = state.lock().await;
-        *state = State::Cancelling;
     }
 }
 
@@ -201,11 +195,8 @@ impl Worker for Goldfish {
                         });
                     }
                     Cmd::Cancel => {
-                        let state = Arc::clone(&self.state);
-
-                        spawn_local(async move {
-                            Goldfish::cancel(state).await;
-                        });
+                        let mut state = self.state.lock().unwrap();
+                        *state = State::Cancelling;
                     }
                 }
             }
