@@ -69,7 +69,11 @@ jobs:
     - name: Install trunk
       run: cargo install --locked trunk
     - name: Build
-      run: trunk build
+      run: trunk build --release
+    - name: Upload GitHub Pages artifact
+      uses: actions/upload-pages-artifact@v1.0.3
+      with:
+        path: /dist
       
   deploy:
     environment:
@@ -85,12 +89,6 @@ jobs:
     needs: build-goldfisher-web
 
     steps:
-      - name: Build Release
-        run: trunk build --release
-      - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v1.0.3
-        with:
-          path: /dist
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v1
