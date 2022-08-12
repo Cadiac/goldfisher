@@ -53,7 +53,15 @@ jobs:
         working-directory: ./goldfisher-web
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout Crate
+      uses: actions/checkout@v3
+    - name: Checkout Toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        target: wasm32-unknown-unknown
+        override: true
     - name: Install trunk
       run: cargo install --locked trunk
     - name: Build
