@@ -234,7 +234,7 @@ mod tests {
         let result = decklist.parse::<Decklist>();
         assert_eq!(
             Some(ParseDeckError(
-                "on line 2: malformed quantity and name: \"BrokenLine\"".to_owned()
+                "on line 2: malformed quantity and name: BrokenLine".to_owned()
             )),
             result.err()
         );

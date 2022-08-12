@@ -770,7 +770,7 @@ mod tests {
     fn it_finds_correct_best_cards_with_aluren() {
         assert_best_card("Cavern Harpy", vec![("Aluren", Zone::Battlefield)]);
         assert_best_card(
-            "Soul Warden",
+            "Wirewood Savage",
             vec![("Aluren", Zone::Battlefield), ("Cavern Harpy", Zone::Hand)],
         );
         assert_best_card(
@@ -782,7 +782,7 @@ mod tests {
             ],
         );
         assert_best_card(
-            "Soul Warden",
+            "Raven Familiar",
             vec![
                 ("Aluren", Zone::Battlefield),
                 ("Cavern Harpy", Zone::Hand),
@@ -795,6 +795,14 @@ mod tests {
                 ("Aluren", Zone::Battlefield),
                 ("Cavern Harpy", Zone::Hand),
                 ("Raven Familiar", Zone::Battlefield),
+            ],
+        );
+        assert_best_card(
+            "Soul Warden",
+            vec![
+                ("Aluren", Zone::Battlefield),
+                ("Cavern Harpy", Zone::Hand),
+                ("Wirewood Savage", Zone::Battlefield),
             ],
         );
         // Maggot carrier is found from sideboard

@@ -66,7 +66,7 @@ impl Game {
     /// use goldfisher::game::{Game};
     ///
     /// let strategy: Box<dyn Strategy> = Box::new(pattern_hulk::PatternHulk {});
-    /// let mut game = Game::new(&strategy.default_decklist());
+    /// let mut game = Game::new(&strategy.default_decklist()).unwrap();
     ///
     /// game.run(&strategy);
     /// ```
