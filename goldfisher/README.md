@@ -1,6 +1,8 @@
 # Goldfisher 🎣
 
-This repository offers the library for [goldfisher-cli](https://github.com/Cadiac/goldfisher-cli) and [goldfisher-web](https://github.com/Cadiac/goldfisher-web) tools to [goldfish](https://mtg.fandom.com/wiki/Goldfishing) the fastest possible wins with the given decks in non-interactive games of Magic: The Gathering. This data can be used to gather statistics on average winning turns with different versions of the decks, helping to gauge effects of deck building.
+This repository contains the base game logic library used by [goldfisher-cli](https://github.com/Cadiac/goldfisher-cli) and [goldfisher-web](https://github.com/Cadiac/goldfisher-web) tools to simulate non-interactive games of Magic: The Gathering.
+
+These tools can be used to [goldfish](https://mtg.fandom.com/wiki/Goldfishing) the fastest possible wins with the given decks. This data can be used to obtain statistics of average winning turns with different versions of the decks, helping to gauge how different card choices affect the deck's performance.
 
 ## Installation
 

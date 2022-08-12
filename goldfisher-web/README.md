@@ -1,6 +1,6 @@
 # Goldfisher web tool 🎣
 
-This repository has the web tool implementation for [goldfisher](https://github.com/Cadiac/goldfisher) to [goldfish](https://mtg.fandom.com/wiki/Goldfishing) the fastest possible wins with the given decks in non-interactive games of Magic: The Gathering. This data can be used to gather statistics on average winning turns with different versions of the decks, helping to gauge effects of deck building.
+This repository contains the online web tool implementation for [goldfisher](https://github.com/Cadiac/goldfisher) to [goldfish](https://mtg.fandom.com/wiki/Goldfishing) the fastest possible wins with the given decks in non-interactive games of Magic: The Gathering. This data can be used to gather statistics on average winning turns with different versions of the decks, helping to gauge effects of deck building.
 
 ## Installation
 
