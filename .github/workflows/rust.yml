@@ -1,0 +1,60 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-goldfisher:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./goldfisher
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
+
+  build-goldfisher-cli:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./goldfisher-cli
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
+    - name: Run sample Pattern Hulk game
+      run: cargo run -- --strategy pattern-hulk --games 100 -v
+    - name: Run sample Aluren game
+      run: cargo run -- --strategy aluren --games 100 -v --decklist ../goldfisher/resources/aluren.txt
+
+  build-goldfisher-web:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./goldfisher-web
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install trunk
+      run: cargo install --locked trunk
+    - name: Build
+      run: trunk build --verbose
