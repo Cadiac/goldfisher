@@ -3,8 +3,6 @@ name: Rust
 on:
   push:
     branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -76,6 +74,11 @@ jobs:
         path: ./goldfisher-web/dist
 
   deploy:
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
