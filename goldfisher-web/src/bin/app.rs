@@ -347,7 +347,7 @@ impl Component for App {
 
                         <div class="column">
                             <div class="box">
-                                <progress class="progress is-info" value={self.progress.0.to_string()} max={self.progress.1.to_string()}>
+                                <progress class="progress is-primary" value={self.progress.0.to_string()} max={self.progress.1.to_string()}>
                                     { format!("{}/{}", self.progress.0, self.progress.1) }
                                 </progress>
                             </div>
