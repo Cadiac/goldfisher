@@ -64,16 +64,22 @@ jobs:
         toolchain: stable
         target: wasm32-unknown-unknown
         override: true
+    - name: Get Rust version
+      id: rustc_version
+      run: |
+        rust_version=$(rustc --version | md5sum | cut -f 1-1 -d ' ')
+        echo "##[set-output name=version;]$(echo $rust_version)"
     - name: Restore Cargo cache
       uses: actions/cache@v3.0.7
       with:
         path: |
-          $HOME/.cargo/registry/cache
-        # Generate a new cache whenever crates or source files change.
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**.rs', '**.html', '**.css') }}
-        # If source files changed but packages didn't, rebuild from a prior cache.
-        restore-keys: |
-          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        # Generate a new cache whenever crates or rust version changes.
+        key: ${{ runner.os }}-cargo-${{ steps.rustc_version.outputs.version }}-${{ hashFiles('**/Cargo.lock') }}
     - name: Install trunk
       run: cargo install --locked trunk
     - name: Build
