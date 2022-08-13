@@ -1,4 +1,4 @@
-name: Rust
+name: Build and Deploy
 
 on:
   push:
@@ -64,6 +64,16 @@ jobs:
         toolchain: stable
         target: wasm32-unknown-unknown
         override: true
+    - name: Restore Cargo cache
+      uses: actions/cache@v3.0.7
+      with:
+        path: |
+          $HOME/.cargo/registry/cache
+        # Generate a new cache whenever crates or source files change.
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**.rs', '**.html', '**.css') }}
+        # If source files changed but packages didn't, rebuild from a prior cache.
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-
     - name: Install trunk
       run: cargo install --locked trunk
     - name: Build
