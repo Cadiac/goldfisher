@@ -1,6 +1,5 @@
 use gloo_worker::{Spawnable, WorkerBridge};
 use log::debug;
-use std::collections::HashMap;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::rc::Rc;
@@ -9,7 +8,7 @@ use web_sys::{EventTarget, HtmlInputElement, HtmlSelectElement, HtmlTextAreaElem
 use yew::prelude::*;
 
 use goldfisher::deck::Deck;
-use goldfisher::game::{GameResult, Game};
+use goldfisher::game::{GameResult};
 use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
 
 use goldfisher_web::{Cmd, Goldfish, Status};
@@ -27,6 +26,7 @@ pub enum Msg {
     UpdateProgress(usize, usize, Vec<(GameResult, usize)>),
     FinishSimulation(usize, usize, Vec<(GameResult, usize)>),
     SimulationError(String),
+    DismissError
 }
 
 impl fmt::Display for Msg {
@@ -44,6 +44,7 @@ impl fmt::Display for Msg {
                 write!(f, "FinishSimulation({current}, {total})")
             }
             Msg::SimulationError(message) => write!(f, "SimulationError({message:?})"),
+            Msg::DismissError => write!(f, "DismissError"),
         }
     }
 }
@@ -73,9 +74,8 @@ pub struct App {
 impl App {
     fn update_results(&mut self, new_results: Vec<(GameResult, usize)>) {
         let progress: usize = self.progress.0;
-        let total_simulations = self.progress.1;
 
-        let mut wins = new_results
+        let wins = new_results
             .iter()
             .filter(|(result, _)| *result == GameResult::Win);
 
@@ -214,6 +214,9 @@ impl Component for App {
                 self.is_busy = false;
                 self.error_msg = Some(message);
             }
+            Msg::DismissError => {
+                self.error_msg = None
+            }
         }
 
         true
@@ -223,7 +226,7 @@ impl Component for App {
         let link = ctx.link();
 
         let is_ready =
-            !self.is_busy && self.current_strategy.is_some() && !self.decklist.is_empty();
+            !self.is_busy && self.current_strategy.is_some() && !self.decklist.is_empty() && !self.is_decklist_error;
 
         let (progress, total_games) = self.progress;
 
@@ -314,7 +317,11 @@ impl Component for App {
                                     <article class="message is-danger">
                                         <div class="message-header">
                                             <p>{"Error:"}</p>
-                                            <button class="delete" aria-label="delete"></button>
+                                            <button
+                                                class="delete"
+                                                aria-label="delete"
+                                                onclick={link.callback(|_| Msg::DismissError)}
+                                            />
                                         </div>
                                         <div class="message-body">
                                             {message}
