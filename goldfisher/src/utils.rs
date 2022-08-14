@@ -1,6 +1,6 @@
 use crate::{
     card::{CardRef, CardType, SearchFilter, Zone},
-    game::Game,
+    game::Game, mana::Mana,
 };
 use std::collections::HashMap;
 
@@ -58,6 +58,13 @@ pub fn is_single_use_mana(card: &&CardRef) -> bool {
 
 pub fn is_card_type(card: &&CardRef, card_type: CardType) -> bool {
     card.borrow().card_type == card_type
+}
+
+pub fn is_color(card: &&CardRef, color: Mana) -> bool {
+    match card.borrow().cost.get(&color) {
+        Some(cost) => *cost > 0,
+        None => false
+    }
 }
 
 pub fn is_zone(card: &&CardRef, zone: &Zone) -> bool {
@@ -143,6 +150,16 @@ pub fn apply_search_filter(game: &Game, search_filter: &Option<SearchFilter>) ->
             .iter()
             .filter(|card| {
                 is_card_type(card, CardType::Creature) || is_card_type(card, CardType::Land)
+            })
+            .cloned()
+            .collect(),
+        Some(SearchFilter::BlueInstant) => game
+            .game_objects
+            .iter()
+            .filter(|card| {
+                is_library(card)
+                && is_card_type(card, CardType::Instant)
+                && is_color(card, Mana::Blue)
             })
             .cloned()
             .collect(),

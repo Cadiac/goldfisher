@@ -15,7 +15,12 @@ pub enum Effect {
     Intuition,
     CavernHarpy,
     Unearth,
-    UntapLands(usize),
+    WordsOfWisdom,
+    Snap,
+    FranticSearch,
+    Meditate,
+    Mill(usize),
+    UntapLands(Option<usize>),
     DamageEach(i32),
 }
 
@@ -186,9 +191,24 @@ impl Effect {
         game: &mut Game,
         _source: &CardRef,
         _strategy: &impl Strategy,
-        lands_to_untap: usize,
+        lands_to_untap: Option<usize>,
     ) {
-        for _ in 0..lands_to_untap {
+        let untap = 
+            match lands_to_untap {
+                Some(count) => count,
+                None => {
+                    // Untap all lands
+                    game
+                        .game_objects
+                        .iter()
+                        .filter(|card| {
+                            is_battlefield(card) && is_card_type(card, CardType::Land) && is_tapped(card)
+                        })
+                        .count()
+                }
+            };
+
+        for _ in 0..untap {
             let mut tapped_lands = game
                 .game_objects
                 .iter()

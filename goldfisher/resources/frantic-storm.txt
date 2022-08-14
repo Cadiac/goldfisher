@@ -1,0 +1,21 @@
+3 Cloud of Faeries
+1 Words of Wisdom
+3 Snap
+4 Brain Freeze
+4 Frantic Search
+4 Impulse
+4 Meditate
+4 Merchant Scroll
+4 Sleight of Hand
+4 Helm of Awakening
+4 Lotus Petal
+4 Sapphire Medallion
+17 Island
+
+// Sideboard
+2 Chain of Vapor
+2 Defense Grid
+2 Hurkyl's Recall
+4 Hydroblast
+3 Tormod's Crypt
+2 Turnabout

@@ -59,6 +59,7 @@ pub enum SearchFilter {
     Creature,
     LivingWish,
     EnchantmentArtifact,
+    BlueInstant,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -378,7 +379,7 @@ impl Card {
                 name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 1)]),
-                on_resolve: Some(Effect::UntapLands(2)),
+                on_resolve: Some(Effect::UntapLands(Some(2))),
                 ..Default::default()
             },
             "Impulse" => Card {
@@ -487,6 +488,92 @@ impl Card {
                 name,
                 card_type: CardType::Instant,
                 cost: HashMap::from([(Mana::Blue, 1)]),
+                ..Default::default()
+            },
+            "Words of Wisdom" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 1)]),
+                on_resolve: Some(Effect::WordsOfWisdom),
+                ..Default::default()
+            },
+            "Snap" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 1)]),
+                on_resolve: Some(Effect::Snap),
+                ..Default::default()
+            },
+            "Brain Freeze" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 1)]),
+                on_resolve: Some(Effect::Mill(3)),
+                ..Default::default()
+            },
+            "Frantic Search" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 2)]),
+                on_resolve: Some(Effect::FranticSearch),
+                ..Default::default()
+            },
+            "Meditate" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 2)]),
+                on_resolve: Some(Effect::Meditate),
+                ..Default::default()
+            },
+            "Merchant Scroll" => Card {
+                name,
+                card_type: CardType::Sorcery,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 1)]),
+                on_resolve: Some(Effect::SearchAndPutHand(Some(SearchFilter::BlueInstant))),
+                ..Default::default()
+            },
+            "Sleight of Hand" => Card {
+                name,
+                card_type: CardType::Sorcery,
+                cost: HashMap::from([(Mana::Blue, 1)]),
+                on_resolve: Some(Effect::Impulse(2)),
+                ..Default::default()
+            },
+            "Helm of Awakening" => Card {
+                name,
+                card_type: CardType::Artifact,
+                cost: HashMap::from([(Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Sapphire Medallion" => Card {
+                name,
+                card_type: CardType::Artifact,
+                cost: HashMap::from([(Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Chain of Vapor" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 1)]),
+                ..Default::default()
+            },
+            "Defense Grid" => Card {
+                name,
+                card_type: CardType::Artifact,
+                cost: HashMap::from([(Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Hurkyl's Recall" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Turnabout" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 2), (Mana::Colorless, 2)]),
+                on_resolve: Some(Effect::UntapLands(None)),
                 ..Default::default()
             },
             "City of Brass" => Card {
