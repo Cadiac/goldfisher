@@ -363,7 +363,7 @@ impl Component for App {
                                                     <th>{"Wins"}</th>
                                                     <th>{"Wins (%)"}</th>
                                                     <th>{"Cumulative (%)"}</th>
-                                                    <th>{"%"}</th>
+                                                    <th>{""}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
