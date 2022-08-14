@@ -1,6 +1,7 @@
 use gloo_worker::{Spawnable, WorkerBridge};
 use log::debug;
 use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
@@ -8,7 +9,7 @@ use web_sys::{EventTarget, HtmlInputElement, HtmlSelectElement, HtmlTextAreaElem
 use yew::prelude::*;
 
 use goldfisher::deck::Deck;
-use goldfisher::game::GameResult;
+use goldfisher::game::{GameResult, Game};
 use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
 
 use goldfisher_web::{Cmd, Goldfish, Status};
@@ -47,97 +48,63 @@ impl fmt::Display for Msg {
     }
 }
 
+#[derive(Debug, Default)]
+struct Results {
+    wins: BTreeMap<usize, usize>,
+    losses: usize,
+    average_turn: f32,
+    percentage_wins: BTreeMap<usize, f32>,
+    cumulative_wins: BTreeMap<usize, f32>,
+}
+
 pub struct App {
     strategies: Vec<Rc<Box<dyn Strategy>>>,
     current_strategy: Option<Rc<Box<dyn Strategy>>>,
     decklist: String,
     is_busy: bool,
     is_decklist_error: bool,
+    error_msg: Option<String>,
     simulations: usize,
     progress: (usize, usize),
-    results: HashMap<(GameResult, usize), usize>,
-    output: String,
+    results: Results,
     worker: WorkerBridge<Goldfish>,
 }
 
 impl App {
-    fn update_output(&mut self) {
+    fn update_results(&mut self, new_results: Vec<(GameResult, usize)>) {
         let progress: usize = self.progress.0;
         let total_simulations = self.progress.1;
 
-        let mut wins_by_turn = self
-            .results
+        let mut wins = new_results
             .iter()
-            .filter(|((result, _), _)| *result == GameResult::Win)
-            .map(|((_, turn), count)| (*turn, *count))
-            .collect::<Vec<_>>();
+            .filter(|(result, _)| *result == GameResult::Win);
 
-        let mut losses_by_turn = self
-            .results
+        for (_result, turn) in wins {
+            *self.results.wins.entry(*turn).or_insert(0) += 1;
+        }
+
+        let losses: usize = new_results
             .iter()
-            .filter(|((result, _), _)| *result == GameResult::Lose)
-            .map(|((_, turn), count)| (*turn, *count))
-            .collect::<Vec<_>>();
+            .filter(|(result, _)| *result == GameResult::Lose)
+            .count();
 
-        wins_by_turn.sort();
-        losses_by_turn.sort();
+        self.results.losses += losses;
 
-        let total_wins: usize = wins_by_turn.iter().map(|(_, wins)| *wins).sum();
-        let average_turn = wins_by_turn
+        let total_wins: usize = self.results.wins.iter().map(|(_, wins)| *wins).sum();
+
+        self.results.average_turn = self.results.wins
             .iter()
             .map(|(turn, wins)| *turn * *wins)
             .sum::<usize>() as f32
             / usize::max(total_wins, 1) as f32;
 
-        let mut output = vec![];
-        if self.is_busy {
-            output.push(format!(
-                "=======================[ RUNNING ]=========================="
-            ));
-            output.push(format!(
-                "                   In progress: {progress}/{total_simulations}",
-            ));
-        } else {
-            output.push(format!(
-                "=======================[ RESULTS ]=========================="
-            ));
-            if self.progress.0 == self.progress.1 {
-                output.push(format!(
-                    "                    Finished: {progress}/{total_simulations}",
-                ));
-            } else {
-                output.push(format!(
-                    "                   Cancelled: {progress}/{total_simulations}",
-                ));
-            }
-        }
-        output.push(format!(
-            "                    Average turn: {average_turn:.2}"
-        ));
-        output.push(format!(
-            "               Wins per turn after {progress} games:"
-        ));
-        output.push(format!(
-            "============================================================"
-        ));
-
         let mut cumulative = 0.0;
-        for (turn, wins) in wins_by_turn {
-            let win_percentage = 100.0 * wins as f32 / progress as f32;
+        for (turn, wins) in self.results.wins.iter() {
+            let win_percentage = 100.0 * *wins as f32 / progress as f32;
             cumulative += win_percentage;
-            output.push(format!(
-                "Turn {turn:002}: {wins} wins ({win_percentage:.1}%) - cumulative {cumulative:.1}%"
-            ));
+            *self.results.percentage_wins.entry(*turn).or_insert(0.0) = win_percentage;
+            *self.results.cumulative_wins.entry(*turn).or_insert(0.0) = cumulative;
         }
-
-        let mut loss_cumulative = 0.0;
-        for (turn, losses) in losses_by_turn {
-            let loss_percentage = 100.0 * losses as f32 / progress as f32;
-            loss_cumulative += loss_percentage;
-            output.push(format!("Turn {turn:002}: {losses} losses ({loss_percentage:.1}%) - cumulative {loss_cumulative:.1}%"));
-        }
-
-        self.output = output.join("\n");
     }
 }
 
@@ -178,8 +145,8 @@ impl Component for App {
             is_decklist_error: false,
             simulations: 10000,
             progress: (0, 0),
-            results: HashMap::new(),
-            output: String::from("========================[ READY ]==========================="),
+            results: Results::default(),
+            error_msg: None,
             worker,
         }
     }
@@ -210,10 +177,10 @@ impl Component for App {
             Msg::ChangeDecklist(decklist_str) => {
                 if let Err(err) = decklist_str.parse::<Deck>() {
                     self.is_decklist_error = true;
-                    self.output = format!("========================[ ERROR ]===========================\n{}", err)
+                    self.error_msg = Some(err.to_string());
                 } else {
                     self.is_decklist_error = false;
-                    self.output = String::from("========================[ READY ]===========================")
+                    self.error_msg = None;
                 }
 
                 self.decklist = decklist_str;
@@ -221,7 +188,9 @@ impl Component for App {
             Msg::BeginSimulation => {
                 if !self.decklist.is_empty() && self.current_strategy.is_some() {
                     self.is_busy = true;
-                    self.results.clear();
+                    self.error_msg = None;
+                    self.results = Results::default();
+
                     self.worker.send(Cmd::Begin {
                         strategy: self.current_strategy.as_ref().unwrap().name(),
                         decklist: self.decklist.clone(),
@@ -233,25 +202,17 @@ impl Component for App {
                 self.worker.send(Cmd::Cancel);
             }
             Msg::UpdateProgress(progress, total_simulations, results) => {
-                for result in results {
-                    *self.results.entry(result).or_insert(0) += 1;
-                }
-
                 self.progress = (progress, total_simulations);
-                self.update_output();
+                self.update_results(results);
             }
             Msg::FinishSimulation(progress, total_simulations, results) => {
-                for result in results {
-                    *self.results.entry(result).or_insert(0) += 1;
-                }
-
                 self.progress = (progress, total_simulations);
                 self.is_busy = false;
-                self.update_output();
+                self.update_results(results);
             }
             Msg::SimulationError(message) => {
                 self.is_busy = false;
-                self.output = format!("========================[ ERROR ]===========================\n{}", message)
+                self.error_msg = Some(message);
             }
         }
 
@@ -263,6 +224,8 @@ impl Component for App {
 
         let is_ready =
             !self.is_busy && self.current_strategy.is_some() && !self.decklist.is_empty();
+
+        let (progress, total_games) = self.progress;
 
         html! {
             <section class="section">
@@ -346,20 +309,90 @@ impl Component for App {
                         </div>
 
                         <div class="column">
-                            <div class="box">
-                                <progress class="progress is-primary" value={self.progress.0.to_string()} max={self.progress.1.to_string()}>
-                                    { format!("{}/{}", self.progress.0, self.progress.1) }
-                                </progress>
-                            </div>
-                            {if !self.output.is_empty() {
+                            {if let Some(message) = self.error_msg.as_ref() {
                                 html! {
-                                    <div class="box">
-                                        <pre>{&self.output}</pre>
-                                    </div>
+                                    <article class="message is-danger">
+                                        <div class="message-header">
+                                            <p>{"Error:"}</p>
+                                            <button class="delete" aria-label="delete"></button>
+                                        </div>
+                                        <div class="message-body">
+                                            {message}
+                                        </div>
+                                    </article>
                                 }
                             } else {
                                 html! {}
                             }}
+
+                            <div class="box">
+                                <div class="field">    
+                                    <label class="label">{"Progress:"}</label>
+                                    <span class="is-small">{format!("{progress}/{total_games}")}</span>
+                                    <progress class="progress is-primary" value={progress.to_string()} max={total_games.to_string()}>
+                                        { format!("{progress}/{total_games}") }
+                                    </progress>
+                                </div>
+
+                                <div class="columns">
+                                    <div class="column">
+                                        <label class="label">{"Average winning turn:"}</label>
+                                        <span class="is-small">{format!("{:.2}", self.results.average_turn)}</span>
+                                    </div>
+                                    <div class="column">
+                                        <label class="label">{"Bricked games:"}</label>
+                                        <span class="is-small">{format!("{:.2}", self.results.losses)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="box">
+                                <div class="table-container">
+                                    <table class="table is-fullwidth is-small">
+                                        <thead>
+                                            <tr>
+                                                <th>{"Turn"}</th>
+                                                <th>{"Wins"}</th>
+                                                <th>{"Wins (%)"}</th>
+                                                <th>{"Cumulative (%)"}</th>
+                                                <th>{"%"}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {if self.results.wins.is_empty() && self.results.losses == 0 {
+                                                html! {
+                                                    <tr>
+                                                        <th>{"--"}</th>
+                                                        <td>{"--"}</td>
+                                                        <td>{"--"}</td>
+                                                        <td>{"--"}</td>
+                                                        <td>{"--"}</td>
+                                                    </tr>
+                                                }
+                                            } else {
+                                                html! {}
+                                            }}
+                                            {
+                                                self.results.wins.iter().map(|(turn, wins)| {
+                                                    let win_percentage = self.results.percentage_wins.get(turn).unwrap_or(&0.0);
+                                                    let cumulative = self.results.cumulative_wins.get(turn).unwrap_or(&0.0);
+                                                    html! {
+                                                        <tr>
+                                                            <th>{turn}</th>
+                                                            <td>{wins}</td>
+                                                            <td>{format!("{win_percentage:.1}%")}</td>
+                                                            <td>{format!("{cumulative:.1}%")}</td>
+                                                            <td style="vertical-align: middle">
+                                                                <progress class="progress is-small is-primary" style="min-width: 250px" value={wins.to_string()} max={progress.to_string()} />
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                }).collect::<Html>()
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
