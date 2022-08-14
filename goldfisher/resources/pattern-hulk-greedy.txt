@@ -26,11 +26,12 @@
 4 Llanowar Wastes
 
 // Sideboard
-3 Mesmeric Fiend
+2 Mesmeric Fiend
 3 Cabal Therapy
 1 Caller of the Claw
 2 Naturalize
 1 Seal of Cleansing
+1 Pernicious Deed
 1 Phantom Nishoba
 2 Circle of Protection: Red
 2 Engineered Plague

@@ -9,7 +9,7 @@ use crate::mana::Mana;
 use crate::strategy::Strategy;
 use crate::utils::*;
 
-const DEFAULT_DECKLIST: &str = include_str!("../../resources/pattern-hulk.txt");
+const DEFAULT_DECKLIST: &str = include_str!("../../resources/pattern-hulk-greedy.txt");
 const COMBO_PIECES: &[&str] = &[
     "Body Snatcher",
     "Iridescent Drake",
