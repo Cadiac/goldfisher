@@ -81,9 +81,9 @@ jobs:
         # Generate a new cache whenever crates or rust version changes.
         key: ${{ runner.os }}-cargo-${{ steps.rustc_version.outputs.version }}-${{ hashFiles('**/Cargo.lock') }}
     - name: Install trunk
+      continue-on-error: true
       run: cargo install trunk
     - name: Build
-      if: success() || failure()
       run: trunk build --release
     - name: Upload GitHub Pages artifact
       uses: actions/upload-pages-artifact@v1.0.3
