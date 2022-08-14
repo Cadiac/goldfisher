@@ -231,179 +231,195 @@ impl Component for App {
         let (progress, total_games) = self.progress;
 
         html! {
-            <section class="section">
-                <div class="container">
-                    <h1 class="title">{ "Goldfisher 🎣" }</h1>
+            <>
+                <section class="section">
+                    <div class="container">
+                        <h1 class="title">{ "Goldfisher 🎣" }</h1>
 
-                    <div class="columns">
-                        <div class="column">
-                            <div class="box">
-                                <div class="field">
-                                    <label class="label" for="strategy-select">{"Choose a deck strategy:"}</label>
-                                    <div class="select is-info">
-                                        <select name="strategies" id="strategy-select" onchange={link.batch_callback(move |e: Event| {
-                                            let target: Option<EventTarget> = e.target();
-                                            let select = target.and_then(|t| t.dyn_into::<HtmlSelectElement>().ok());
-                                            select.map(|select| Msg::ChangeStrategy(select.value()))
-                                        })}>
-                                            <option selected={self.current_strategy.is_none()} value={""}>{"-- Please select a strategy --"}</option>
-                                            {
-                                                self.strategies.iter().map(|strategy| {
-                                                    let name = strategy.name();
+                        <div class="columns">
+                            <div class="column">
+                                <div class="box">
+                                    <div class="field">
+                                        <label class="label" for="strategy-select">{"Choose a deck strategy:"}</label>
+                                        <div class="select is-info">
+                                            <select name="strategies" id="strategy-select" onchange={link.batch_callback(move |e: Event| {
+                                                let target: Option<EventTarget> = e.target();
+                                                let select = target.and_then(|t| t.dyn_into::<HtmlSelectElement>().ok());
+                                                select.map(|select| Msg::ChangeStrategy(select.value()))
+                                            })}>
+                                                <option selected={self.current_strategy.is_none()} value={""}>{"-- Please select a strategy --"}</option>
+                                                {
+                                                    self.strategies.iter().map(|strategy| {
+                                                        let name = strategy.name();
 
-                                                    html! {
-                                                        <option
-                                                            selected={name == self.current_strategy.as_ref().map(|s| s.name()).unwrap_or(String::from(""))}
-                                                            value={name.clone()}>
-                                                            {name}
-                                                        </option> }
-                                                })
-                                                .collect::<Html>()
-                                            }
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div class="field">
-                                    <label class="label" for="decklist">{"Decklist:"}</label>
-                                    <textarea class={if self.is_decklist_error { "textarea is-danger" } else { "textarea is-info"}}
-                                        id="decklist"
-                                        name="decklist"
-                                        rows="15"
-                                        placeholder="Choose deck strategy.."
-                                        value={self.decklist.clone()}
-                                        onchange={link.batch_callback(move |e: Event| {
-                                            let target: Option<EventTarget> = e.target();
-                                            let textarea = target.and_then(|t| t.dyn_into::<HtmlTextAreaElement>().ok());
-                                            textarea.map(|textarea| {
-                                                let decklist = textarea.value();
-                                                Msg::ChangeDecklist(decklist)
-                                            })
-                                        })}
-                                    />
-                                </div>
-
-                                <div class="field">
-                                    <label class="label" for="simulated-games">{"Games to simulate:"}</label>
-                                    <input class="input is-info" type="number" id="simulated-games" name="tentacles" min="1" max="1000000" value={self.simulations.to_string()}
-                                        onchange={link.batch_callback(move |e: Event| {
-                                            let target: Option<EventTarget> = e.target();
-                                            let select = target.and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
-                                            select.map(|select| {
-                                                let count = select.value();
-                                                Msg::ChangeSimulationsCount(count.parse().unwrap_or(100))
-                                            })
-                                        })}
-                                    />
-                                </div>
-                            </div>
-
-                            <div class="buttons">
-                                <button class={if is_ready { "button is-primary" } else { "button is-primary is-outlined" }} type="button"
-                                    disabled={!is_ready}
-                                    onclick={link.callback(|_| Msg::BeginSimulation)}>
-                                    <span>{ "Run simulation ▶︎" }</span>
-                                </button>
-
-                                <button class="button" type="button" disabled={!self.is_busy} onclick={link.callback(|_| Msg::CancelSimulation)}>
-                                    { "Cancel" }
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="column">
-                            {if let Some(message) = self.error_msg.as_ref() {
-                                html! {
-                                    <article class="message is-danger">
-                                        <div class="message-header">
-                                            <p>{"Error:"}</p>
-                                            <button
-                                                class="delete"
-                                                aria-label="delete"
-                                                onclick={link.callback(|_| Msg::DismissError)}
-                                            />
-                                        </div>
-                                        <div class="message-body">
-                                            {message}
-                                        </div>
-                                    </article>
-                                }
-                            } else {
-                                html! {}
-                            }}
-
-                            <div class="box">
-                                <div class="field">    
-                                    <label class="label">{"Progress:"}</label>
-                                    <span class="is-small">{format!("{progress}/{total_games}")}</span>
-                                    <progress class="progress is-primary" value={progress.to_string()} max={total_games.to_string()}>
-                                        { format!("{progress}/{total_games}") }
-                                    </progress>
-                                </div>
-
-                                <div class="columns">
-                                    <div class="column">
-                                        <label class="label">{"Average winning turn:"}</label>
-                                        <span class="is-small">{format!("{:.2}", self.results.average_turn)}</span>
-                                    </div>
-                                    <div class="column">
-                                        <label class="label">{"Bricked games:"}</label>
-                                        <span class="is-small">{format!("{:.2}", self.results.losses)}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="box">
-                                <div class="table-container">
-                                    <table class="table is-fullwidth is-small">
-                                        <thead>
-                                            <tr>
-                                                <th>{"Turn"}</th>
-                                                <th>{"Wins"}</th>
-                                                <th>{"Wins (%)"}</th>
-                                                <th>{"Cumulative (%)"}</th>
-                                                <th>{"%"}</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {if self.results.wins.is_empty() && self.results.losses == 0 {
-                                                html! {
-                                                    <tr>
-                                                        <th>{"--"}</th>
-                                                        <td>{"--"}</td>
-                                                        <td>{"--"}</td>
-                                                        <td>{"--"}</td>
-                                                        <td>{"--"}</td>
-                                                    </tr>
+                                                        html! {
+                                                            <option
+                                                                selected={name == self.current_strategy.as_ref().map(|s| s.name()).unwrap_or(String::from(""))}
+                                                                value={name.clone()}>
+                                                                {name}
+                                                            </option> }
+                                                    })
+                                                    .collect::<Html>()
                                                 }
-                                            } else {
-                                                html! {}
-                                            }}
-                                            {
-                                                self.results.wins.iter().map(|(turn, wins)| {
-                                                    let win_percentage = self.results.percentage_wins.get(turn).unwrap_or(&0.0);
-                                                    let cumulative = self.results.cumulative_wins.get(turn).unwrap_or(&0.0);
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="field">
+                                        <label class="label" for="decklist">{"Decklist:"}</label>
+                                        <textarea class={if self.is_decklist_error { "textarea is-danger" } else { "textarea is-info"}}
+                                            id="decklist"
+                                            name="decklist"
+                                            rows="15"
+                                            placeholder="Choose deck strategy.."
+                                            value={self.decklist.clone()}
+                                            onchange={link.batch_callback(move |e: Event| {
+                                                let target: Option<EventTarget> = e.target();
+                                                let textarea = target.and_then(|t| t.dyn_into::<HtmlTextAreaElement>().ok());
+                                                textarea.map(|textarea| {
+                                                    let decklist = textarea.value();
+                                                    Msg::ChangeDecklist(decklist)
+                                                })
+                                            })}
+                                        />
+                                    </div>
+
+                                    <div class="field">
+                                        <label class="label" for="simulated-games">{"Games to simulate:"}</label>
+                                        <input class="input is-info" type="number" id="simulated-games" name="tentacles" min="1" max="1000000" value={self.simulations.to_string()}
+                                            onchange={link.batch_callback(move |e: Event| {
+                                                let target: Option<EventTarget> = e.target();
+                                                let select = target.and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
+                                                select.map(|select| {
+                                                    let count = select.value();
+                                                    Msg::ChangeSimulationsCount(count.parse().unwrap_or(100))
+                                                })
+                                            })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div class="buttons">
+                                    <button class={if is_ready { "button is-primary" } else { "button is-primary is-outlined" }} type="button"
+                                        disabled={!is_ready}
+                                        onclick={link.callback(|_| Msg::BeginSimulation)}>
+                                        <span>{ "Run simulation ▶︎" }</span>
+                                    </button>
+
+                                    <button class="button" type="button" disabled={!self.is_busy} onclick={link.callback(|_| Msg::CancelSimulation)}>
+                                        { "Cancel" }
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="column">
+                                {if let Some(message) = self.error_msg.as_ref() {
+                                    html! {
+                                        <article class="message is-danger">
+                                            <div class="message-header">
+                                                <p>{"Error:"}</p>
+                                                <button
+                                                    class="delete"
+                                                    aria-label="delete"
+                                                    onclick={link.callback(|_| Msg::DismissError)}
+                                                />
+                                            </div>
+                                            <div class="message-body">
+                                                {message}
+                                            </div>
+                                        </article>
+                                    }
+                                } else {
+                                    html! {}
+                                }}
+
+                                <div class="box">
+                                    <div class="field">    
+                                        <label class="label">{"Progress:"}</label>
+                                        <span class="is-small">{format!("{progress}/{total_games}")}</span>
+                                        <progress class="progress is-primary" value={progress.to_string()} max={total_games.to_string()}>
+                                            { format!("{progress}/{total_games}") }
+                                        </progress>
+                                    </div>
+
+                                    <div class="columns">
+                                        <div class="column">
+                                            <label class="label">{"Average winning turn:"}</label>
+                                            <span class="is-small">{format!("{:.2}", self.results.average_turn)}</span>
+                                        </div>
+                                        <div class="column">
+                                            <label class="label">{"Bricked games:"}</label>
+                                            <span class="is-small">{format!("{:.2}", self.results.losses)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="box">
+                                    <div class="table-container">
+                                        <table class="table is-fullwidth is-small">
+                                            <thead>
+                                                <tr>
+                                                    <th>{"Turn"}</th>
+                                                    <th>{"Wins"}</th>
+                                                    <th>{"Wins (%)"}</th>
+                                                    <th>{"Cumulative (%)"}</th>
+                                                    <th>{"%"}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {if self.results.wins.is_empty() && self.results.losses == 0 {
                                                     html! {
                                                         <tr>
-                                                            <th>{turn}</th>
-                                                            <td>{wins}</td>
-                                                            <td>{format!("{win_percentage:.1}%")}</td>
-                                                            <td>{format!("{cumulative:.1}%")}</td>
-                                                            <td style="vertical-align: middle">
-                                                                <progress class="progress is-small is-primary" style="min-width: 250px" value={wins.to_string()} max={progress.to_string()} />
-                                                            </td>
+                                                            <th>{"--"}</th>
+                                                            <td>{"--"}</td>
+                                                            <td>{"--"}</td>
+                                                            <td>{"--"}</td>
+                                                            <td>{"--"}</td>
                                                         </tr>
                                                     }
-                                                }).collect::<Html>()
-                                            }
-                                        </tbody>
-                                    </table>
+                                                } else {
+                                                    html! {}
+                                                }}
+                                                {
+                                                    self.results.wins.iter().map(|(turn, wins)| {
+                                                        let win_percentage = self.results.percentage_wins.get(turn).unwrap_or(&0.0);
+                                                        let cumulative = self.results.cumulative_wins.get(turn).unwrap_or(&0.0);
+                                                        html! {
+                                                            <tr>
+                                                                <th>{turn}</th>
+                                                                <td>{wins}</td>
+                                                                <td>{format!("{win_percentage:.1}%")}</td>
+                                                                <td>{format!("{cumulative:.1}%")}</td>
+                                                                <td style="vertical-align: middle">
+                                                                    <progress class="progress is-small is-primary" style="min-width: 250px" value={wins.to_string()} max={progress.to_string()} />
+                                                                </td>
+                                                            </tr>
+                                                        }
+                                                    }).collect::<Html>()
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
+                <footer class="footer">
+                    <div class="content has-text-centered">
+                        <p>
+                            <strong>{"Goldfisher"}</strong>
+                            {" by "}
+                            <a href="https://github.com/Cadiac">{"Jaakko Husso"}</a>
+                            {". The source code of this tool is "}
+                            <a href="https://github.com/Cadiac/goldfisher/blob/master/goldfisher-web/LICENSE">{"MIT"}</a>
+                            {" licensed, and can be found from "}
+                            <a href="https://github.com/Cadiac/goldfisher">{"here"}</a>
+                            {"."}
+                        </p>
+                    </div>
+                </footer>
+            </>
         }
     }
 }
