@@ -7,7 +7,7 @@ use web_sys::{EventTarget, HtmlInputElement, HtmlSelectElement, HtmlTextAreaElem
 use yew::prelude::*;
 
 use goldfisher::deck::Deck;
-use goldfisher::game::{GameResult};
+use goldfisher::game::GameResult;
 use goldfisher::strategy::{DeckStrategy, STRATEGIES};
 
 use goldfisher_web::{Cmd, Goldfish, Status};
@@ -22,10 +22,10 @@ pub enum Msg {
     ChangeDecklist(String),
     BeginSimulation,
     CancelSimulation,
-    UpdateProgress(usize, usize, Vec<(GameResult, usize)>),
-    FinishSimulation(usize, usize, Vec<(GameResult, usize)>),
+    UpdateProgress(usize, usize, Vec<(GameResult, usize, usize)>),
+    FinishSimulation(usize, usize, Vec<(GameResult, usize, usize)>),
     SimulationError(String),
-    DismissError
+    DismissError,
 }
 
 impl fmt::Display for Msg {
@@ -53,6 +53,8 @@ struct Results {
     wins: BTreeMap<usize, usize>,
     losses: usize,
     average_turn: f32,
+    mulligans: Vec<usize>,
+    average_mulligans: f32,
     percentage_wins: BTreeMap<usize, f32>,
     cumulative_wins: BTreeMap<usize, f32>,
 }
@@ -70,32 +72,33 @@ pub struct App {
 }
 
 impl App {
-    fn update_results(&mut self, new_results: Vec<(GameResult, usize)>) {
-        let progress: usize = self.progress.0;
-
-        let wins = new_results
-            .iter()
-            .filter(|(result, _)| *result == GameResult::Win);
-
-        for (_result, turn) in wins {
-            *self.results.wins.entry(*turn).or_insert(0) += 1;
+    fn update_results(&mut self, new_results: Vec<(GameResult, usize, usize)>) {
+        for (result, turn, mulligan_count) in new_results.into_iter() {
+            match result {
+                GameResult::Win => {
+                    *self.results.wins.entry(turn).or_insert(0) += 1;
+                }
+                GameResult::Lose | GameResult::Draw => {
+                    self.results.losses += 1;
+                }
+            }
+            self.results.mulligans.push(mulligan_count);
         }
-
-        let losses: usize = new_results
-            .iter()
-            .filter(|(result, _)| *result == GameResult::Lose)
-            .count();
-
-        self.results.losses += losses;
 
         let total_wins: usize = self.results.wins.iter().map(|(_, wins)| *wins).sum();
 
-        self.results.average_turn = self.results.wins
+        self.results.average_turn = self
+            .results
+            .wins
             .iter()
             .map(|(turn, wins)| *turn * *wins)
             .sum::<usize>() as f32
             / usize::max(total_wins, 1) as f32;
 
+        self.results.average_mulligans = self.results.mulligans.iter().sum::<usize>() as f32
+            / usize::max(self.results.mulligans.len(), 1) as f32;
+
+        let progress: usize = self.progress.0;
         let mut cumulative = 0.0;
         for (turn, wins) in self.results.wins.iter() {
             let win_percentage = 100.0 * *wins as f32 / progress as f32;
@@ -151,17 +154,17 @@ impl Component for App {
         debug!("[Update]: {msg}");
 
         match msg {
-            Msg::ChangeStrategy(deck_strategy) => {
-                match deck_strategy.parse::<DeckStrategy>() {
-                    Err(_) => {
-                        self.current_strategy = None;
-                    },
-                    Ok(strategy) => {
-                        self.decklist = goldfisher::strategy::from_enum(&strategy).default_decklist().to_string();
-                        self.current_strategy = Some(strategy);
-                    }
+            Msg::ChangeStrategy(deck_strategy) => match deck_strategy.parse::<DeckStrategy>() {
+                Err(_) => {
+                    self.current_strategy = None;
                 }
-            }
+                Ok(strategy) => {
+                    self.decklist = goldfisher::strategy::from_enum(&strategy)
+                        .default_decklist()
+                        .to_string();
+                    self.current_strategy = Some(strategy);
+                }
+            },
             Msg::ChangeSimulationsCount(count) => {
                 self.simulations = count;
             }
@@ -175,7 +178,7 @@ impl Component for App {
                 }
 
                 self.decklist = decklist_str;
-            },
+            }
             Msg::BeginSimulation => {
                 if !self.decklist.is_empty() && self.current_strategy.is_some() {
                     self.is_busy = true;
@@ -205,9 +208,7 @@ impl Component for App {
                 self.is_busy = false;
                 self.error_msg = Some(message);
             }
-            Msg::DismissError => {
-                self.error_msg = None
-            }
+            Msg::DismissError => self.error_msg = None,
         }
 
         true
@@ -216,8 +217,10 @@ impl Component for App {
     fn view(&self, ctx: &Context<Self>) -> Html {
         let link = ctx.link();
 
-        let is_ready =
-            !self.is_busy && self.current_strategy.is_some() && !self.decklist.is_empty() && !self.is_decklist_error;
+        let is_ready = !self.is_busy
+            && self.current_strategy.is_some()
+            && !self.decklist.is_empty()
+            && !self.is_decklist_error;
 
         let (progress, total_games) = self.progress;
 
@@ -323,7 +326,7 @@ impl Component for App {
                                 }}
 
                                 <div class="box">
-                                    <div class="field">    
+                                    <div class="field">
                                         <label class="label">{"Progress:"}</label>
                                         <span class="is-small">{format!("{progress}/{total_games}")}</span>
                                         <progress class="progress is-primary" value={progress.to_string()} max={total_games.to_string()}>
@@ -333,12 +336,16 @@ impl Component for App {
 
                                     <div class="columns">
                                         <div class="column">
-                                            <label class="label">{"Average winning turn:"}</label>
+                                            <label class="label">{"Average turn:"}</label>
                                             <span class="is-small">{format!("{:.2}", self.results.average_turn)}</span>
                                         </div>
                                         <div class="column">
                                             <label class="label">{"Bricked games:"}</label>
                                             <span class="is-small">{format!("{:.2}", self.results.losses)}</span>
+                                        </div>
+                                        <div class="column">
+                                            <label class="label">{"Average mulligans:"}</label>
+                                            <span class="is-small">{format!("{:.2}", self.results.average_mulligans)}</span>
                                         </div>
                                     </div>
                                 </div>

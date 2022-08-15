@@ -34,9 +34,9 @@ pub enum Msg {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Status {
-    InProgress(usize, usize, Vec<(GameResult, usize)>),
+    InProgress(usize, usize, Vec<(GameResult, usize, usize)>),
     Cancelled(usize, usize),
-    Complete(usize, Vec<(GameResult, usize)>),
+    Complete(usize, Vec<(GameResult, usize, usize)>),
     Error(String),
 }
 
@@ -141,7 +141,7 @@ impl Goldfish {
         deck_strategy: &DeckStrategy,
         decklist: &Decklist,
         batch_size: usize,
-    ) -> Result<Vec<(GameResult, usize)>, Box<dyn Error>> {
+    ) -> Result<Vec<(GameResult, usize, usize)>, Box<dyn Error>> {
         let mut results = Vec::new();
 
         for _ in 0..batch_size {
