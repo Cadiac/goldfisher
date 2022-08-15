@@ -6,17 +6,28 @@ use std::fs;
 
 use rayon::prelude::*;
 
-use goldfisher::deck::Decklist;
+use goldfisher::deck::{Decklist};
 use goldfisher::game::{Game, GameResult};
-use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
+use goldfisher::strategy::{DeckStrategy, Strategy};
 
 #[macro_use]
 extern crate log;
 
 #[derive(clap::ValueEnum, Clone, Debug)]
-enum DeckStrategy {
+pub enum ArgDeckStrategy {
     PatternHulk,
     Aluren,
+    FranticStorm,
+}
+
+impl From<ArgDeckStrategy> for DeckStrategy {
+    fn from(other: ArgDeckStrategy) -> DeckStrategy {
+        match other {
+            ArgDeckStrategy::PatternHulk => DeckStrategy::PatternHulk,
+            ArgDeckStrategy::Aluren => DeckStrategy::Aluren,
+            ArgDeckStrategy::FranticStorm => DeckStrategy::FranticStorm,
+        }
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -32,7 +43,7 @@ struct Args {
 
     /// The name of the deck strategy to use.
     #[clap(short, long, value_enum)]
-    strategy: DeckStrategy,
+    strategy: ArgDeckStrategy,
 
     /// Path to custom decklist file
     #[clap(short, long)]
@@ -47,23 +58,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut loss_statistics: HashMap<usize, usize> = HashMap::new();
     let simulated_games = cli.games;
 
-    let strategy: Box<dyn Strategy> = match cli.strategy {
-        DeckStrategy::PatternHulk => Box::new(pattern_hulk::PatternHulk {}),
-        DeckStrategy::Aluren => Box::new(aluren::Aluren {}),
-    };
-
     let decklist: Decklist = match cli.decklist {
         Some(path) => fs::read_to_string(path)?.parse()?,
-        None => strategy.default_decklist(),
+        None => {
+            let strategy: Box<dyn Strategy> = goldfisher::strategy::from_enum(&cli.strategy.clone().into());
+            strategy.default_decklist()
+        }
     };
 
     let results: Vec<_> = (0..simulated_games)
         .into_par_iter()
         .map(|_| {
-            let strategy: Box<dyn Strategy> = match cli.strategy {
-                DeckStrategy::PatternHulk => Box::new(pattern_hulk::PatternHulk {}),
-                DeckStrategy::Aluren => Box::new(aluren::Aluren {}),
-            };
+            let mut strategy: Box<dyn Strategy> =
+                goldfisher::strategy::from_enum(&cli.strategy.clone().into());
 
             let mut game = match Game::new(&decklist) {
                 Ok(game) => game,
@@ -72,7 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             };
 
-            game.run(&strategy)
+            game.run(&mut strategy)
         })
         .collect();
 
