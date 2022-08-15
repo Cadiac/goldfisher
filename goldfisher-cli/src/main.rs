@@ -35,7 +35,7 @@ impl From<ArgDeckStrategy> for DeckStrategy {
 struct Args {
     /// Number of games to simulate
     #[clap(short, long, value_parser, default_value_t = 100)]
-    games: u32,
+    games: usize,
 
     /// Print game actions debug output (slow)
     #[clap(short, long, action)]
@@ -83,11 +83,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         })
         .collect();
 
+    let mut mulligans = Vec::with_capacity(simulated_games);
+
     for result in results {
         match result {
-            (GameResult::Win, turn) => *win_statistics.entry(turn).or_insert(0) += 1,
-            (GameResult::Lose, turn) => *loss_statistics.entry(turn).or_insert(0) += 1,
-            (GameResult::Draw, turn) => *loss_statistics.entry(turn).or_insert(0) += 1,
+            (GameResult::Win, turn, mulligan_count) => {
+                *win_statistics.entry(turn).or_insert(0) += 1;
+                mulligans.push(mulligan_count);
+            }
+            (GameResult::Lose, turn, mulligan_count) | (GameResult::Draw, turn, mulligan_count) => {
+                *loss_statistics.entry(turn).or_insert(0) += 1;
+                mulligans.push(mulligan_count);
+            }
         }
     }
 
@@ -104,8 +111,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         .sum::<usize>() as f32
         / total_wins as f32;
 
+    let average_mulligans = mulligans.iter().sum::<usize>() as f32 / mulligans.len() as f32;
+
     info!("=======================[ RESULTS ]==========================");
     info!("                   Average turn: {average_turn:.2}");
+    info!("                 Average mulligans: {average_mulligans:.2}");
     info!("              Wins per turn after {simulated_games} games:");
     info!("============================================================");
 

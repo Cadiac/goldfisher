@@ -77,7 +77,7 @@ impl Game {
     ///
     /// game.run(&strategy);
     /// ```
-    pub fn run(&mut self, strategy: &mut Box<dyn Strategy>) -> (GameResult, usize) {
+    pub fn run(&mut self, strategy: &mut Box<dyn Strategy>) -> (GameResult, usize, usize) {
         debug!("====================[ START OF GAME ]=======================");
         
         self.find_starting_hand(strategy);
@@ -113,7 +113,7 @@ impl Game {
         debug!("============================================================");
         self.print_game_state();
     
-        (result, self.turn)
+        (result, self.turn, self.mulligan_count)
     }
 
     /// Finds all castable game objects with their payments and floating mana left over afterwards.
