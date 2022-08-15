@@ -341,7 +341,11 @@ impl Component for App {
                                         </div>
                                         <div class="column">
                                             <label class="label">{"Bricked games:"}</label>
-                                            <span class="is-small">{format!("{:.2}", self.results.losses)}</span>
+                                            <span class="is-small">{
+                                                format!("{:.2} ({:.1}%)",
+                                                    self.results.losses,
+                                                    100.0 * self.results.losses as f32 / usize::max(progress, 1) as f32)
+                                            }</span>
                                         </div>
                                         <div class="column">
                                             <label class="label">{"Average mulligans:"}</label>
