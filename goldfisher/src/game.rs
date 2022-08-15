@@ -72,10 +72,10 @@ impl Game {
     /// use goldfisher::strategy::{pattern_hulk, Strategy};
     /// use goldfisher::game::{Game};
     ///
-    /// let strategy: Box<dyn Strategy> = Box::new(pattern_hulk::PatternHulk {});
+    /// let mut strategy: Box<dyn Strategy> = Box::new(pattern_hulk::PatternHulk {});
     /// let mut game = Game::new(&strategy.default_decklist()).unwrap();
     ///
-    /// game.run(&strategy);
+    /// game.run(&mut strategy);
     /// ```
     pub fn run(&mut self, strategy: &mut Box<dyn Strategy>) -> (GameResult, usize, usize) {
         debug!("====================[ START OF GAME ]=======================");
