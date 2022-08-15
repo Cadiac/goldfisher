@@ -2,14 +2,13 @@ use gloo_worker::{Spawnable, WorkerBridge};
 use log::debug;
 use std::collections::BTreeMap;
 use std::fmt;
-use std::rc::Rc;
 use wasm_bindgen::JsCast;
 use web_sys::{EventTarget, HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
 use goldfisher::deck::Deck;
 use goldfisher::game::{GameResult};
-use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
+use goldfisher::strategy::{DeckStrategy, STRATEGIES};
 
 use goldfisher_web::{Cmd, Goldfish, Status};
 
@@ -32,7 +31,7 @@ pub enum Msg {
 impl fmt::Display for Msg {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Msg::ChangeStrategy(name) => write!(f, "ChangeStrategy(\"{name}\")"),
+            Msg::ChangeStrategy(name) => write!(f, "ChangeStrategy(\"{name:?}\")"),
             Msg::ChangeSimulationsCount(count) => write!(f, "ChangeSimulationsCount({count})"),
             Msg::ChangeDecklist(_decklist) => write!(f, "ChangeDecklist"),
             Msg::BeginSimulation => write!(f, "BeginSimulation"),
@@ -59,8 +58,7 @@ struct Results {
 }
 
 pub struct App {
-    strategies: Vec<Rc<Box<dyn Strategy>>>,
-    current_strategy: Option<Rc<Box<dyn Strategy>>>,
+    current_strategy: Option<DeckStrategy>,
     decklist: String,
     is_busy: bool,
     is_decklist_error: bool,
@@ -113,11 +111,6 @@ impl Component for App {
     type Properties = ();
 
     fn create(ctx: &Context<Self>) -> Self {
-        let strategies: Vec<Rc<Box<dyn Strategy>>> = vec![
-            Rc::new(Box::new(pattern_hulk::PatternHulk {})),
-            Rc::new(Box::new(aluren::Aluren {})),
-        ];
-
         let link = ctx.link().clone();
 
         let worker = Goldfish::spawner()
@@ -138,7 +131,6 @@ impl Component for App {
             .spawn("/worker.js");
 
         Self {
-            strategies,
             current_strategy: None,
             decklist: String::new(),
             is_busy: false,
@@ -159,16 +151,15 @@ impl Component for App {
         debug!("[Update]: {msg}");
 
         match msg {
-            Msg::ChangeStrategy(name) => {
-                if let Some(strategy) = self
-                    .strategies
-                    .iter()
-                    .find(|strategy| strategy.name() == name)
-                {
-                    self.decklist = strategy.default_decklist().to_string();
-                    self.current_strategy = Some(strategy.clone());
-                } else {
-                    self.current_strategy = None;
+            Msg::ChangeStrategy(deck_strategy) => {
+                match deck_strategy.parse::<DeckStrategy>() {
+                    Err(_) => {
+                        self.current_strategy = None;
+                    },
+                    Ok(strategy) => {
+                        self.decklist = goldfisher::strategy::from_enum(&strategy).default_decklist().to_string();
+                        self.current_strategy = Some(strategy);
+                    }
                 }
             }
             Msg::ChangeSimulationsCount(count) => {
@@ -192,7 +183,7 @@ impl Component for App {
                     self.results = Results::default();
 
                     self.worker.send(Cmd::Begin {
-                        strategy: self.current_strategy.as_ref().unwrap().name(),
+                        strategy: self.current_strategy.as_ref().unwrap().clone(),
                         decklist: self.decklist.clone(),
                         simulations: self.simulations,
                     });
@@ -249,14 +240,12 @@ impl Component for App {
                                             })}>
                                                 <option selected={self.current_strategy.is_none()} value={""}>{"-- Please select a strategy --"}</option>
                                                 {
-                                                    self.strategies.iter().map(|strategy| {
-                                                        let name = strategy.name();
-
+                                                    STRATEGIES.iter().map(|strategy| {
                                                         html! {
                                                             <option
-                                                                selected={name == self.current_strategy.as_ref().map(|s| s.name()).unwrap_or(String::from(""))}
-                                                                value={name.clone()}>
-                                                                {name}
+                                                                selected={self.current_strategy.as_ref().map(|current| current == strategy).unwrap_or(false)}
+                                                                value={strategy.to_string()}>
+                                                                {strategy.to_string()}
                                                             </option> }
                                                     })
                                                     .collect::<Html>()

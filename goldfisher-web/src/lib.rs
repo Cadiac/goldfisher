@@ -1,7 +1,6 @@
 use gloo_worker::{HandlerId, Worker, WorkerScope};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use std::rc::Rc;
 use std::sync::{Mutex, Arc};
 
 use wasm_bindgen::{JsCast};
@@ -11,13 +10,13 @@ use web_sys::WorkerGlobalScope;
 
 use goldfisher::deck::Decklist;
 use goldfisher::game::{Game, GameResult};
-use goldfisher::strategy::{aluren, pattern_hulk, Strategy};
+use goldfisher::strategy::{DeckStrategy, Strategy};
 
 const MAX_BATCH_SIZE: usize = 25;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Cmd {
-    Begin{ strategy: String, decklist: String, simulations: usize },
+    Begin{ strategy: DeckStrategy, decklist: String, simulations: usize },
     Cancel,
 }
 
@@ -65,7 +64,7 @@ impl Goldfish {
         state: Arc<Mutex<State>>,
         scope: WorkerScope<Self>,
         id: HandlerId,
-        strategy_name: String,
+        deck_strategy: DeckStrategy,
         decklist_str: String,
         total_simulations: usize,
     ) {
@@ -77,18 +76,6 @@ impl Goldfish {
 
             *state = State::Running;
         }
-
-        let strategy: Rc<Box<dyn Strategy>> = match strategy_name.as_str() {
-            pattern_hulk::NAME => Rc::new(Box::new(pattern_hulk::PatternHulk {})),
-            aluren::NAME => Rc::new(Box::new(aluren::Aluren {})),
-            _ => {
-                scope.respond(
-                    id,
-                    Status::Error(format!("unsupported strategy \"{strategy_name}\"")),
-                );
-                return;
-            }
-        };
 
         let decklist = match decklist_str.parse::<Decklist>() {
             Ok(decklist) => decklist,
@@ -130,7 +117,7 @@ impl Goldfish {
 
             progress += batch_size;
 
-            match Goldfish::run_batch(&strategy, &decklist, batch_size) {
+            match Goldfish::run_batch(&deck_strategy, &decklist, batch_size) {
                 Ok(results) => {
                     if progress == total_simulations {
                         scope.respond(id, Status::Complete(total_simulations, results));
@@ -151,16 +138,17 @@ impl Goldfish {
     }
 
     fn run_batch(
-        strategy: &Rc<Box<dyn Strategy>>,
+        deck_strategy: &DeckStrategy,
         decklist: &Decklist,
         batch_size: usize,
     ) -> Result<Vec<(GameResult, usize)>, Box<dyn Error>> {
         let mut results = Vec::new();
 
         for _ in 0..batch_size {
-            let strategy = strategy.clone();
+            let mut strategy: Box<dyn Strategy> = goldfisher::strategy::from_enum(deck_strategy);
+
             let mut game = Game::new(&decklist)?;
-            let result = game.run(&strategy);
+            let result = game.run(&mut strategy);
             results.push(result);
         }
 
