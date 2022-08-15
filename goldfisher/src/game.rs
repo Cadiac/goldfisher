@@ -22,6 +22,7 @@ pub enum GameStatus {
     Finished(GameResult),
 }
 
+#[derive(Default)]
 pub struct Game {
     pub turn: usize,
     pub game_objects: Vec<CardRef>,
@@ -29,8 +30,11 @@ pub struct Game {
     pub deck: Deck,
     pub life_total: i32,
     pub damage_dealt: i32,
+    pub opponent_library: i32,
     pub floating_mana: HashMap<Mana, usize>,
     pub is_first_player: bool,
+    pub mulligan_count: usize,
+    pub storm: usize,
 }
 
 impl Game {
@@ -53,9 +57,12 @@ impl Game {
             turn: 0,
             life_total: 20,
             damage_dealt: 0,
+            opponent_library: 60,
             floating_mana: HashMap::new(),
             is_first_player: true,
             available_land_drops: 1,
+            mulligan_count: 0,
+            storm: 0,
         })
     }
 
@@ -70,7 +77,7 @@ impl Game {
     ///
     /// game.run(&strategy);
     /// ```
-    pub fn run(&mut self, strategy: &Box<dyn Strategy>) -> (GameResult, usize) {
+    pub fn run(&mut self, strategy: &mut Box<dyn Strategy>) -> (GameResult, usize) {
         debug!("====================[ START OF GAME ]=======================");
         
         self.find_starting_hand(strategy);
@@ -224,7 +231,7 @@ impl Game {
     }
 
     /// Takes game actions until no further actions are taken or game ends
-    pub fn take_game_actions(&mut self, strategy: &Box<dyn Strategy>) -> GameStatus {
+    pub fn take_game_actions(&mut self, strategy: &mut Box<dyn Strategy>) -> GameStatus {
         loop {
             let action_taken = strategy.take_game_action(self);
             match strategy.game_status(self) {
@@ -248,6 +255,8 @@ impl Game {
         (payment, floating): &PaymentAndFloating,
         attach_to: Option<CardRef>,
     ) {
+        self.storm += 1;
+
         let target_str = match attach_to.as_ref() {
             Some(target) => format!(" on target \"{}\"", target.borrow().name.clone()),
             None => "".to_owned(),
@@ -359,7 +368,7 @@ impl Game {
     }
 
     /// Cleanup phase, discards cards to hand size
-    pub fn cleanup(&mut self, strategy: &Box<dyn Strategy>) {
+    pub fn cleanup(&mut self, strategy: &mut Box<dyn Strategy>) {
         let cards_to_discard = strategy.discard_to_hand_size(self, 7);
         if !cards_to_discard.is_empty() {
             debug!(
@@ -378,29 +387,32 @@ impl Game {
         }
 
         self.floating_mana.clear();
+        strategy.cleanup();
     }
 
     /// Begins the turn, resetting land drops and advancing turn counter
     pub fn begin_turn(&mut self) {
         self.available_land_drops = 1;
+        self.storm = 0;
         self.turn += 1;
     }
 
     /// Takes starting hands and decides whether to keep or mulligan them based on the strategy.
     pub fn find_starting_hand(&mut self, strategy: &Box<dyn Strategy>) {
-        let mut mulligan_count = 0;
+        // Assume opponent also draws 7 and keeps
+        self.opponent_library -= 7;
 
         loop {
             // Draw the starting hand
             self.draw_n(7);
             self.print_hand();
-            if strategy.is_keepable_hand(self, mulligan_count) {
+            if strategy.is_keepable_hand(self, self.mulligan_count) {
                 debug!(
                     "[Turn {turn:002}][Action]: Keeping a hand of {cards} cards.",
                     turn = self.turn,
-                    cards = 7 - mulligan_count
+                    cards = 7 - self.mulligan_count
                 );
-                let bottomed = strategy.discard_to_hand_size(self, 7 - mulligan_count);
+                let bottomed = strategy.discard_to_hand_size(self, 7 - self.mulligan_count);
 
                 if !bottomed.is_empty() {
                     let bottomed_str = bottomed
@@ -434,9 +446,10 @@ impl Game {
 
                 self.deck.shuffle();
             }
-            mulligan_count += 1;
+            self.mulligan_count += 1;
             debug!(
                 "[Turn {turn:002}][Action]: Taking a mulligan number {mulligan_count}.",
+                mulligan_count = self.mulligan_count,
                 turn = self.turn
             );
         }
@@ -609,14 +622,11 @@ mod tests {
         game_objects.shuffle(&mut thread_rng());
 
         let game = Game {
-            deck: Deck::new(&Decklist { maindeck: vec![], sideboard: vec![] }).unwrap(),
             game_objects,
-            turn: 0,
             life_total: 20,
-            damage_dealt: 0,
-            floating_mana: HashMap::new(),
             is_first_player: true,
             available_land_drops: 1,
+            ..Default::default()
         };
 
         let expected_order = [
@@ -658,14 +668,11 @@ mod tests {
         let llanowar_elves = Card::new_with_zone("Llanowar Elves", Zone::Hand);
 
         let mut game = Game {
-            deck: Deck::new(&Decklist { maindeck: vec![], sideboard: vec![] }).unwrap(),
             game_objects: vec![tapland.clone(), llanowar_elves.clone()],
-            turn: 0,
             life_total: 20,
-            damage_dealt: 0,
-            floating_mana: HashMap::new(),
             is_first_player: true,
             available_land_drops: 1,
+            ..Default::default()
         };
 
         game.play_land(tapland.clone());

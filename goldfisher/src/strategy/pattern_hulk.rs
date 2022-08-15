@@ -37,6 +37,10 @@ struct ComboStatus {
 pub struct PatternHulk {}
 
 impl PatternHulk {
+    pub fn new() -> Self {
+        Self {}
+    }
+
     fn cast_pattern_of_rebirth(&self, game: &mut Game) -> bool {
         let castable = game.find_castable();
 
@@ -704,7 +708,7 @@ impl Strategy for PatternHulk {
             .collect()
     }
 
-    fn take_game_action(&self, game: &mut Game) -> bool {
+    fn take_game_action(&mut self, game: &mut Game) -> bool {
         self.play_land(game)
             || self.cast_pattern_of_rebirth(game)
             || self.cast_academy_rector(game)

@@ -27,6 +27,10 @@ struct ComboStatus {
 pub struct Aluren {}
 
 impl Aluren {
+    pub fn new() -> Self {
+        Self {}
+    }
+
     fn cast_mana_dork(&self, game: &mut Game) -> bool {
         let castable = game.find_castable();
 
@@ -505,7 +509,7 @@ impl Strategy for Aluren {
             .collect()
     }
 
-    fn take_game_action(&self, game: &mut Game) -> bool {
+    fn take_game_action(&mut self, game: &mut Game) -> bool {
         if self.play_land(game) {
             return true;
         }

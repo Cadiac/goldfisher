@@ -1,4 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
+use std::str::FromStr;
 
 use crate::card::{CardRef, CardType};
 use crate::deck::Decklist;
@@ -6,11 +9,62 @@ use crate::game::{Game, GameResult, GameStatus};
 use crate::utils::*;
 
 pub mod aluren;
+pub mod frantic_storm;
 pub mod pattern_hulk;
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum DeckStrategy {
+    PatternHulk,
+    Aluren,
+    FranticStorm,
+}
+
+impl FromStr for DeckStrategy {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<DeckStrategy, Self::Err> {
+        match input {
+            pattern_hulk::NAME => Ok(DeckStrategy::PatternHulk),
+            aluren::NAME => Ok(DeckStrategy::Aluren),
+            frantic_storm::NAME => Ok(DeckStrategy::FranticStorm),
+            _ => Err(()),
+        }
+    }
+}
+
+impl fmt::Display for DeckStrategy {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                DeckStrategy::PatternHulk => pattern_hulk::NAME,
+                DeckStrategy::Aluren => aluren::NAME,
+                DeckStrategy::FranticStorm => frantic_storm::NAME,
+            }
+        )
+    }
+}
+
+pub const STRATEGIES: &[DeckStrategy] = &[
+    DeckStrategy::PatternHulk,
+    DeckStrategy::Aluren,
+    DeckStrategy::FranticStorm,
+];
+
+pub fn from_enum(strategy: &DeckStrategy) -> Box<dyn Strategy> {
+    match strategy {
+        DeckStrategy::PatternHulk => Box::new(pattern_hulk::PatternHulk::new()),
+        DeckStrategy::Aluren => Box::new(aluren::Aluren::new()),
+        DeckStrategy::FranticStorm => Box::new(frantic_storm::FranticStorm::new()),
+    }
+}
 
 pub trait Strategy {
     fn name(&self) -> String;
     fn default_decklist(&self) -> Decklist;
+    fn cleanup(&mut self) {}
+
     fn game_status(&self, game: &Game) -> GameStatus {
         if game.life_total <= 0 && game.damage_dealt >= 20 {
             return GameStatus::Finished(GameResult::Draw);
@@ -28,7 +82,7 @@ pub trait Strategy {
     }
 
     fn is_keepable_hand(&self, game: &Game, mulligan_count: usize) -> bool;
-    fn take_game_action(&self, game: &mut Game) -> bool;
+    fn take_game_action(&mut self, game: &mut Game) -> bool;
     fn play_land(&self, game: &mut Game) -> bool {
         if game.available_land_drops > 0 {
             let mut lands_in_hand = game
@@ -54,12 +108,14 @@ pub trait Strategy {
     fn select_best(&self, game: &Game, cards: HashMap<String, Vec<CardRef>>) -> Option<CardRef>;
 
     fn select_intuition(&self, game: &Game) -> Vec<CardRef> {
-        game.game_objects
-            .iter()
-            .filter(is_library)
-            .take(3)
-            .cloned()
-            .collect()
+        let searchable = apply_search_filter(game, &None);
+        let mut selected = Vec::with_capacity(3);
+
+        while let Some(found) = self.select_best(game, group_by_name(searchable.clone())) {
+            selected.push(found);
+        }
+
+        selected
     }
 
     fn discard_to_hand_size(&self, game: &Game, hand_size: usize) -> Vec<CardRef>;
@@ -69,7 +125,6 @@ pub trait Strategy {
 #[rustfmt::skip]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     use crate::card::{Card, Zone};
     use crate::deck::{Deck, Decklist};
@@ -98,13 +153,11 @@ mod tests {
 
         let mut game = Game {
             deck: Deck::new(&Decklist { maindeck: vec![], sideboard: vec![] }).unwrap(),
-            game_objects,
-            turn: 0,
             life_total: 20,
-            damage_dealt: 0,
-            floating_mana: HashMap::new(),
             is_first_player: true,
             available_land_drops: 10,
+            game_objects,
+            ..Default::default()
         };
 
         let strategy = PatternHulk{};

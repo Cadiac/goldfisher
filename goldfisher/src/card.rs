@@ -563,6 +563,12 @@ impl Card {
                 cost: HashMap::from([(Mana::Colorless, 2)]),
                 ..Default::default()
             },
+            "Tormod's Crypt" => Card {
+                name,
+                card_type: CardType::Artifact,
+                cost: HashMap::new(),
+                ..Default::default()
+            },
             "Hurkyl's Recall" => Card {
                 name,
                 card_type: CardType::Instant,
@@ -680,7 +686,7 @@ impl Card {
             "Island" => Card {
                 name,
                 card_type: CardType::Land,
-                produced_mana: HashMap::from([(Mana::White, 1)]),
+                produced_mana: HashMap::from([(Mana::Blue, 1)]),
                 ..Default::default()
             },
             "Swamp" => Card {
@@ -692,7 +698,7 @@ impl Card {
             "Mountain" => Card {
                 name,
                 card_type: CardType::Land,
-                produced_mana: HashMap::from([(Mana::Black, 1)]),
+                produced_mana: HashMap::from([(Mana::Red, 1)]),
                 ..Default::default()
             },
             "Forest" => Card {
