@@ -8,6 +8,9 @@ use crate::utils::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Effect {
+    Mill(usize),
+    UntapLands(Option<usize>),
+    DamageEach(i32),
     SearchAndPutHand(Option<SearchFilter>),
     SearchAndPutTopOfLibrary(Option<SearchFilter>),
     SearchAndPutBattlefield(Option<SearchFilter>),
@@ -18,10 +21,8 @@ pub enum Effect {
     WordsOfWisdom,
     Snap,
     FranticSearch,
+    BrainFreeze,
     Meditate,
-    Mill(usize),
-    UntapLands(Option<usize>),
-    DamageEach(i32),
 }
 
 impl Effect {
@@ -30,16 +31,65 @@ impl Effect {
         match self {
             Effect::SearchAndPutHand(search_filter) => {
                 self.search_hand(game, source, strategy, search_filter)
-            }
+            },
             Effect::SearchAndPutTopOfLibrary(search_filter) => {
                 self.search_top_of_library(game, source, strategy, search_filter)
-            }
+            },
             Effect::Impulse(amount) => self.impulse(game, source, strategy, *amount),
             Effect::Intuition => self.intuition(game, source, strategy),
             Effect::CavernHarpy => self.cavern_harpy(game, source, strategy),
             Effect::Unearth => self.unearth(game, source, strategy),
             Effect::UntapLands(amount) => self.untap_lands(game, source, strategy, *amount),
             Effect::DamageEach(amount) => self.damage_each(game, source, strategy, *amount),
+            Effect::WordsOfWisdom => {
+                game.draw_n(2);
+                game.opponent_library -= 1;
+            },
+            Effect::Snap => {
+                // TODO: Make this target
+                let cloud_of_faeries_to_return = game.game_objects.iter().find(|card| {
+                    let card = card.borrow();
+                    card.zone == Zone::Battlefield && card.name == "Cloud of Faeries"
+                });
+        
+                if let Some(card) = cloud_of_faeries_to_return {
+                    debug!(
+                        "[Turn {turn:002}][Action]: Bouncing \"Cloud of Faeries\" back to hand.",
+                        turn = game.turn
+                    );
+                    card.borrow_mut().zone = Zone::Hand;
+                }
+
+                self.untap_lands(game, source, strategy, Some(2));
+            },
+            Effect::FranticSearch => {
+                let hand_size = game.game_objects.iter().filter(is_hand).count();
+                game.draw_n(2);
+                let cards_to_discard = strategy.discard_to_hand_size(game, hand_size);
+                for card in cards_to_discard {
+                    game.discard(card);
+                }
+                self.untap_lands(game, source, strategy, Some(3));
+            },
+            Effect::Meditate => {
+                // TODO: Skip the next turn
+                game.draw_n(4);
+            },
+            Effect::Mill(amount) => {
+                game.opponent_library -= *amount as i32;
+            },
+            Effect::BrainFreeze => {
+                // TODO: Make this target
+                let cards_to_mill = 3 * game.storm as i32;
+
+                debug!(
+                    "[Turn {turn:002}][Action]: Brain Freeze with Storm {storm}: milling opponent for {cards_to_mill}",
+                    turn = game.turn,
+                    storm = game.storm,
+                );
+
+                game.opponent_library -= cards_to_mill;
+            }
             _ => unimplemented!(),
         }
     }

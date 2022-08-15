@@ -1,5 +1,5 @@
-use log::{debug};
-use serde::{Serialize, Deserialize};
+use log::debug;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -14,7 +14,7 @@ use crate::utils::*;
 pub enum GameResult {
     Win,
     Lose,
-    Draw
+    Draw,
 }
 
 pub enum GameStatus {
@@ -79,30 +79,32 @@ impl Game {
     /// ```
     pub fn run(&mut self, strategy: &mut Box<dyn Strategy>) -> (GameResult, usize, usize) {
         debug!("====================[ START OF GAME ]=======================");
-        
+
         self.find_starting_hand(strategy);
-        
+
         let result = loop {
             self.begin_turn();
-    
+
             debug!(
                 "======================[ TURN {turn:002} ]===========================",
                 turn = self.turn
             );
-    
+
             self.untap();
-    
+
             if let GameStatus::Finished(result) = self.draw() {
                 break result;
             }
-    
+
             self.print_game_state();
-    
+
             if let GameStatus::Finished(result) = self.take_game_actions(strategy) {
                 break result;
             }
-    
-            self.cleanup(strategy);
+
+            if let GameStatus::Finished(result) = self.cleanup(strategy) {
+                break result;
+            }
         };
 
         debug!("=====================[ END OF GAME ]========================");
@@ -112,7 +114,7 @@ impl Game {
         );
         debug!("============================================================");
         self.print_game_state();
-    
+
         (result, self.turn, self.mulligan_count)
     }
 
@@ -367,27 +369,44 @@ impl Game {
             .count()
     }
 
+    pub fn discard(&mut self, card: CardRef) {
+        debug!(
+            "[Turn {turn:002}][Action]: Discarding card {card_name}",
+            turn = self.turn,
+            card_name = card.borrow().name,
+        );
+        card.borrow_mut().zone = Zone::Graveyard;
+    }
+
     /// Cleanup phase, discards cards to hand size
-    pub fn cleanup(&mut self, strategy: &mut Box<dyn Strategy>) {
+    pub fn cleanup(&mut self, strategy: &mut Box<dyn Strategy>) -> GameStatus {
         let cards_to_discard = strategy.discard_to_hand_size(self, 7);
         if !cards_to_discard.is_empty() {
             debug!(
-                "[Turn {turn:002}][Action]: Discarding to hand size: {discard_str}",
+                "[Turn {turn:002}][Action]: Discarding to hand size",
                 turn = self.turn,
-                discard_str = cards_to_discard
-                    .iter()
-                    .map(|card| format!("\"{}\"", card.borrow().name))
-                    .collect::<Vec<_>>()
-                    .join(", "),
             );
         }
 
         for card in cards_to_discard {
-            card.borrow_mut().zone = Zone::Graveyard;
+            self.discard(card);
         }
 
         self.floating_mana.clear();
         strategy.cleanup();
+
+        // Opponent is taking a turn an drawing from potentially empty library.
+        // Count this as a win for this turn.
+        self.opponent_library -= 1;
+        if self.opponent_library < 0 {
+            debug!(
+                "[Turn {turn:002}][Game]: Opponent began their turn and drew from empty library",
+                turn = self.turn
+            );
+            return GameStatus::Finished(GameResult::Win);
+        }
+
+        GameStatus::Continue
     }
 
     /// Begins the turn, resetting land drops and advancing turn counter
@@ -531,9 +550,10 @@ impl Game {
 
     pub fn print_life(&self) {
         debug!(
-            "[Turn {turn:002}][Game]: Life total: {life}, Damage dealt: {damage}",
+            "[Turn {turn:002}][Game]: Life total: {life}, Damage dealt: {damage}, Opponent's library: {library}",
             life = self.life_total,
             damage = self.damage_dealt,
+            library = self.opponent_library,
             turn = self.turn,
         );
     }

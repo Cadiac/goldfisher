@@ -508,7 +508,7 @@ impl Card {
                 name,
                 card_type: CardType::Instant,
                 cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 1)]),
-                on_resolve: Some(Effect::Mill(3)),
+                on_resolve: Some(Effect::BrainFreeze),
                 ..Default::default()
             },
             "Frantic Search" => Card {

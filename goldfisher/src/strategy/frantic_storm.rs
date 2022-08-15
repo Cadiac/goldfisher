@@ -1,4 +1,4 @@
-use log::{debug};
+use log::debug;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -260,7 +260,7 @@ impl Strategy for FranticStorm {
         }
 
         let mut cost_reducers_iter = cost_reducers.iter();
-        if cost_reducers_on_battlefield == 0 {
+        if cost_reducers_on_battlefield < 2 {
             for _ in 0..1 {
                 if let Some(card) = cost_reducers_iter.next() {
                     ordered_hand.push(card);
@@ -343,7 +343,10 @@ impl Strategy for FranticStorm {
 
             if battlefield.lands >= 2 && battlefield.cost_reducers >= 1 && hand.untappers > 0 {
                 self.is_storming = true;
-                debug!("[Turn {turn:002}][Strategy]: Time to start storming!", turn = game.turn)
+                debug!(
+                    "[Turn {turn:002}][Strategy]: Time to start storming!",
+                    turn = game.turn
+                )
             }
         }
 
@@ -362,7 +365,7 @@ impl Strategy for FranticStorm {
             }
 
             // TODO: Figure out the needed storm count. This deck might cast multiple brain freezes
-            if game.storm >= 10 {
+            if game.storm >= 5 {
                 if self.cast_named(game, castable.clone(), "Brain Freeze") {
                     return true;
                 }
@@ -373,8 +376,8 @@ impl Strategy for FranticStorm {
                 "Cloud of Faeries",
                 "Turnabout",
                 "Meditate",
-                "Impulse",
                 "Merchant Scroll",
+                "Impulse",
                 "Sleight of Hand",
                 "Words of Wisdom",
             ];
