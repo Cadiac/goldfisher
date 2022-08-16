@@ -17,6 +17,7 @@ struct ComboStatus {
     mana_sources: usize,
     cost_reducers: usize,
     untappers: usize,
+    cantrips: usize,
     cloud_of_faeries: usize,
 }
 
@@ -73,6 +74,18 @@ impl FranticStorm {
             })
             .count();
 
+        let cantrips = game_objects
+            .clone()
+            .filter(|card| {
+                is_named(card, "Frantic Search")
+                    || is_named(card, "Impulse")
+                    || is_named(card, "Meditate")
+                    || is_named(card, "Sleight of Hand")
+                    || is_named(card, "Merchant Scroll")
+                    || is_named(card, "Words of Wisdom")
+            })
+            .count();
+
         let lands = game_objects
             .clone()
             .filter(|card| is_card_type(card, CardType::Land))
@@ -87,6 +100,7 @@ impl FranticStorm {
             lands,
             cloud_of_faeries,
             untappers,
+            cantrips,
             cost_reducers,
             mana_sources,
         }
@@ -112,39 +126,19 @@ impl Strategy for FranticStorm {
             return true;
         }
 
-        let status = self.combo_status(game, vec![Zone::Hand]);
+        let hand = self.combo_status(game, vec![Zone::Hand]);
 
-        if status.lands == 0 {
+        if hand.lands == 0 {
             // Always mulligan zero land hands
             return false;
         }
 
-        if status.mana_sources >= 6 {
+        if hand.mana_sources >= 6 {
             // Also mulligan too mana source heavy hands
             return false;
         }
 
         return true;
-
-        // if status.lands == 1 && status.mana_sources <= 2 {
-        //     // One landers with max one single use mana get mulliganed too
-        //     return false;
-        // }
-
-        // // Having a cost reducer with mana to cast it is probably good for now
-        // if status.cost_reducers >= 1 {
-        //     return true;
-        // }
-
-        // // If we have already taken a mulligans this should be good enough
-        // if status.cost_reducers >= 1 && mulligan_count > 0 {
-        //     return true;
-        // }
-
-        // // TODO: Give some value to tutors and draw spells
-
-        // // Otherwise take a mulligan
-        // false
     }
 
     fn select_best(&self, game: &Game, cards: HashMap<String, Vec<CardRef>>) -> Option<CardRef> {
@@ -164,6 +158,18 @@ impl Strategy for FranticStorm {
                 if card.is_some() {
                     return card;
                 }
+            }
+        }
+
+        if self.is_storming {
+            if game.storm >= 5 {
+                if let Some(card) = find_named(&cards, "Brain Freeze") {
+                    return Some(card);
+                }
+            }
+
+            if let Some(card) = find_named(&cards, "Frantic Storm") {
+                return Some(card);
             }
         }
 
@@ -336,7 +342,7 @@ impl Strategy for FranticStorm {
 
         let castable = game.find_castable();
 
-        if battlefield.cost_reducers < 1 {
+        if !self.is_storming && battlefield.cost_reducers < 2 {
             let cost_reducers = ["Sapphire Medallion", "Helm of Awakening"];
 
             for card_name in cost_reducers {
@@ -350,7 +356,7 @@ impl Strategy for FranticStorm {
             // Is it time to start storming?
             let hand = self.combo_status(game, vec![Zone::Hand]);
 
-            if battlefield.lands >= 3 && battlefield.cost_reducers >= 1 && hand.untappers > 0 {
+            if battlefield.lands >= 3 && battlefield.cost_reducers >= 1 && hand.cantrips >= 1 {
                 self.is_storming = true;
                 debug!(
                     "[Turn {turn:002}][Strategy]: Time to start storming!",
@@ -376,8 +382,15 @@ impl Strategy for FranticStorm {
                 }
             }
 
-            // TODO: Figure out the needed storm count. This deck might cast multiple brain freezes
-            if game.storm >= 10 {
+            // Get the straight brain freeze kill if we can
+            if game.storm as i32 * 3 >= game.opponent_library {
+                if self.cast_named(game, castable.clone(), "Brain Freeze") {
+                    return true;
+                }
+            }
+
+            // Good enough, second copy will finish the game
+            if game.storm >= 8 {
                 if self.cast_named(game, castable.clone(), "Brain Freeze") {
                     return true;
                 }
@@ -388,10 +401,12 @@ impl Strategy for FranticStorm {
                 "Cloud of Faeries",
                 "Turnabout",
                 "Meditate",
-                "Merchant Scroll",
                 "Impulse",
+                "Merchant Scroll",
                 "Sleight of Hand",
                 "Words of Wisdom",
+                "Sapphire Medallion",
+                "Helm of Awakening"
             ];
 
             for card_name in priority_order {
@@ -406,6 +421,18 @@ impl Strategy for FranticStorm {
             if let Some((card_ref, payment)) = castable.first() {
                 game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
                 return true;
+            }
+        } else {
+            // Cast some of the non-premium cantrips to find cost reducers
+            let priority_order = [
+                "Impulse",
+                "Sleight of Hand",
+            ];
+
+            for card_name in priority_order {
+                if self.cast_named(game, castable.clone(), card_name) {
+                    return true;
+                }
             }
         }
 
