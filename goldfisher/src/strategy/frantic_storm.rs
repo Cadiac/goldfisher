@@ -16,7 +16,6 @@ struct ComboStatus {
     lands: usize,
     mana_sources: usize,
     cost_reducers: usize,
-    untappers: usize,
     cantrips: usize,
     cloud_of_faeries: usize,
 }
@@ -64,16 +63,6 @@ impl FranticStorm {
             .filter(|card| is_named(card, "Cloud of Faeries"))
             .count();
 
-        let untappers = game_objects
-            .clone()
-            .filter(|card| {
-                is_named(card, "Cloud of Faeries")
-                    || is_named(card, "Snap")
-                    || is_named(card, "Frantic Search")
-                    || is_named(card, "Turnabout")
-            })
-            .count();
-
         let cantrips = game_objects
             .clone()
             .filter(|card| {
@@ -99,7 +88,6 @@ impl FranticStorm {
         ComboStatus {
             lands,
             cloud_of_faeries,
-            untappers,
             cantrips,
             cost_reducers,
             mana_sources,
