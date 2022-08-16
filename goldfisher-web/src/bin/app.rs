@@ -391,7 +391,7 @@ impl Component for App {
                                                                 <td>{format!("{win_percentage:.1}%")}</td>
                                                                 <td>{format!("{cumulative:.1}%")}</td>
                                                                 <td style="vertical-align: middle">
-                                                                    <progress class="progress is-small is-primary" style="min-width: 250px" value={wins.to_string()} max={progress.to_string()} />
+                                                                    <progress class="progress is-small is-primary" style="min-width: 200px" value={wins.to_string()} max={progress.to_string()} />
                                                                 </td>
                                                             </tr>
                                                         }
