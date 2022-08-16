@@ -60,6 +60,10 @@ pub fn is_card_type(card: &&CardRef, card_type: CardType) -> bool {
     card.borrow().card_type == card_type
 }
 
+pub fn is_cost_reducer(card: &&CardRef) -> bool {
+    card.borrow().cost_reduction.is_some()
+}
+
 pub fn is_color(card: &&CardRef, color: Mana) -> bool {
     match card.borrow().cost.get(&color) {
         Some(cost) => *cost > 0,
@@ -121,11 +125,16 @@ pub fn sort_by_cmc(a: &CardRef, b: &CardRef) -> std::cmp::Ordering {
     a.borrow()
         .cost
         .values()
-        .sum::<usize>()
+        .sum::<i32>()
         .partial_cmp(&b.borrow().cost.values().sum())
         .unwrap()
 }
 
+pub fn is_empty_mana_pool(floating: HashMap<Mana, u32>) -> bool {
+    floating.values().all(|amount| *amount == 0)
+}
+
+// TODO: Make these composable, and use them like `vec![Library, Creature]` etc
 pub fn apply_search_filter(game: &Game, search_filter: &Option<SearchFilter>) -> Vec<CardRef> {
     match search_filter {
         Some(SearchFilter::Creature) => game
@@ -161,6 +170,12 @@ pub fn apply_search_filter(game: &Game, search_filter: &Option<SearchFilter>) ->
                 && is_card_type(card, CardType::Instant)
                 && is_color(card, Mana::Blue)
             })
+            .cloned()
+            .collect(),
+        Some(SearchFilter::Blue) => game
+            .game_objects
+            .iter()
+            .filter(|card| is_color(card, Mana::Blue))
             .cloned()
             .collect(),
         None => game

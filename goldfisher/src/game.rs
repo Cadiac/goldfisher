@@ -31,7 +31,7 @@ pub struct Game {
     pub life_total: i32,
     pub damage_dealt: i32,
     pub opponent_library: i32,
-    pub floating_mana: HashMap<Mana, usize>,
+    pub floating_mana: HashMap<Mana, u32>,
     pub is_first_player: bool,
     pub mulligan_count: usize,
     pub storm: usize,
@@ -147,10 +147,12 @@ impl Game {
 
         mana_sources.sort_by(sort_by_best_mana_to_use);
 
-        let is_aluren_active = self
+        let cost_reductions = self
             .game_objects
             .iter()
-            .any(|card| is_battlefield(&card) && card.borrow().name == "Aluren");
+            .filter(|card| is_battlefield(card) && is_cost_reducer(card))
+            .map(|card| card.borrow().cost_reduction.as_ref().unwrap().clone())
+            .collect::<Vec<_>>();
 
         let castable = nonlands_in_hand
             .map(|card| {
@@ -160,7 +162,7 @@ impl Game {
                         card.clone(),
                         &mana_sources,
                         self.floating_mana.clone(),
-                        is_aluren_active,
+                        &cost_reductions,
                     ),
                 )
             })

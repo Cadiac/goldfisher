@@ -3,8 +3,9 @@ use std::rc::Rc;
 use std::vec;
 
 use crate::card::{CardRef, CardType};
+use crate::utils::*;
 
-pub type PaymentAndFloating = (Vec<CardRef>, HashMap<Mana, usize>);
+pub type PaymentAndFloating = (Vec<CardRef>, HashMap<Mana, u32>);
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Mana {
@@ -18,25 +19,54 @@ pub enum Mana {
 
 const COLORS: [Mana; 5] = [Mana::White, Mana::Blue, Mana::Black, Mana::Red, Mana::Green];
 
+#[derive(Clone, Debug)]
+pub enum CostReduction {
+    All(Mana, i32),
+    Color(Mana, (Mana, i32)),
+    Aluren
+}
+
+// TODO: Cost reductions, maybe treat aluren as one
 pub fn find_payment_for(
     card: CardRef,
     mana_sources: &[CardRef],
-    mut floating: HashMap<Mana, usize>,
-    is_aluren: bool,
+    mut floating: HashMap<Mana, u32>,
+    cost_reductions: &[CostReduction],
 ) -> Option<PaymentAndFloating> {
-    if card.borrow().cost.is_empty() {
+    let mut cost_after_reductions = card.borrow().cost.clone();
+
+    if cost_after_reductions.is_empty() {
         return Some((vec![], floating));
     }
-
-    if is_aluren && card.borrow().card_type == CardType::Creature && card.borrow().cost.values().sum::<usize>() <= 3 {
-        return Some((vec![], floating));
+    
+    for reduction in cost_reductions {
+        match reduction {
+            CostReduction::Aluren => {
+                if card.borrow().card_type == CardType::Creature && cost_after_reductions.values().sum::<i32>() <= 3 {
+                    // "Any player may cast creature spells with mana value 3 or less without paying their mana costs"
+                    return Some((vec![], floating));
+                }
+            },
+            CostReduction::Color(color, (mana, reduction)) => {
+                if is_color(&&card, *color) {
+                    *cost_after_reductions.entry(*mana).or_insert(0) -= reduction;
+                }
+            },
+            CostReduction::All(mana, reduction) => {
+                *cost_after_reductions.entry(*mana).or_insert(0) -= reduction;
+            }
+        }
     }
 
     let mut sources_to_pay_colors_with = HashMap::new();
 
     // Gather the color requirements first
     for color in &COLORS {
-        if let Some(cost) = card.borrow().cost.get(color) {
+        if let Some(cost) = cost_after_reductions.get(color) {
+            if *cost <= 0 {
+                continue;
+            }
+
             let available_sources: Vec<_> = mana_sources
                 .iter()
                 // Prevent doing something like paying for Elvish Spirit Guide with itself
@@ -50,9 +80,9 @@ pub fn find_payment_for(
                 })
                 .collect();
 
-            let total_available: usize = available_sources.iter().map(|source| source.1).sum();
+            let total_available: u32 = available_sources.iter().map(|source| source.1).sum();
             let total_floating = floating.get(color).unwrap_or(&0);
-            if *cost > total_available + total_floating {
+            if *cost as u32 > total_available + total_floating {
                 // Not enough mana to pay for this color
                 return None;
             }
@@ -63,16 +93,17 @@ pub fn find_payment_for(
 
     let mut used_sources = Vec::new();
 
-    for (color, cost) in card.borrow().cost.iter() {
-        if *color == Mana::Colorless {
+    for (color, cost) in cost_after_reductions.iter() {
+        if *color == Mana::Colorless || *cost <= 0 {
             continue;
         }
 
+        let cost = *cost as u32;
         let mut paid = 0;
 
         // Try to spend any floating mana we might have
         let floating_mana = floating.entry(*color).or_insert(0);
-        if *floating_mana < *cost {
+        if *floating_mana < cost {
             // Partial payment with floating mana
             paid += *floating_mana;
             *floating_mana = 0;
@@ -91,38 +122,44 @@ pub fn find_payment_for(
             paid += *amount;
             used_sources.push(Rc::clone(source));
 
-            if paid >= *cost {
+            if paid >= cost {
                 *floating.entry(*color).or_insert(0) += paid - cost;
                 break;
             }
         }
 
-        if paid < *cost {
+        if paid < cost {
             return None;
         }
     }
 
-    if let Some(cost) = card.borrow().cost.get(&Mana::Colorless) {
+    if let Some(cost) = cost_after_reductions.get(&Mana::Colorless) {
+        if *cost <= 0 {
+            return Some((used_sources, floating));
+        }
+
+        let cost = *cost as u32;
+
         // Use the floating mana first
         let mut paid = 0;
 
         // Try to spend any floating mana we might have
         for floating_mana in floating.values_mut() {
             // Try to spend any floating mana we might have
-            if *floating_mana < *cost {
+            if *floating_mana < cost {
                 // Partial payment with floating mana
                 paid += *floating_mana;
                 *floating_mana = 0;
             } else {
                 // Full payment with floating mnaa, break the loop
-                paid = *cost;
+                paid = cost;
                 *floating_mana -= cost;
                 break;
             }
         }
 
         // If floating mana wasn't enough loop through remaining sources to pay for the colorless
-        if paid < *cost {
+        if paid < cost {
             let mut remaining_sources = mana_sources
                 .iter()
                 .filter(|source| {
@@ -150,14 +187,14 @@ pub fn find_payment_for(
                     paid += amount;
                     used_sources.push(Rc::clone(source));
     
-                    if paid >= *cost {
+                    if paid >= cost {
                         *floating.entry(*color).or_insert(0) = paid - cost;
                         break;
                     }
                 }
             }
 
-            if paid < *cost {
+            if paid < cost {
                 return None;
             }
         }
@@ -173,15 +210,17 @@ mod tests {
     use super::*;
     use crate::card::{Card};
 
-    fn is_empty_mana_pool(floating: HashMap<Mana, usize>) -> bool {
-        floating.values().all(|amount| *amount == 0)
-    }
-
     #[test]
     fn it_finds_payment_no_mana_sources() {
         let card = Card::new_as_ref("Birds of Paradise");
 
-        let payment = find_payment_for(card, &vec![], HashMap::new(), false);
+        let payment = find_payment_for(
+            card, 
+            &vec![],
+            HashMap::new(),
+            &Vec::new(),
+        );
+
         assert_eq!(true, payment.is_none());
     }
 
@@ -194,7 +233,7 @@ mod tests {
             birds_of_paradise,
             &vec![forest.clone()],
             HashMap::new(),
-            false
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_some());
@@ -213,7 +252,7 @@ mod tests {
             birds_of_paradise,
             &vec![mountain.clone()],
             HashMap::new(),
-            false
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_none());
@@ -232,7 +271,7 @@ mod tests {
                 mountain.clone(),
             ],
             HashMap::new(),
-            false,
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_some());
@@ -251,7 +290,7 @@ mod tests {
             birds_of_paradise, 
             &vec![taiga.clone()],
             HashMap::new(),
-            false,
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_some());
@@ -271,7 +310,7 @@ mod tests {
             birds_of_paradise,
             &vec![hickory_woodlot.clone()],
             HashMap::new(),
-            false,
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_some());
@@ -297,7 +336,7 @@ mod tests {
                 forest_3.clone(),
             ],
             HashMap::new(),
-            false,
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_some());
@@ -324,7 +363,7 @@ mod tests {
                 mountain.clone(),
             ],
             HashMap::new(),
-            false,
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_some());
@@ -352,7 +391,7 @@ mod tests {
                 mountain.clone()
             ],
             HashMap::new(),
-            false,
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_some());
@@ -378,7 +417,7 @@ mod tests {
                 mountain.clone()
             ],
             HashMap::new(),
-            false,
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_some());
@@ -405,7 +444,7 @@ mod tests {
                 ancient_tomb.clone()
             ],
             HashMap::new(),
-            false,
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_some());
@@ -438,7 +477,7 @@ mod tests {
                 city_of_brass_2.clone(),
             ],
             HashMap::new(),
-            false,
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_some());
@@ -459,7 +498,7 @@ mod tests {
             birds_of_paradise,
             &vec![forest.clone()],
             HashMap::from([(Mana::Green, 1)]),
-            false,
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_some());
@@ -477,7 +516,7 @@ mod tests {
             birds_of_paradise,
             &vec![forest.clone()],
             HashMap::from([(Mana::Green, 2), (Mana::Red, 1)]),
-            false,
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_some());
@@ -496,7 +535,7 @@ mod tests {
             wall_of_roots,
             &vec![forest.clone()],
             HashMap::from([(Mana::Red, 2)]),
-            false,
+            &Vec::new(),
         );
 
         assert_eq!(true, payment.is_some());

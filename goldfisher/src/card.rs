@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::mana::Mana;
+use crate::mana::{Mana, CostReduction};
 use crate::effect::Effect;
 
 pub type CardRef = Rc<RefCell<Card>>;
@@ -60,6 +60,7 @@ pub enum SearchFilter {
     LivingWish,
     EnchantmentArtifact,
     BlueInstant,
+    Blue,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -68,8 +69,8 @@ pub struct Card {
     pub card_type: CardType,
     pub sub_types: Vec<SubType>,
     pub zone: Zone,
-    pub cost: HashMap<Mana, usize>,
-    pub produced_mana: HashMap<Mana, usize>,
+    pub cost: HashMap<Mana, i32>,
+    pub produced_mana: HashMap<Mana, u32>,
     pub remaining_uses: Option<usize>,
     pub is_sac_outlet: bool,
     pub is_summoning_sick: bool,
@@ -77,6 +78,7 @@ pub struct Card {
     pub is_haste: bool,
     pub on_resolve: Option<Effect>,
     pub attached_to: Option<CardRef>,
+    pub cost_reduction: Option<CostReduction>,
 }
 
 impl Card {
@@ -426,6 +428,7 @@ impl Card {
                 name,
                 card_type: CardType::Creature,
                 cost: HashMap::from([(Mana::Green, 2), (Mana::Colorless, 2)]),
+                cost_reduction: Some(CostReduction::Aluren),
                 ..Default::default()
             },
             "Maggot Carrier" => Card {
@@ -543,12 +546,14 @@ impl Card {
                 name,
                 card_type: CardType::Artifact,
                 cost: HashMap::from([(Mana::Colorless, 2)]),
+                cost_reduction: Some(CostReduction::All(Mana::Colorless, 1)),
                 ..Default::default()
             },
             "Sapphire Medallion" => Card {
                 name,
                 card_type: CardType::Artifact,
                 cost: HashMap::from([(Mana::Colorless, 2)]),
+                cost_reduction: Some(CostReduction::Color(Mana::Blue, (Mana::Colorless, 1))),
                 ..Default::default()
             },
             "Chain of Vapor" => Card {

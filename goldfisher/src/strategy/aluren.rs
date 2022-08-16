@@ -640,7 +640,7 @@ impl Strategy for Aluren {
             if hand.cloud_of_faeries >= 1
                 && hand.cavern_harpies >= 1
                 && land_count > 0
-                && game.floating_mana.values().sum::<usize>() < 5
+                && game.floating_mana.values().sum::<u32>() < 5
             {
                 // Can generate mana at the cost of life, or infinite if we also have soul warden
                 game.float_mana();

@@ -228,7 +228,7 @@ impl Effect {
                 let card = card.borrow();
                 card.zone == Zone::Graveyard
                     && card.card_type == CardType::Creature
-                    && card.cost.values().sum::<usize>() <= 3
+                    && card.cost.values().sum::<i32>() <= 3
             })
             .cloned()
             .collect();
