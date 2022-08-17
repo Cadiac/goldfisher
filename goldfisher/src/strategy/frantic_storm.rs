@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::card::{CardRef, CardType, Zone};
 use crate::deck::Decklist;
 use crate::game::Game;
-use crate::mana::{Mana, PaymentAndFloating};
+use crate::mana::PaymentAndFloating;
 use crate::strategy::Strategy;
 use crate::utils::*;
 
@@ -118,7 +118,7 @@ impl Strategy for FranticStorm {
 
         // The "perfect" hand
         if hand.cost_reducers >= 1 && hand.mana_sources >= 2 && hand.cantrips >= 1 {
-            return true
+            return true;
         }
 
         if hand.lands == 0 {
@@ -192,6 +192,7 @@ impl Strategy for FranticStorm {
         let mut untappers = Vec::with_capacity(7);
         let mut wincons = Vec::with_capacity(7);
         let mut petals = Vec::with_capacity(7);
+        let mut other_cards = Vec::with_capacity(7);
 
         let cost_reducers_on_battlefield = game
             .game_objects
@@ -201,8 +202,6 @@ impl Strategy for FranticStorm {
                     && (is_named(card, "Helm of Awakening") || is_named(card, "Sapphire Medallion"))
             })
             .count();
-
-        let mut other_cards = Vec::with_capacity(7);
 
         let hand = game.game_objects.iter().filter(is_hand);
 
@@ -418,11 +417,21 @@ impl Strategy for FranticStorm {
             }
         } else {
             // Cast some of the non-premium cantrips to find cost reducers
-            let priority_order = ["Impulse", "Sleight of Hand"];
+            let priority_order = ["Impulse", "Sleight of Hand", "Words of Wisdom"];
 
             for card_name in priority_order {
                 if self.cast_named(game, castable.clone(), card_name) {
                     return true;
+                }
+            }
+
+            // Rather than discarding play something
+            if game.game_objects.iter().filter(is_hand).count() > 7 {
+                let priority_order = ["Lotus Petal", "Cloud of Faeries", "Merchant Scroll"];
+                for card_name in priority_order {
+                    if self.cast_named(game, castable.clone(), card_name) {
+                        return true;
+                    }
                 }
             }
         }
