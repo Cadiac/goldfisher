@@ -312,7 +312,10 @@ impl Strategy for FranticStorm {
             ordered_hand.push(card);
         }
 
-        assert!(ordered_hand.len() == unordered_hand_len, "mismatched ordered and unordered hand len");
+        assert!(
+            ordered_hand.len() == unordered_hand_len,
+            "mismatched ordered and unordered hand len"
+        );
 
         ordered_hand
             .iter()
@@ -331,6 +334,11 @@ impl Strategy for FranticStorm {
         let castable = game.find_castable();
 
         if !self.is_storming && battlefield.cost_reducers < 2 {
+            // Using petals for cost reducers seems worth it
+            if self.cast_named(game, castable.clone(), "Lotus Petal") {
+                return true;
+            }
+
             let cost_reducers = ["Sapphire Medallion", "Helm of Awakening"];
 
             for card_name in cost_reducers {
@@ -344,7 +352,7 @@ impl Strategy for FranticStorm {
             // Is it time to start storming?
             let hand = self.combo_status(game, vec![Zone::Hand]);
 
-            if battlefield.lands >= 3 && battlefield.cost_reducers >= 1 && hand.cantrips >= 1 {
+            if battlefield.lands >= 2 && battlefield.cost_reducers >= 1 && hand.cantrips >= 1 {
                 self.is_storming = true;
                 debug!(
                     "[Turn {turn:002}][Strategy]: Time to start storming!",
@@ -394,7 +402,7 @@ impl Strategy for FranticStorm {
                 "Sleight of Hand",
                 "Words of Wisdom",
                 "Sapphire Medallion",
-                "Helm of Awakening"
+                "Helm of Awakening",
             ];
 
             for card_name in priority_order {
@@ -412,10 +420,7 @@ impl Strategy for FranticStorm {
             }
         } else {
             // Cast some of the non-premium cantrips to find cost reducers
-            let priority_order = [
-                "Impulse",
-                "Sleight of Hand",
-            ];
+            let priority_order = ["Impulse", "Sleight of Hand"];
 
             for card_name in priority_order {
                 if self.cast_named(game, castable.clone(), card_name) {
