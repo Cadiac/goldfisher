@@ -1,6 +1,7 @@
 use crate::{
     card::{CardRef, CardType, SearchFilter, Zone},
-    game::Game, mana::Mana,
+    game::Game,
+    mana::Mana,
 };
 use std::collections::HashMap;
 
@@ -67,7 +68,7 @@ pub fn is_cost_reducer(card: &&CardRef) -> bool {
 pub fn is_color(card: &&CardRef, color: Mana) -> bool {
     match card.borrow().cost.get(&color) {
         Some(cost) => *cost > 0,
-        None => false
+        None => false,
     }
 }
 
@@ -134,6 +135,13 @@ pub fn is_empty_mana_pool(floating: HashMap<Mana, u32>) -> bool {
     floating.values().all(|amount| *amount == 0)
 }
 
+pub fn count_in_hand(game: &Game, names: &[&str]) -> usize {
+    game.game_objects
+        .iter()
+        .filter(|card| is_hand(&card) && names.iter().any(|name| is_named(&card, name)))
+        .count()
+}
+
 // TODO: Make these composable, and use them like `vec![Library, Creature]` etc
 pub fn apply_search_filter(game: &Game, search_filter: &Option<SearchFilter>) -> Vec<CardRef> {
     match search_filter {
@@ -167,8 +175,8 @@ pub fn apply_search_filter(game: &Game, search_filter: &Option<SearchFilter>) ->
             .iter()
             .filter(|card| {
                 is_library(card)
-                && is_card_type(card, CardType::Instant)
-                && is_color(card, Mana::Blue)
+                    && is_card_type(card, CardType::Instant)
+                    && is_color(card, Mana::Blue)
             })
             .cloned()
             .collect(),
@@ -205,11 +213,7 @@ pub fn find_named(cards: &HashMap<String, Vec<CardRef>>, name: &str) -> Option<C
     cards.get(name).and_then(|copies| copies.first()).cloned()
 }
 
-pub fn find_n_with_priority(
-    game: &Game,
-    count: usize,
-    priority_list: &[&str],
-) -> Vec<CardRef> {
+pub fn find_n_with_priority(game: &Game, count: usize, priority_list: &[&str]) -> Vec<CardRef> {
     let mut found = Vec::with_capacity(count);
 
     for card_name in priority_list {

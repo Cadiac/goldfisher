@@ -266,15 +266,34 @@ impl Game {
             None => "".to_owned(),
         };
 
+        let floating_mana = floating
+            .iter()
+            .flat_map(|(mana, amount)| {
+                if *amount > 0 {
+                    return Some(format!("{amount} {mana:?}"));
+                }
+                None
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+
         let mana_sources_str = if payment.is_empty() {
-            String::new()
+            if floating_mana.is_empty() {
+                String::new()
+            } else {
+                format!(", floating: {floating_mana}")
+            }
         } else {
             let mana_sources = payment
                 .iter()
                 .map(|mana_source| format!("\"{}\"", mana_source.borrow().name.clone()))
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!(" with mana sources: {mana_sources}")
+            if floating_mana.is_empty() {
+                format!(" with mana sources: {mana_sources}")
+            } else {
+                format!(" with mana sources: {mana_sources}, floating: {floating_mana}")
+            }
         };
 
         debug!("[Turn {turn:002}][Action]: Casting card: \"{card_name}\"{target_str}{mana_sources_str}",
@@ -327,6 +346,7 @@ impl Game {
             }
         }
 
+        self.floating_mana = floating.to_owned();
         for mana_source in payment {
             let mut source = mana_source.borrow_mut();
 
@@ -346,8 +366,6 @@ impl Game {
                 source.is_tapped = true;
             }
         }
-
-        self.floating_mana = floating.to_owned();
 
         self.handle_on_resolve_effects(source, strategy);
     }

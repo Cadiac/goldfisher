@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::card::{CardRef, CardType, Zone};
 use crate::deck::Decklist;
 use crate::game::Game;
-use crate::mana::PaymentAndFloating;
+use crate::mana::{Mana, PaymentAndFloating};
 use crate::strategy::Strategy;
 use crate::utils::*;
 
@@ -110,14 +110,19 @@ impl Strategy for FranticStorm {
 
     fn is_keepable_hand(&self, game: &Game, mulligan_count: usize) -> bool {
         if mulligan_count >= 3 {
-            // Just keep the hand with 4 cards
+            // Just keep any hand with 4 cards
             return true;
         }
 
         let hand = self.combo_status(game, vec![Zone::Hand]);
 
+        // The "perfect" hand
+        if hand.cost_reducers >= 1 && hand.mana_sources >= 2 && hand.cantrips >= 1 {
+            return true
+        }
+
         if hand.lands == 0 {
-            // Always mulligan zero land hands
+            // Always mulligan zero or one land hands
             return false;
         }
 
@@ -131,7 +136,6 @@ impl Strategy for FranticStorm {
 
     fn select_best(&self, game: &Game, cards: HashMap<String, Vec<CardRef>>) -> Option<CardRef> {
         let status = self.combo_status(game, vec![Zone::Hand, Zone::Battlefield]);
-        let battlefield = self.combo_status(game, vec![Zone::Battlefield]);
 
         if status.lands < 2 {
             let card = find_named(&cards, "Island");
@@ -140,8 +144,8 @@ impl Strategy for FranticStorm {
             }
         }
 
-        if battlefield.cost_reducers == 0 {
-            for name in ["Sapphire Medallion", "Helm of Awakening"] {
+        if status.cost_reducers == 0 {
+            for name in ["Helm of Awakening", "Sapphire Medallion"] {
                 let card = find_named(&cards, name);
                 if card.is_some() {
                     return card;
@@ -149,38 +153,28 @@ impl Strategy for FranticStorm {
             }
         }
 
-        if self.is_storming {
-            if game.storm >= 5 {
-                if let Some(card) = find_named(&cards, "Brain Freeze") {
-                    return Some(card);
-                }
-            }
-
-            if let Some(card) = find_named(&cards, "Frantic Storm") {
+        if game.storm >= 6 {
+            if let Some(card) = find_named(&cards, "Brain Freeze") {
                 return Some(card);
             }
         }
 
-        if battlefield.cost_reducers >= 1 {
-            for name in [
-                "Frantic Storm",
-                "Meditate",
-                "Impulse",
-                "Cloud of Faeries",
-                "Snap",
-                "Turnabout",
-                "Lotus Petal",
-                "Merchant Scroll",
-                "Sleight of hand",
-                "Helm of Awakening",
-                "Sapphire Medallion",
-                "Brain Freeze",
-                "Words of Wisdom",
-            ] {
-                let card = find_named(&cards, name);
-                if card.is_some() {
-                    return card;
-                }
+        for name in [
+            "Meditate",
+            "Impulse",
+            "Cloud of Faeries",
+            "Snap",
+            "Merchant Scroll",
+            "Frantic Search",
+            "Sleight of hand",
+            "Brain Freeze",
+            "Turnabout",
+            "Words of Wisdom",
+            "Lotus Petal",
+        ] {
+            let card = find_named(&cards, name);
+            if card.is_some() {
+                return card;
             }
         }
 
@@ -334,12 +328,13 @@ impl Strategy for FranticStorm {
         let castable = game.find_castable();
 
         if !self.is_storming && battlefield.cost_reducers < 2 {
-            // Using petals for cost reducers seems worth it
-            if self.cast_named(game, castable.clone(), "Lotus Petal") {
-                return true;
-            }
-
             let cost_reducers = ["Sapphire Medallion", "Helm of Awakening"];
+            if count_in_hand(game, &cost_reducers) > 0 {
+                // Using petals for cost reducers seems worth it
+                if self.cast_named(game, castable.clone(), "Lotus Petal") {
+                    return true;
+                }
+            }
 
             for card_name in cost_reducers {
                 if self.cast_named(game, castable.clone(), card_name) {
@@ -352,7 +347,10 @@ impl Strategy for FranticStorm {
             // Is it time to start storming?
             let hand = self.combo_status(game, vec![Zone::Hand]);
 
-            if battlefield.lands >= 2 && battlefield.cost_reducers >= 1 && hand.cantrips >= 1 {
+            if battlefield.lands >= 2
+                && (battlefield.cost_reducers >= 1 || battlefield.lands >= 5)
+                && hand.cantrips >= 1
+            {
                 self.is_storming = true;
                 debug!(
                     "[Turn {turn:002}][Strategy]: Time to start storming!",
