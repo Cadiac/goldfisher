@@ -295,7 +295,7 @@ impl Component for App {
                                     <button class={if is_ready { "button is-primary" } else { "button is-primary is-outlined" }} type="button"
                                         disabled={!is_ready}
                                         onclick={link.callback(|_| Msg::BeginSimulation)}>
-                                        <span>{ "Run simulation ▶︎" }</span>
+                                        { "Run simulation ▶︎" }
                                     </button>
 
                                     <button class="button" type="button" disabled={!self.is_busy} onclick={link.callback(|_| Msg::CancelSimulation)}>
