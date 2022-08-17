@@ -218,6 +218,7 @@ impl Component for App {
         let link = ctx.link();
 
         let is_ready = !self.is_busy
+            && self.simulations > 0
             && self.current_strategy.is_some()
             && !self.decklist.is_empty()
             && !self.is_decklist_error;
@@ -278,13 +279,13 @@ impl Component for App {
 
                                     <div class="field">
                                         <label class="label" for="simulated-games">{"Games to simulate:"}</label>
-                                        <input class="input is-info" type="number" id="simulated-games" name="tentacles" min="1" max="1000000" value={self.simulations.to_string()}
+                                        <input class="input is-info" type="number" id="simulated-games" step="1000" min="0" value={self.simulations.to_string()}
                                             onchange={link.batch_callback(move |e: Event| {
                                                 let target: Option<EventTarget> = e.target();
                                                 let select = target.and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
                                                 select.map(|select| {
                                                     let count = select.value();
-                                                    Msg::ChangeSimulationsCount(count.parse().unwrap_or(100))
+                                                    Msg::ChangeSimulationsCount(count.parse().unwrap_or(10000))
                                                 })
                                             })}
                                         />
@@ -361,9 +362,8 @@ impl Component for App {
                                                 <tr>
                                                     <th>{"Turn"}</th>
                                                     <th>{"Wins"}</th>
-                                                    <th>{"Wins (%)"}</th>
                                                     <th>{"Cumulative (%)"}</th>
-                                                    <th>{""}</th>
+                                                    <th>{"Wins (%)"}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -371,7 +371,6 @@ impl Component for App {
                                                     html! {
                                                         <tr>
                                                             <th>{"--"}</th>
-                                                            <td>{"--"}</td>
                                                             <td>{"--"}</td>
                                                             <td>{"--"}</td>
                                                             <td>{"--"}</td>
@@ -388,9 +387,9 @@ impl Component for App {
                                                             <tr>
                                                                 <th>{turn}</th>
                                                                 <td>{wins}</td>
-                                                                <td>{format!("{win_percentage:.1}%")}</td>
                                                                 <td>{format!("{cumulative:.1}%")}</td>
-                                                                <td style="vertical-align: middle">
+                                                                <td>
+                                                                    <span>{ format!("{win_percentage:.1}%") }</span>
                                                                     <progress class="progress is-small is-primary" style="min-width: 200px" value={wins.to_string()} max={progress.to_string()} />
                                                                 </td>
                                                             </tr>
