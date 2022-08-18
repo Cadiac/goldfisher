@@ -416,7 +416,7 @@ impl Game {
         strategy.cleanup();
 
         // Opponent is taking a turn an drawing from potentially empty library.
-        // Count this as a win for this turn.
+        // Count this as a win on this turn.
         self.opponent_library -= 1;
         if self.opponent_library < 0 {
             debug!(

@@ -153,7 +153,7 @@ impl Strategy for FranticStorm {
             }
         }
 
-        if game.storm >= 6 {
+        if game.storm >= 5 {
             if let Some(card) = find_named(&cards, "Brain Freeze") {
                 return Some(card);
             }

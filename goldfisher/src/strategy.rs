@@ -78,6 +78,10 @@ pub trait Strategy {
             return GameStatus::Finished(GameResult::Win);
         }
 
+        if game.opponent_library <= 0 {
+            return GameStatus::Finished(GameResult::Win);
+        }
+
         GameStatus::Continue
     }
 
