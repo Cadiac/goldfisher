@@ -122,7 +122,7 @@ impl Effect {
     ) {
         let searchable = apply_search_filter(game, search_filter);
         if let Some(found) = strategy.select_best(game, group_by_name(searchable)) {
-            if *search_filter == Some(SearchFilter::LivingWish) {
+            if let Some(SearchFilter::Wish(_card_types)) = search_filter {
                 debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" from sideboard and put it in hand.",
                             turn = game.turn,
                             card_name = found.borrow().name);
@@ -148,7 +148,7 @@ impl Effect {
             );
         }
 
-        if *search_filter == Some(SearchFilter::LivingWish) {
+        if let Some(SearchFilter::Wish(_card_types)) = search_filter {
             source.borrow_mut().zone = Zone::Exile;
         }
     }

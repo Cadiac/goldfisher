@@ -161,12 +161,14 @@ pub fn apply_search_filter(game: &Game, search_filter: &Option<SearchFilter>) ->
             })
             .cloned()
             .collect(),
-        Some(SearchFilter::LivingWish) => game
+        Some(SearchFilter::Wish(card_types)) => game
             .deck
             .sideboard
             .iter()
             .filter(|card| {
-                is_card_type(card, CardType::Creature) || is_card_type(card, CardType::Land)
+                card_types
+                    .iter()
+                    .any(|card_type| is_card_type(card, card_type.clone()))
             })
             .cloned()
             .collect(),

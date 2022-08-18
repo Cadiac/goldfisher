@@ -1,0 +1,25 @@
+4 Impulse
+4 Helm of Awakening
+4 Sleight of Hand
+4 Frantic Search
+3 Meditate
+3 Cloud of Faeries
+4 Lotus Petal
+4 Sapphire Medallion
+4 Brain Freeze
+4 Merchant Scroll
+2 Cunning Wish
+3 Snap
+17 Island
+
+// Sideboard
+3 Tormod's Crypt
+2 Chain of Vapor
+2 Hydroblast
+2 Blue Elemental Blast
+1 Snap
+1 Turnabout
+1 Hurkyl's Recall
+1 Meditate
+1 Words of Wisdom
+1 Mana Short

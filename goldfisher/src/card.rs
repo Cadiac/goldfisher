@@ -2,8 +2,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::mana::{Mana, CostReduction};
 use crate::effect::Effect;
+use crate::mana::{CostReduction, Mana};
 
 pub type CardRef = Rc<RefCell<Card>>;
 
@@ -36,7 +36,7 @@ pub enum Zone {
     Battlefield,
     Graveyard,
     Exile,
-    Outside
+    Outside,
 }
 
 pub const ZONES: &[Zone] = &[
@@ -45,7 +45,7 @@ pub const ZONES: &[Zone] = &[
     Zone::Battlefield,
     Zone::Graveyard,
     Zone::Exile,
-    Zone::Outside
+    Zone::Outside,
 ];
 
 impl Default for Zone {
@@ -57,7 +57,7 @@ impl Default for Zone {
 #[derive(Clone, Debug, PartialEq)]
 pub enum SearchFilter {
     Creature,
-    LivingWish,
+    Wish(Vec<CardType>),
     EnchantmentArtifact,
     BlueInstant,
     Blue,
@@ -395,7 +395,19 @@ impl Card {
                 name,
                 card_type: CardType::Instant,
                 cost: HashMap::from([(Mana::Green, 1), (Mana::Colorless, 1)]),
-                on_resolve: Some(Effect::SearchAndPutHand(Some(SearchFilter::LivingWish))),
+                on_resolve: Some(Effect::SearchAndPutHand(Some(SearchFilter::Wish(vec![
+                    CardType::Creature,
+                    CardType::Land,
+                ])))),
+                ..Default::default()
+            },
+            "Cunning Wish" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 2)]),
+                on_resolve: Some(Effect::SearchAndPutHand(Some(SearchFilter::Wish(vec![
+                    CardType::Instant,
+                ])))),
                 ..Default::default()
             },
             "Ray of Revelation" => Card {
@@ -491,6 +503,18 @@ impl Card {
                 name,
                 card_type: CardType::Instant,
                 cost: HashMap::from([(Mana::Blue, 1)]),
+                ..Default::default()
+            },
+            "Blue Elemental Blast" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 1)]),
+                ..Default::default()
+            },
+            "Mana Short" => Card {
+                name,
+                card_type: CardType::Instant,
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 2)]),
                 ..Default::default()
             },
             "Words of Wisdom" => Card {

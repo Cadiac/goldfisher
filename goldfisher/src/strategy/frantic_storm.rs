@@ -165,6 +165,7 @@ impl Strategy for FranticStorm {
             "Cloud of Faeries",
             "Snap",
             "Merchant Scroll",
+            "Cunning Wish",
             "Frantic Search",
             "Sleight of hand",
             "Brain Freeze",
@@ -362,11 +363,13 @@ impl Strategy for FranticStorm {
             // We might as well float all mana now to make casting untappers easy
             game.float_mana();
 
-            // Castable needs to be refreshed after floating
+            // NOTE: `castable` needs to be always refreshed after floating mana, not optimal
             let mut castable = game.find_castable();
 
-            if self.cast_named(game, castable.clone(), "Lotus Petal") {
-                return true;
+            for card_name in ["Lotus Petal", "Cloud of Faeries", "Turnabout"] {
+                if self.cast_named(game, castable.clone(), card_name) {
+                    return true;
+                }
             }
 
             if battlefield.cloud_of_faeries > 0 {
@@ -375,31 +378,28 @@ impl Strategy for FranticStorm {
                 }
             }
 
-            // Get the straight brain freeze kill if we can
-            if game.storm as i32 * 3 >= game.opponent_library {
-                if self.cast_named(game, castable.clone(), "Brain Freeze") {
-                    return true;
-                }
+            // Check if there are enough brain freezes in hand for the win and cast them
+            let brain_freezes = count_in_hand(game, &["Brain Freeze"]);
+            let mut extras_from_storm = 0;
+            for i in 0..brain_freezes {
+                extras_from_storm += i + 1 * 3;
             }
 
-            // Good enough, second copy will finish the game
-            if game.storm >= 8 {
+            let total_milled = 3 * brain_freezes * game.storm + extras_from_storm;
+            if game.opponent_library <= total_milled as i32 {
                 if self.cast_named(game, castable.clone(), "Brain Freeze") {
                     return true;
                 }
             }
 
             let priority_order = [
-                "Frantic Search",
-                "Cloud of Faeries",
-                "Turnabout",
                 "Meditate",
+                "Frantic Search",
                 "Impulse",
-                "Merchant Scroll",
-                "Sleight of Hand",
                 "Words of Wisdom",
-                "Sapphire Medallion",
-                "Helm of Awakening",
+                "Sleight of hand",
+                "Merchant Scroll",
+                "Cunning Wish",
             ];
 
             for card_name in priority_order {
