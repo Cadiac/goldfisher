@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::card::{CardRef, CardType, Zone, ZONES};
 use crate::deck::Decklist;
-use crate::game::{Game, GameResult, GameStatus};
+use crate::game::{Game, Outcome, GameStatus};
 use crate::mana::Mana;
 use crate::strategy::Strategy;
 use crate::utils::*;
@@ -351,7 +351,7 @@ impl Strategy for PatternHulk {
                 "[Turn {turn:002}][Game]: Out of life points, lost the game!",
                 turn = game.turn
             ));
-            return GameStatus::Finished(GameResult::Lose);
+            return GameStatus::Finished(Outcome::Lose);
         }
 
         let status = self.combo_status(game, false, true);
@@ -415,7 +415,7 @@ impl Strategy for PatternHulk {
                 "[Turn {turn:002}][Game]: Can't combo anymore, lost the game!",
                 turn = game.turn
             ));
-            return GameStatus::Finished(GameResult::Lose);
+            return GameStatus::Finished(Outcome::Lose);
         }
 
         // Winning combinations:
@@ -429,25 +429,25 @@ impl Strategy for PatternHulk {
             && status.patterns >= 1
             && !status.pattern_on_sac_outlet
         {
-            return GameStatus::Finished(GameResult::Win);
+            return GameStatus::Finished(Outcome::Win);
         }
 
         // 2) One sac outlet with pattern + one sac outlet without + Pattern of Rebirth on a sac outlet
         if status.multi_use_sac_outlets >= 2 && status.patterns >= 1 && status.pattern_on_sac_outlet
         {
-            return GameStatus::Finished(GameResult::Win);
+            return GameStatus::Finished(Outcome::Win);
         }
 
         // 3) Sac outlet + Academy Rector + any redundant creature
         if status.multi_use_sac_outlets >= 1 && status.academy_rectors >= 1 && status.creatures >= 3
         {
-            return GameStatus::Finished(GameResult::Win);
+            return GameStatus::Finished(Outcome::Win);
         }
 
         // 4) At least one Academy Rector + Pattern of Rebirth on a creature + Cabal Therapy in graveyard / Phyrexian Tower
         if status.academy_rectors >= 1 && status.patterns >= 1 && status.single_use_sac_outlets >= 1
         {
-            return GameStatus::Finished(GameResult::Win);
+            return GameStatus::Finished(Outcome::Win);
         }
 
         // 5) At least two Academy Rectors + at least one single use sac outlet + at least three creatures total
@@ -455,13 +455,13 @@ impl Strategy for PatternHulk {
             && status.single_use_sac_outlets >= 1
             && status.creatures >= 3
         {
-            return GameStatus::Finished(GameResult::Win);
+            return GameStatus::Finished(Outcome::Win);
         }
 
         // 6) At least two Academy Rectors + at least two single use sac outlets available
         // Sac first, get Pattern on second, sac the second, get Drake + Bombardment
         if status.academy_rectors >= 2 && status.single_use_sac_outlets >= 2 {
-            return GameStatus::Finished(GameResult::Win);
+            return GameStatus::Finished(Outcome::Win);
         }
 
         GameStatus::Continue

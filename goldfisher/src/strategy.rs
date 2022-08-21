@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use crate::card::{CardRef, CardType};
 use crate::deck::Decklist;
-use crate::game::{Game, GameResult, GameStatus};
+use crate::game::{Game, Outcome, GameStatus};
 use crate::mana::{PaymentAndFloating};
 use crate::utils::*;
 
@@ -69,19 +69,19 @@ pub trait Strategy {
 
     fn game_status(&self, game: &Game) -> GameStatus {
         if game.life_total <= 0 && game.damage_dealt >= 20 {
-            return GameStatus::Finished(GameResult::Draw);
+            return GameStatus::Finished(Outcome::Draw);
         }
 
         if game.life_total <= 0 {
-            return GameStatus::Finished(GameResult::Lose);
+            return GameStatus::Finished(Outcome::Lose);
         }
 
         if game.damage_dealt >= 20 {
-            return GameStatus::Finished(GameResult::Win);
+            return GameStatus::Finished(Outcome::Win);
         }
 
         if game.opponent_library <= 0 {
-            return GameStatus::Finished(GameResult::Win);
+            return GameStatus::Finished(Outcome::Win);
         }
 
         GameStatus::Continue

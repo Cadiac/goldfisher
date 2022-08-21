@@ -11,7 +11,7 @@ use crate::strategy::Strategy;
 use crate::utils::*;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub enum GameResult {
+pub enum Outcome {
     Win,
     Lose,
     Draw,
@@ -19,7 +19,15 @@ pub enum GameResult {
 
 pub enum GameStatus {
     Continue,
-    Finished(GameResult),
+    Finished(Outcome),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameResult {
+    pub result: Outcome,
+    pub mulligan_count: usize,
+    pub turn: usize,
+    pub output: Vec<String>
 }
 
 #[derive(Default)]
@@ -82,7 +90,7 @@ impl Game {
     ///
     /// game.run(&mut strategy);
     /// ```
-    pub fn run(&mut self, strategy: &mut Box<dyn Strategy>) -> (GameResult, usize, usize) {
+    pub fn run(&mut self, strategy: &mut Box<dyn Strategy>) -> GameResult {
         self.log(format!("====================[ START OF GAME ]======================="));
 
         self.find_starting_hand(strategy);
@@ -97,18 +105,18 @@ impl Game {
 
             self.untap();
 
-            if let GameStatus::Finished(result) = self.draw() {
-                break result;
+            if let GameStatus::Finished(outcome) = self.draw() {
+                break outcome;
             }
 
             self.print_game_state();
 
-            if let GameStatus::Finished(result) = self.take_game_actions(strategy) {
-                break result;
+            if let GameStatus::Finished(outcome) = self.take_game_actions(strategy) {
+                break outcome;
             }
 
-            if let GameStatus::Finished(result) = self.cleanup(strategy) {
-                break result;
+            if let GameStatus::Finished(outcome) = self.cleanup(strategy) {
+                break outcome;
             }
         };
 
@@ -120,7 +128,12 @@ impl Game {
         self.log(format!("============================================================"));
         self.print_game_state();
 
-        (result, self.turn, self.mulligan_count)
+        GameResult {
+            result,
+            turn: self.turn,
+            mulligan_count: self.mulligan_count,
+            output: std::mem::take(&mut self.output.lock().unwrap()),
+        }
     }
 
     pub fn log(&self, message: String) {
@@ -221,7 +234,7 @@ impl Game {
                 ));
                 return GameStatus::Continue;
             } else {
-                return GameStatus::Finished(GameResult::Lose);
+                return GameStatus::Finished(Outcome::Lose);
             }
         }
         GameStatus::Continue
@@ -428,7 +441,7 @@ impl Game {
                 "[Turn {turn:002}][Game]: Opponent began their turn and drew from empty library",
                 turn = self.turn
             ));
-            return GameStatus::Finished(GameResult::Win);
+            return GameStatus::Finished(Outcome::Win);
         }
 
         GameStatus::Continue

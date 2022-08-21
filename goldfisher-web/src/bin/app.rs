@@ -7,7 +7,7 @@ use web_sys::{EventTarget, HtmlInputElement, HtmlSelectElement, HtmlTextAreaElem
 use yew::prelude::*;
 
 use goldfisher::deck::Deck;
-use goldfisher::game::GameResult;
+use goldfisher::game::{GameResult, Outcome};
 use goldfisher::strategy::{DeckStrategy, STRATEGIES};
 
 use goldfisher_web::{Cmd, Goldfish, Status};
@@ -22,8 +22,8 @@ pub enum Msg {
     ChangeDecklist(String),
     BeginSimulation,
     CancelSimulation,
-    UpdateProgress(usize, usize, Vec<(GameResult, usize, usize)>),
-    FinishSimulation(usize, usize, Vec<(GameResult, usize, usize)>),
+    UpdateProgress(usize, usize, Vec<GameResult>),
+    FinishSimulation(usize, usize, Vec<GameResult>),
     SimulationError(String),
     DismissError,
 }
@@ -72,13 +72,13 @@ pub struct App {
 }
 
 impl App {
-    fn update_results(&mut self, new_results: Vec<(GameResult, usize, usize)>) {
-        for (result, turn, mulligan_count) in new_results.into_iter() {
+    fn update_results(&mut self, new_results: Vec<GameResult>) {
+        for GameResult { result, turn, mulligan_count, output: _ } in new_results.into_iter() {
             match result {
-                GameResult::Win => {
+                Outcome::Win => {
                     *self.results.wins.entry(turn).or_insert(0) += 1;
                 }
-                GameResult::Lose | GameResult::Draw => {
+                Outcome::Lose | Outcome::Draw => {
                     self.results.losses += 1;
                 }
             }

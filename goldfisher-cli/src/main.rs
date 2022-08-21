@@ -7,7 +7,7 @@ use std::fs;
 use rayon::prelude::*;
 
 use goldfisher::deck::{Decklist};
-use goldfisher::game::{Game, GameResult};
+use goldfisher::game::{Game, GameResult, Outcome};
 use goldfisher::strategy::{DeckStrategy, Strategy};
 
 #[macro_use]
@@ -85,13 +85,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut mulligans = Vec::with_capacity(simulated_games);
 
-    for result in results {
+    for GameResult { result, turn, mulligan_count, output: _ } in results {
         match result {
-            (GameResult::Win, turn, mulligan_count) => {
+            Outcome::Win => {
                 *win_statistics.entry(turn).or_insert(0) += 1;
                 mulligans.push(mulligan_count);
             }
-            (GameResult::Lose, turn, mulligan_count) | (GameResult::Draw, turn, mulligan_count) => {
+            Outcome::Lose | Outcome::Draw => {
                 *loss_statistics.entry(turn).or_insert(0) += 1;
                 mulligans.push(mulligan_count);
             }
