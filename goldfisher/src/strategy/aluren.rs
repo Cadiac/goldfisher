@@ -30,25 +30,6 @@ impl Aluren {
         Self {}
     }
 
-    fn cast_mana_dork(&self, game: &mut Game) -> bool {
-        let castable = game.find_castable();
-
-        let mut mana_dorks = castable
-            .iter()
-            .filter(|(card, _)| is_mana_dork(&card))
-            .collect::<Vec<_>>();
-
-        // Cast the one that produces most colors
-        mana_dorks.sort_by(|(a, _), (b, _)| sort_by_best_mana_to_play(a, b));
-
-        if let Some((card_ref, payment)) = mana_dorks.last() {
-            game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
-            return true;
-        }
-
-        false
-    }
-
     fn combo_status(&self, game: &Game, zones: Vec<Zone>) -> ComboStatus {
         let game_objects = game
             .game_objects
@@ -518,20 +499,20 @@ impl Strategy for Aluren {
                 ];
 
                 for card_name in priority_order {
-                    if game.cast_named(self, castable.clone(), card_name) {
+                    if self.cast_named(game, castable.clone(), card_name) {
                         return true;
                     }
                 }
 
-                if self.cast_mana_dork(game) {
+                if self.cast_mana_producers(game) {
                     return true;
                 }
             } else {
-                if game.cast_named(self, castable.clone(), "Aluren") {
+                if self.cast_named(game, castable.clone(), "Aluren") {
                     return true;
                 }
 
-                if self.cast_mana_dork(game) {
+                if self.cast_mana_producers(game) {
                     return true;
                 }
 
@@ -548,7 +529,7 @@ impl Strategy for Aluren {
                 ];
 
                 for card_name in priority_order {
-                    if game.cast_named(self, castable.clone(), card_name) {
+                    if self.cast_named(game, castable.clone(), card_name) {
                         return true;
                     }
                 }
@@ -573,7 +554,7 @@ impl Strategy for Aluren {
             let mut castable = game.find_castable();
 
             // Cast any mana dorks for free
-            if self.cast_mana_dork(game) {
+            if self.cast_mana_producers(game) {
                 return true;
             }
 
@@ -604,13 +585,13 @@ impl Strategy for Aluren {
                 priority_order.push("Intuition");
             }
             for card_name in priority_order {
-                if game.cast_named(self, castable.clone(), card_name) {
+                if self.cast_named(game, castable.clone(), card_name) {
                     return true;
                 }
             }
 
             // If there's still deck left to cast Raven Familiars and still pass the turn
-            if game.deck.len() > 1 && game.cast_named(self, castable.clone(), "Raven Familiar") {
+            if game.deck.len() > 1 && self.cast_named(game, castable.clone(), "Raven Familiar") {
                 return true;
             }
 
@@ -630,7 +611,7 @@ impl Strategy for Aluren {
                 // Need to refresh this so that no floating mana is lost
                 castable = game.find_castable();
 
-                if game.cast_named(self, castable.clone(), "Cloud of Faeries") {
+                if self.cast_named(game, castable.clone(), "Cloud of Faeries") {
                     return true;
                 }
             }
@@ -644,7 +625,7 @@ impl Strategy for Aluren {
                 || graveyard.cloud_of_faeries >= 1
                 || graveyard.cavern_harpies >= 1
             {
-                if game.cast_named(self, castable.clone(), "Unearth") {
+                if self.cast_named(game, castable.clone(), "Unearth") {
                     return true;
                 }
             }
@@ -661,7 +642,7 @@ impl Strategy for Aluren {
 
             if hand.cavern_harpies >= 1 && (something_to_bounce || battlefield.wirewood_savages > 0)
             {
-                if game.cast_named(self, castable.clone(), "Cavern Harpy") {
+                if self.cast_named(game, castable.clone(), "Cavern Harpy") {
                     return true;
                 }
             }

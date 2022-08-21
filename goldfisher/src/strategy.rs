@@ -1,12 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::fmt;
+use std::rc::Rc;
 use std::str::FromStr;
 
 use crate::card::{CardRef, CardType};
 use crate::deck::Decklist;
 use crate::game::{Game, GameResult, GameStatus};
+use crate::mana::{PaymentAndFloating};
 use crate::utils::*;
 
 pub mod aluren;
@@ -88,6 +89,48 @@ pub trait Strategy {
 
     fn is_keepable_hand(&self, game: &Game, mulligan_count: usize) -> bool;
     fn take_game_action(&mut self, game: &mut Game) -> bool;
+
+    fn cast_named(
+        &self,
+        game: &mut Game,
+        castable: Vec<(CardRef, Option<PaymentAndFloating>)>,
+        card_name: &str,
+    ) -> bool
+    where
+        Self: Sized,
+    {
+        if let Some((card_ref, payment)) =
+            castable.iter().find(|(c, _)| c.borrow().name == card_name)
+        {
+            game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
+            return true;
+        }
+
+        false
+    }
+
+    fn cast_mana_producers(&self, game: &mut Game) -> bool
+    where
+        Self: Sized,
+    {
+        let castable = game.find_castable();
+
+        let mut mana_producers = castable
+            .iter()
+            .filter(|(card, _)| is_mana_dork(&card))
+            .collect::<Vec<_>>();
+
+        // Cast the one that produces most colors
+        mana_producers.sort_by(|(a, _), (b, _)| sort_by_best_mana_to_play(a, b));
+
+        if let Some((card_ref, payment)) = mana_producers.last() {
+            game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
+            return true;
+        }
+
+        false
+    }
+
     fn play_land(&self, game: &mut Game) -> bool {
         if game.available_land_drops > 0 {
             let mut lands_in_hand = game

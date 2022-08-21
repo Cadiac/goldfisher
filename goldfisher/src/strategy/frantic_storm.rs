@@ -178,13 +178,13 @@ impl Strategy for FranticStorm {
             let cost_reducers = ["Sapphire Medallion", "Helm of Awakening"];
             if count_in_hand(game, &cost_reducers) > 0 {
                 // Using petals for cost reducers seems worth it
-                if game.cast_named(self, castable.clone(), "Lotus Petal") {
+                if self.cast_named(game, castable.clone(), "Lotus Petal") {
                     return true;
                 }
             }
 
             for card_name in cost_reducers {
-                if game.cast_named(self, castable.clone(), card_name) {
+                if self.cast_named(game, castable.clone(), card_name) {
                     return true;
                 }
             }
@@ -200,7 +200,7 @@ impl Strategy for FranticStorm {
             {
                 self.is_storming = true;
                 debug!(
-                    "[Turn {turn:002}][Strategy]: Time to start storming!",
+                    "[Turn {turn:002}][Strategy]: Trying to storm off!",
                     turn = game.turn
                 )
             }
@@ -214,13 +214,13 @@ impl Strategy for FranticStorm {
             let mut castable = game.find_castable();
 
             for card_name in ["Lotus Petal", "Cloud of Faeries", "Turnabout"] {
-                if game.cast_named(self, castable.clone(), card_name) {
+                if self.cast_named(game, castable.clone(), card_name) {
                     return true;
                 }
             }
 
             if battlefield.cloud_of_faeries > 0 {
-                if game.cast_named(self, castable.clone(), "Snap") {
+                if self.cast_named(game, castable.clone(), "Snap") {
                     return true;
                 }
             }
@@ -234,7 +234,7 @@ impl Strategy for FranticStorm {
 
             let total_milled = 3 * brain_freezes * game.storm + extras_from_storm;
             if game.opponent_library <= total_milled as i32 {
-                if game.cast_named(self, castable.clone(), "Brain Freeze") {
+                if self.cast_named(game, castable.clone(), "Brain Freeze") {
                     return true;
                 }
             }
@@ -250,7 +250,7 @@ impl Strategy for FranticStorm {
             ];
 
             for card_name in priority_order {
-                if game.cast_named(self, castable.clone(), card_name) {
+                if self.cast_named(game, castable.clone(), card_name) {
                     return true;
                 }
             }
@@ -267,7 +267,7 @@ impl Strategy for FranticStorm {
             let priority_order = ["Impulse", "Sleight of Hand", "Words of Wisdom"];
 
             for card_name in priority_order {
-                if game.cast_named(self, castable.clone(), card_name) {
+                if self.cast_named(game, castable.clone(), card_name) {
                     return true;
                 }
             }
@@ -276,7 +276,7 @@ impl Strategy for FranticStorm {
             if game.game_objects.iter().filter(is_hand).count() > 7 {
                 let priority_order = ["Lotus Petal", "Cloud of Faeries", "Merchant Scroll"];
                 for card_name in priority_order {
-                    if game.cast_named(self, castable.clone(), card_name) {
+                    if self.cast_named(game, castable.clone(), card_name) {
                         return true;
                     }
                 }
