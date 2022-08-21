@@ -249,6 +249,25 @@ impl Game {
         }
     }
 
+    /// Casts a spell by name, paying its cost with the payment.
+    /// The "castable" list has to be fresh, as this function rusts that the spell is
+    /// actually castable with that payment.
+    pub fn cast_named(
+        &mut self,
+        strategy: &impl Strategy,
+        castable: Vec<(CardRef, Option<PaymentAndFloating>)>,
+        card_name: &str,
+    ) -> bool {
+        if let Some((card_ref, payment)) =
+            castable.iter().find(|(c, _)| c.borrow().name == card_name)
+        {
+            self.cast_spell(strategy, card_ref, payment.as_ref().unwrap(), None);
+            return true;
+        }
+
+        false
+    }
+
     /// Casts the spell, paying its cost with the payment.
     /// The payment has to be fresh, as this function trusts that it is a valid payment
     /// at the time the spell is cast.

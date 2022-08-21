@@ -4,12 +4,11 @@ use std::collections::{HashMap};
 use crate::card::{CardRef, CardType, Zone};
 use crate::deck::Decklist;
 use crate::game::Game;
-use crate::mana::PaymentAndFloating;
 use crate::strategy::Strategy;
 use crate::utils::*;
 
-const DEFAULT_DECKLIST: &str = include_str!("../../resources/frantic-storm.txt");
 pub const NAME: &str = "Premodern - Frantic Storm";
+const DEFAULT_DECKLIST: &str = include_str!("../../resources/frantic-storm.txt");
 
 struct ComboStatus {
     lands: usize,
@@ -26,22 +25,6 @@ pub struct FranticStorm {
 impl FranticStorm {
     pub fn new() -> Self {
         Self { is_storming: false }
-    }
-
-    fn cast_named(
-        &self,
-        game: &mut Game,
-        castable: Vec<(CardRef, Option<PaymentAndFloating>)>,
-        card_name: &str,
-    ) -> bool {
-        if let Some((card_ref, payment)) =
-            castable.iter().find(|(c, _)| c.borrow().name == card_name)
-        {
-            game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
-            return true;
-        }
-
-        false
     }
 
     fn combo_status(&self, game: &Game, zones: Vec<Zone>) -> ComboStatus {
@@ -195,13 +178,13 @@ impl Strategy for FranticStorm {
             let cost_reducers = ["Sapphire Medallion", "Helm of Awakening"];
             if count_in_hand(game, &cost_reducers) > 0 {
                 // Using petals for cost reducers seems worth it
-                if self.cast_named(game, castable.clone(), "Lotus Petal") {
+                if game.cast_named(self, castable.clone(), "Lotus Petal") {
                     return true;
                 }
             }
 
             for card_name in cost_reducers {
-                if self.cast_named(game, castable.clone(), card_name) {
+                if game.cast_named(self, castable.clone(), card_name) {
                     return true;
                 }
             }
@@ -231,13 +214,13 @@ impl Strategy for FranticStorm {
             let mut castable = game.find_castable();
 
             for card_name in ["Lotus Petal", "Cloud of Faeries", "Turnabout"] {
-                if self.cast_named(game, castable.clone(), card_name) {
+                if game.cast_named(self, castable.clone(), card_name) {
                     return true;
                 }
             }
 
             if battlefield.cloud_of_faeries > 0 {
-                if self.cast_named(game, castable.clone(), "Snap") {
+                if game.cast_named(self, castable.clone(), "Snap") {
                     return true;
                 }
             }
@@ -251,7 +234,7 @@ impl Strategy for FranticStorm {
 
             let total_milled = 3 * brain_freezes * game.storm + extras_from_storm;
             if game.opponent_library <= total_milled as i32 {
-                if self.cast_named(game, castable.clone(), "Brain Freeze") {
+                if game.cast_named(self, castable.clone(), "Brain Freeze") {
                     return true;
                 }
             }
@@ -267,7 +250,7 @@ impl Strategy for FranticStorm {
             ];
 
             for card_name in priority_order {
-                if self.cast_named(game, castable.clone(), card_name) {
+                if game.cast_named(self, castable.clone(), card_name) {
                     return true;
                 }
             }
@@ -284,7 +267,7 @@ impl Strategy for FranticStorm {
             let priority_order = ["Impulse", "Sleight of Hand", "Words of Wisdom"];
 
             for card_name in priority_order {
-                if self.cast_named(game, castable.clone(), card_name) {
+                if game.cast_named(self, castable.clone(), card_name) {
                     return true;
                 }
             }
@@ -293,7 +276,7 @@ impl Strategy for FranticStorm {
             if game.game_objects.iter().filter(is_hand).count() > 7 {
                 let priority_order = ["Lotus Petal", "Cloud of Faeries", "Merchant Scroll"];
                 for card_name in priority_order {
-                    if self.cast_named(game, castable.clone(), card_name) {
+                    if game.cast_named(self, castable.clone(), card_name) {
                         return true;
                     }
                 }

@@ -5,7 +5,6 @@ use std::rc::Rc;
 use crate::card::{CardRef, CardType, Zone};
 use crate::deck::Decklist;
 use crate::game::Game;
-use crate::mana::PaymentAndFloating;
 use crate::strategy::Strategy;
 use crate::utils::*;
 
@@ -43,22 +42,6 @@ impl Aluren {
         mana_dorks.sort_by(|(a, _), (b, _)| sort_by_best_mana_to_play(a, b));
 
         if let Some((card_ref, payment)) = mana_dorks.last() {
-            game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
-            return true;
-        }
-
-        false
-    }
-
-    fn cast_named(
-        &self,
-        game: &mut Game,
-        castable: Vec<(CardRef, Option<PaymentAndFloating>)>,
-        card_name: &str,
-    ) -> bool {
-        if let Some((card_ref, payment)) =
-            castable.iter().find(|(c, _)| c.borrow().name == card_name)
-        {
             game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
             return true;
         }
@@ -535,7 +518,7 @@ impl Strategy for Aluren {
                 ];
 
                 for card_name in priority_order {
-                    if self.cast_named(game, castable.clone(), card_name) {
+                    if game.cast_named(self, castable.clone(), card_name) {
                         return true;
                     }
                 }
@@ -544,7 +527,7 @@ impl Strategy for Aluren {
                     return true;
                 }
             } else {
-                if self.cast_named(game, castable.clone(), "Aluren") {
+                if game.cast_named(self, castable.clone(), "Aluren") {
                     return true;
                 }
 
@@ -565,7 +548,7 @@ impl Strategy for Aluren {
                 ];
 
                 for card_name in priority_order {
-                    if self.cast_named(game, castable.clone(), card_name) {
+                    if game.cast_named(self, castable.clone(), card_name) {
                         return true;
                     }
                 }
@@ -621,13 +604,13 @@ impl Strategy for Aluren {
                 priority_order.push("Intuition");
             }
             for card_name in priority_order {
-                if self.cast_named(game, castable.clone(), card_name) {
+                if game.cast_named(self, castable.clone(), card_name) {
                     return true;
                 }
             }
 
             // If there's still deck left to cast Raven Familiars and still pass the turn
-            if game.deck.len() > 1 && self.cast_named(game, castable.clone(), "Raven Familiar") {
+            if game.deck.len() > 1 && game.cast_named(self, castable.clone(), "Raven Familiar") {
                 return true;
             }
 
@@ -647,7 +630,7 @@ impl Strategy for Aluren {
                 // Need to refresh this so that no floating mana is lost
                 castable = game.find_castable();
 
-                if self.cast_named(game, castable.clone(), "Cloud of Faeries") {
+                if game.cast_named(self, castable.clone(), "Cloud of Faeries") {
                     return true;
                 }
             }
@@ -661,7 +644,7 @@ impl Strategy for Aluren {
                 || graveyard.cloud_of_faeries >= 1
                 || graveyard.cavern_harpies >= 1
             {
-                if self.cast_named(game, castable.clone(), "Unearth") {
+                if game.cast_named(self, castable.clone(), "Unearth") {
                     return true;
                 }
             }
@@ -678,7 +661,7 @@ impl Strategy for Aluren {
 
             if hand.cavern_harpies >= 1 && (something_to_bounce || battlefield.wirewood_savages > 0)
             {
-                if self.cast_named(game, castable.clone(), "Cavern Harpy") {
+                if game.cast_named(self, castable.clone(), "Cavern Harpy") {
                     return true;
                 }
             }
