@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::fmt;
 use std::str::FromStr;
 
@@ -122,7 +123,22 @@ pub trait Strategy {
         selected
     }
 
-    fn discard_to_hand_size(&self, game: &Game, hand_size: usize) -> Vec<CardRef>;
+    fn discard_to_hand_size(&self, game: &Game, hand_size: usize) -> Vec<CardRef> {
+        let mut cards_to_discard: Vec<_> =
+            game.game_objects.iter().filter(is_hand).cloned().collect();
+
+        if cards_to_discard.len() <= hand_size {
+            return Vec::new();
+        }
+
+        for _ in 0..hand_size {
+            if let Some(best) = self.select_best(game, group_by_name(cards_to_discard.clone())) {
+                cards_to_discard.retain(|card| !Rc::ptr_eq(card, &best));
+            }
+        }
+
+        cards_to_discard
+    }
 }
 
 #[cfg(test)]
