@@ -20,7 +20,7 @@ pub enum Msg {
     ChangeStrategy(String),
     ChangeSimulationsCount(usize),
     ChangeDecklist(String),
-    ChangeSampleGame(usize),
+    ChangeSampleGame(Option<usize>),
     BeginSimulation,
     CancelSimulation,
     UpdateProgress(usize, usize, Vec<GameResult>),
@@ -35,7 +35,7 @@ impl fmt::Display for Msg {
             Msg::ChangeStrategy(name) => write!(f, "ChangeStrategy(\"{name:?}\")"),
             Msg::ChangeSimulationsCount(count) => write!(f, "ChangeSimulationsCount({count})"),
             Msg::ChangeDecklist(_decklist) => write!(f, "ChangeDecklist"),
-            Msg::ChangeSampleGame(turn) => write!(f, "ChangeSampleGame({turn})"),
+            Msg::ChangeSampleGame(turn) => write!(f, "ChangeSampleGame({turn:?})"),
             Msg::BeginSimulation => write!(f, "BeginSimulation"),
             Msg::CancelSimulation => write!(f, "CancelSimulation"),
             Msg::UpdateProgress(current, total, _results) => {
@@ -186,7 +186,7 @@ impl Component for App {
                 self.decklist = decklist_str;
             }
             Msg::ChangeSampleGame(turn) => {
-                self.sample_game = Some(turn);
+                self.sample_game = turn;
             }
             Msg::BeginSimulation => {
                 if !self.decklist.is_empty() && self.strategy.is_some() {
@@ -315,7 +315,7 @@ impl Component for App {
                                 </div>
                             </div>
 
-                            <div class="column">
+                            <div class="column is-two-thirds">
                                 {if let Some(message) = self.error_msg.as_ref() {
                                     html! {
                                         <article class="message is-danger">
@@ -395,7 +395,7 @@ impl Component for App {
                                                         let cumulative = self.results.cumulative_wins.get(turn).unwrap_or(&0.0);
                                                         let turn = turn.clone();
                                                         html! {
-                                                            <tr onclick={link.callback(move |_| Msg::ChangeSampleGame(turn))}>
+                                                            <tr onclick={link.callback(move |_| Msg::ChangeSampleGame(Some(turn)))}>
                                                                 <th>{turn}</th>
                                                                 <td>{wins}</td>
                                                                 <td>{format!("{cumulative:.1}%")}</td>
@@ -418,36 +418,6 @@ impl Component for App {
                                 </div>
                             </div>
                         </div>
-
-                        <div class="columns">
-                            <div class="column">
-                                {
-                                    if let Some(turn) = self.sample_game {
-                                        html! {
-                                            <div class="box">
-                                                <pre>
-                                                    {
-                                                        match self.results.sample_games.get(&turn) {
-                                                            Some(sample_game) => {
-                                                                let lines = sample_game.iter().map(|log_line| {
-                                                                    let wrapped = wrap_string(log_line, 80).join("\n");
-                                                                    wrapped
-                                                                }).collect::<Vec<_>>();
-
-                                                                lines.join("\n")
-                                                            }
-                                                            None => String::from("Error.")
-                                                        }
-                                                    }
-                                                </pre>
-                                            </div>
-                                        }
-                                    } else {
-                                        html! {}
-                                    }
-                                }
-                            </div>
-                        </div>
                     </div>
                 </section>
                 <footer class="footer">
@@ -464,6 +434,41 @@ impl Component for App {
                         </p>
                     </div>
                 </footer>
+                <div id="game-output-modal" class={if self.sample_game.is_some() { "modal is-active" } else { "modal" }}>
+                    <div class="modal-background"></div>
+
+                    <div class="modal-content">
+                        {
+                            if let Some(turn) = self.sample_game {
+                                html! {
+                                    <div class="box">
+                                        <pre style="font-size: 12px">
+                                            {
+                                                match self.results.sample_games.get(&turn) {
+                                                    Some(sample_game) => {
+                                                        let lines = sample_game.iter().map(|log_line| {
+                                                            let wrapped = wrap_string(log_line, 80).join("\n");
+                                                            wrapped
+                                                        }).collect::<Vec<_>>();
+    
+                                                        lines.join("\n")
+                                                    }
+                                                    None => String::from("Error.")
+                                                }
+                                            }
+                                        </pre>
+                                    </div>
+                                }
+                            } else {
+                                html! {}
+                            }
+                        }
+                    </div>
+
+                    <button class="modal-close is-large" aria-label="close"
+                        onclick={link.callback(move |_| Msg::ChangeSampleGame(None))}
+                    />
+                </div>
             </>
         }
     }

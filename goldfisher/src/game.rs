@@ -51,6 +51,7 @@ impl Game {
     pub fn new(decklist: &Decklist) -> Result<Self, ParseDeckError> {
         let mut deck = Deck::new(decklist)?;
         let deck_size = deck.len();
+        let side_size = deck.sideboard.len();
 
         let mut game_objects = Vec::with_capacity(deck.len());
         for card in deck.iter() {
@@ -74,7 +75,8 @@ impl Game {
             output: Rc::new(Mutex::new(Vec::new())),
         };
 
-        game.log(format!("Deck size: {deck_size}"));
+        game.log(format!("Deck: {deck_size} cards"));
+        game.log(format!("Sideboard: {side_size} cards"));
 
         Ok(game)
     }
@@ -299,7 +301,7 @@ impl Game {
             if floating_mana.is_empty() {
                 String::new()
             } else {
-                format!(", floating: {floating_mana}")
+                format!(", excess floating: {floating_mana}")
             }
         } else {
             let mana_sources = payment
@@ -310,7 +312,7 @@ impl Game {
             if floating_mana.is_empty() {
                 format!(" with mana sources: {mana_sources}")
             } else {
-                format!(" with mana sources: {mana_sources}, floating: {floating_mana}")
+                format!(" with mana sources: {mana_sources}, excess floating: {floating_mana}")
             }
         };
 
