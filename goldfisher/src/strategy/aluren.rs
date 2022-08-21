@@ -1,4 +1,4 @@
-use log::{debug, warn};
+use log::{warn};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -340,7 +340,7 @@ impl Strategy for Aluren {
                 cards.push(card);
             }
 
-            debug!("Found {:?}", cards);
+            game.log(format!("Found {:?}", cards));
             if cards.len() != 3 && cards.len() != game.deck.len() {
                 warn!("Unexpected number of cards found, ignoring...")
             }
@@ -542,10 +542,10 @@ impl Strategy for Aluren {
 
             if let Some(card) = cavern_harpy_on_battlefield {
                 // Return any Cavern Harpies sitting on the battlefield back to hand
-                debug!(
+                game.log(format!(
                     "[Turn {turn:002}][Action]: Returning \"Cavern Harpy\" back to hand.",
                     turn = game.turn
-                );
+                ));
                 card.borrow_mut().zone = Zone::Hand;
                 game.take_damage(1);
                 return true;

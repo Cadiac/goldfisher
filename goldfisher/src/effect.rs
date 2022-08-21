@@ -1,4 +1,4 @@
-use log::{debug, warn};
+use log::{warn};
 use std::rc::Rc;
 
 use crate::card::{CardRef, CardType, SearchFilter, Zone};
@@ -53,10 +53,10 @@ impl Effect {
                 });
         
                 if let Some(card) = cloud_of_faeries_to_return {
-                    debug!(
+                    game.log(format!(
                         "[Turn {turn:002}][Action]: Bouncing \"Cloud of Faeries\" back to hand.",
                         turn = game.turn
-                    );
+                    ));
                     card.borrow_mut().zone = Zone::Hand;
                 }
 
@@ -82,11 +82,11 @@ impl Effect {
                 // TODO: Make this target
                 let cards_to_mill = 3 * game.storm as i32;
 
-                debug!(
+                game.log(format!(
                     "[Turn {turn:002}][Action]: Brain Freeze with Storm {storm}: milling opponent for {cards_to_mill}",
                     turn = game.turn,
                     storm = game.storm,
-                );
+                ));
 
                 game.opponent_library -= cards_to_mill;
             }
@@ -103,9 +103,9 @@ impl Effect {
     ) {
         let searchable = apply_search_filter(game, search_filter);
         if let Some(found) = strategy.select_best(game, group_by_name(searchable)) {
-            debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it on top of the library.",
+            game.log(format!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it on top of the library.",
                 turn = game.turn,
-                card_name = found.borrow().name);
+                card_name = found.borrow().name));
 
             game.deck.remove(&found);
             game.deck.shuffle();
@@ -123,29 +123,29 @@ impl Effect {
         let searchable = apply_search_filter(game, search_filter);
         if let Some(found) = strategy.select_best(game, group_by_name(searchable)) {
             if let Some(SearchFilter::Wish(_card_types)) = search_filter {
-                debug!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" from sideboard and put it in hand.",
+                game.log(format!("[Turn {turn:002}][Action]: Searched for \"{card_name}\" from sideboard and put it in hand.",
                             turn = game.turn,
-                            card_name = found.borrow().name);
+                            card_name = found.borrow().name));
 
                 game.deck.remove_sideboard(&found);
                 found.borrow_mut().zone = Zone::Hand;
                 game.game_objects.push(found);
             } else {
-                debug!(
+                game.log(format!(
                     "[Turn {turn:002}][Action]: Searched for \"{card_name}\" and put it in hand.",
                     turn = game.turn,
                     card_name = found.borrow().name
-                );
+                ));
 
                 game.deck.remove(&found);
                 found.borrow_mut().zone = Zone::Hand;
                 game.deck.shuffle();
             }
         } else {
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Action]: Failed to find.",
                 turn = game.turn
-            );
+            ));
         }
 
         if let Some(SearchFilter::Wish(_card_types)) = search_filter {
@@ -181,17 +181,17 @@ impl Effect {
             .map(|card| format!("\"{}\"", card.borrow().name.clone()))
             .collect::<Vec<_>>()
             .join(", ");
-        debug!(
+        game.log(format!(
             "[Turn {turn:002}][Action]: Looking at cards: {revealed_str}",
             turn = game.turn
-        );
+        ));
 
         if let Some(selected) = strategy.select_best(game, group_by_name(cards.clone())) {
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Action]: Selected \"{card_name}\" and put it in hand.",
                 turn = game.turn,
                 card_name = selected.borrow().name
-            );
+            ));
             cards.retain(|card| !Rc::ptr_eq(card, &selected));
 
             selected.borrow_mut().zone = Zone::Hand;
@@ -210,11 +210,11 @@ impl Effect {
         possible_targets: Vec<CardRef>,
     ) {
         if let Some(target) = strategy.select_best(game, group_by_name(possible_targets)) {
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Action]: Returning \"{card_name}\" on the battlefield.",
                 turn = game.turn,
                 card_name = target.borrow().name
-            );
+            ));
             target.borrow_mut().zone = Zone::Battlefield;
             game.handle_on_resolve_effects(&target, strategy)
         }
@@ -271,11 +271,11 @@ impl Effect {
             tapped_lands.sort_by(sort_by_best_mana_to_play);
 
             if let Some(card) = tapped_lands.last() {
-                debug!(
+                game.log(format!(
                     "[Turn {turn:002}][Action]: Untapping \"{card_name}\".",
                     card_name = card.borrow().name,
                     turn = game.turn
-                );
+                ));
                 card.borrow_mut().is_tapped = false;
             }
         }
@@ -288,10 +288,10 @@ impl Effect {
         });
 
         if let Some(card) = maggot_carrier_to_return {
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Action]: Bouncing \"Maggot Carrier\" back to hand.",
                 turn = game.turn
-            );
+            ));
             card.borrow_mut().zone = Zone::Hand;
             return;
         }
@@ -306,10 +306,10 @@ impl Effect {
             .count();
 
         if etb_draw_triggers > 0 && game.deck.len() > 1 {
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Action]: Bouncing \"Cavern Harpy\" back to hand.",
                 turn = game.turn
-            );
+            ));
             source.borrow_mut().zone = Zone::Hand;
             return;
         }
@@ -320,10 +320,10 @@ impl Effect {
         });
 
         if let Some(card) = cloud_of_faeries_to_return {
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Action]: Bouncing \"Cloud of Faeries\" back to hand.",
                 turn = game.turn
-            );
+            ));
             card.borrow_mut().zone = Zone::Hand;
             return;
         }
@@ -334,19 +334,19 @@ impl Effect {
         });
 
         if let Some(card) = raven_familiar_to_return {
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Action]: Bouncing \"Raven Familiar\" back to hand.",
                 turn = game.turn
-            );
+            ));
             card.borrow_mut().zone = Zone::Hand;
             return;
         }
 
         // Otherwise we must bounce the Harpy back to hand
-        debug!(
+        game.log(format!(
             "[Turn {turn:002}][Action]: Bouncing \"Cavern Harpy\" back to hand.",
             turn = game.turn
-        );
+        ));
         source.borrow_mut().zone = Zone::Hand;
     }
 
@@ -368,31 +368,31 @@ impl Effect {
             .collect::<Vec<_>>()
             .join(", ");
 
-        debug!(
+        game.log(format!(
             "[Turn {turn:002}][Action]: Searched for cards: {found_str} with Intuition.",
             turn = game.turn
-        );
+        ));
 
         if let Some(card) = found.pop() {
             game.deck.remove(&card);
             card.borrow_mut().zone = Zone::Hand;
 
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Action]: Put \"{card_name}\" to hand.",
                 card_name = card.borrow().name,
                 turn = game.turn
-            );
+            ));
         }
 
         for card in found.into_iter() {
             game.deck.remove(&card);
             card.borrow_mut().zone = Zone::Graveyard;
 
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Action]: Put \"{card_name}\" to graveyard.",
                 card_name = card.borrow().name,
                 turn = game.turn
-            );
+            ));
         }
     }
 }

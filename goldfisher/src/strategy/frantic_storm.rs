@@ -1,4 +1,3 @@
-use log::debug;
 use std::collections::{HashMap};
 
 use crate::card::{CardRef, CardType, Zone};
@@ -199,10 +198,10 @@ impl Strategy for FranticStorm {
                 && hand.cantrips >= 1
             {
                 self.is_storming = true;
-                debug!(
+                game.log(format!(
                     "[Turn {turn:002}][Strategy]: Trying to storm off!",
                     turn = game.turn
-                )
+                ));
             }
         }
 

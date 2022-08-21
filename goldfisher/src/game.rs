@@ -1,7 +1,7 @@
-use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Mutex;
 
 use crate::card::{CardRef, CardType, SubType, Zone};
 use crate::deck::{Deck, Decklist, ParseDeckError};
@@ -35,23 +35,23 @@ pub struct Game {
     pub is_first_player: bool,
     pub mulligan_count: usize,
     pub storm: usize,
+    pub output: Rc<Mutex<Vec<String>>>,
 }
 
 impl Game {
     /// Creates a new game with given decklist
     pub fn new(decklist: &Decklist) -> Result<Self, ParseDeckError> {
         let mut deck = Deck::new(decklist)?;
+        let deck_size = deck.len();
 
         let mut game_objects = Vec::with_capacity(deck.len());
         for card in deck.iter() {
             game_objects.push(card.clone())
         }
 
-        debug!("Deck size: {deck_size}", deck_size = deck.len());
-
         deck.shuffle();
 
-        Ok(Self {
+        let game = Self {
             deck,
             game_objects,
             turn: 0,
@@ -63,7 +63,12 @@ impl Game {
             available_land_drops: 1,
             mulligan_count: 0,
             storm: 0,
-        })
+            output: Rc::new(Mutex::new(Vec::new())),
+        };
+
+        game.log(format!("Deck size: {deck_size}"));
+
+        Ok(game)
     }
 
     /// Runs the game to completion.
@@ -78,17 +83,17 @@ impl Game {
     /// game.run(&mut strategy);
     /// ```
     pub fn run(&mut self, strategy: &mut Box<dyn Strategy>) -> (GameResult, usize, usize) {
-        debug!("====================[ START OF GAME ]=======================");
+        self.log(format!("====================[ START OF GAME ]======================="));
 
         self.find_starting_hand(strategy);
 
         let result = loop {
             self.begin_turn();
 
-            debug!(
+            self.log(format!(
                 "======================[ TURN {turn:002} ]===========================",
                 turn = self.turn
-            );
+            ));
 
             self.untap();
 
@@ -107,15 +112,20 @@ impl Game {
             }
         };
 
-        debug!("=====================[ END OF GAME ]========================");
-        debug!(
+        self.log(format!("=====================[ END OF GAME ]========================"));
+        self.log(format!(
             "                    {result:?} on turn {turn}!",
             turn = self.turn
-        );
-        debug!("============================================================");
+        ));
+        self.log(format!("============================================================"));
         self.print_game_state();
 
         (result, self.turn, self.mulligan_count)
+    }
+
+    pub fn log(&self, message: String) {
+        log::debug!("{message}");
+        self.output.lock().unwrap().push(message.to_owned());
     }
 
     /// Finds all castable game objects with their payments and floating mana left over afterwards.
@@ -172,11 +182,11 @@ impl Game {
             self.available_land_drops -= 1;
             let mut card = land_card.borrow_mut();
 
-            debug!(
+            self.log(format!(
                 "[Turn {turn:002}][Action]: Playing land: \"{name}\"",
                 turn = self.turn,
                 name = card.name
-            );
+            ));
 
             card.zone = Zone::Battlefield;
         }
@@ -203,12 +213,12 @@ impl Game {
                 let mut card = card.borrow_mut();
 
                 card.zone = Zone::Hand;
-                debug!(
+                self.log(format!(
                     "[Turn {turn:002}][Action]: Drew card: \"{name}\", {library} cards remaining.",
                     turn = self.turn,
                     name = card.name,
                     library = self.deck.len(),
-                );
+                ));
                 return GameStatus::Continue;
             } else {
                 return GameStatus::Finished(GameResult::Lose);
@@ -291,9 +301,9 @@ impl Game {
             }
         };
 
-        debug!("[Turn {turn:002}][Action]: Casting card: \"{card_name}\"{target_str}{mana_sources_str}",
+        self.log(format!("[Turn {turn:002}][Action]: Casting card: \"{card_name}\"{target_str}{mana_sources_str}",
             turn = self.turn,
-            card_name = source.borrow().name);
+            card_name = source.borrow().name));
 
         let new_zone = match source.borrow().card_type {
             CardType::Creature | CardType::Enchantment | CardType::Land | CardType::Artifact => {
@@ -385,11 +395,11 @@ impl Game {
     }
 
     pub fn discard(&mut self, card: CardRef) {
-        debug!(
+        self.log(format!(
             "[Turn {turn:002}][Action]: Discarding card {card_name}",
             turn = self.turn,
             card_name = card.borrow().name,
-        );
+        ));
         card.borrow_mut().zone = Zone::Graveyard;
     }
 
@@ -397,10 +407,10 @@ impl Game {
     pub fn cleanup(&mut self, strategy: &mut Box<dyn Strategy>) -> GameStatus {
         let cards_to_discard = strategy.discard_to_hand_size(self, 7);
         if !cards_to_discard.is_empty() {
-            debug!(
+            self.log(format!(
                 "[Turn {turn:002}][Action]: Discarding to hand size",
                 turn = self.turn,
-            );
+            ));
         }
 
         for card in cards_to_discard {
@@ -414,10 +424,10 @@ impl Game {
         // Count this as a win on this turn.
         self.opponent_library -= 1;
         if self.opponent_library < 0 {
-            debug!(
+            self.log(format!(
                 "[Turn {turn:002}][Game]: Opponent began their turn and drew from empty library",
                 turn = self.turn
-            );
+            ));
             return GameStatus::Finished(GameResult::Win);
         }
 
@@ -441,11 +451,11 @@ impl Game {
             self.draw_n(7);
             self.print_hand();
             if strategy.is_keepable_hand(self, self.mulligan_count) {
-                debug!(
+                self.log(format!(
                     "[Turn {turn:002}][Action]: Keeping a hand of {cards} cards.",
                     turn = self.turn,
                     cards = 7 - self.mulligan_count
-                );
+                ));
                 let bottomed = strategy.discard_to_hand_size(self, 7 - self.mulligan_count);
 
                 if !bottomed.is_empty() {
@@ -454,9 +464,9 @@ impl Game {
                         .map(|card| card.borrow().name.clone())
                         .collect::<Vec<_>>()
                         .join(", ");
-                    debug!("[Turn {turn:002}][Action]: Putting {count} cards on bottom: {bottomed_str}",
+                    self.log(format!("[Turn {turn:002}][Action]: Putting {count} cards on bottom: {bottomed_str}",
                         count = bottomed.len(),
-                        turn = self.turn);
+                        turn = self.turn));
                 }
 
                 for card in bottomed {
@@ -481,11 +491,11 @@ impl Game {
                 self.deck.shuffle();
             }
             self.mulligan_count += 1;
-            debug!(
+            self.log(format!(
                 "[Turn {turn:002}][Action]: Taking a mulligan number {mulligan_count}.",
                 mulligan_count = self.mulligan_count,
                 turn = self.turn
-            );
+            ));
         }
     }
 
@@ -525,11 +535,12 @@ impl Game {
 
                 if *floating < 2 {
                     if let Some(mana) = land.borrow().produced_mana.get(color) {
-                        debug!(
+                        *floating += mana;
+
+                        self.log(format!(
                             "[Turn {turn:002}][Action]: Floating {mana} {color:?} mana from \"{land_name}\".",
                             turn = self.turn
-                        );
-                        *floating += mana;
+                        ));
                         land_used = true;
                         break;
                     }
@@ -540,12 +551,13 @@ impl Game {
                 for (color, mana) in land.borrow().produced_mana.iter() {
                     let land_name = land.borrow().name.clone();
                     let floating = self.floating_mana.entry(*color).or_insert(0);
+                    *floating += mana;
 
-                    debug!(
+                    self.log(format!(
                         "[Turn {turn:002}][Action]: Floating {mana} {color:?} mana from \"{land_name}\".",
                         turn = self.turn
-                    );
-                    *floating += mana;
+                    ));
+
                     land_used = true;
                     break;
                 }
@@ -564,13 +576,13 @@ impl Game {
     }
 
     pub fn print_life(&self) {
-        debug!(
+        self.log(format!(
             "[Turn {turn:002}][Game]: Life total: {life}, Damage dealt: {damage}, Opponent's library: {library}",
             life = self.life_total,
             damage = self.damage_dealt,
             library = self.opponent_library,
             turn = self.turn,
-        );
+        ));
     }
 
     fn print_battlefield(&self) {
@@ -581,10 +593,10 @@ impl Game {
             .map(|card| card.borrow().name.clone())
             .collect::<Vec<_>>()
             .join(", ");
-        debug!(
+        self.log(format!(
             "[Turn {turn:002}][Battlefield]: {battlefield_str}",
             turn = self.turn
-        );
+        ));
     }
 
     fn print_graveyard(&self) {
@@ -595,10 +607,10 @@ impl Game {
             .map(|card| card.borrow().name.clone())
             .collect::<Vec<_>>()
             .join(", ");
-        debug!(
+        self.log(format!(
             "[Turn {turn:002}][Graveyard]: {graveyard_str}",
             turn = self.turn
-        );
+        ));
 
         let exile_str = self
             .game_objects
@@ -609,16 +621,16 @@ impl Game {
             .join(", ");
 
         if !exile_str.is_empty() {
-            debug!("[Turn {turn:002}][Exile]: {exile_str}", turn = self.turn);
+            self.log(format!("[Turn {turn:002}][Exile]: {exile_str}", turn = self.turn));
         }
     }
 
     fn print_library(&self) {
-        debug!(
+        self.log(format!(
             "[Turn {turn:002}][Library]: {deck} cards remaining.",
             turn = self.turn,
             deck = self.deck.len()
-        );
+        ));
     }
 
     fn print_hand(&self) {
@@ -629,7 +641,7 @@ impl Game {
             .map(|card| card.borrow().name.clone())
             .collect::<Vec<_>>()
             .join(", ");
-        debug!("[Turn {turn:002}][Hand]: {hand_str}", turn = self.turn);
+        self.log(format!("[Turn {turn:002}][Hand]: {hand_str}", turn = self.turn));
     }
 }
 

@@ -1,4 +1,3 @@
-use log::debug;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -145,11 +144,11 @@ impl PatternHulk {
                 .collect();
             if let Some(land) = self.select_best(game, group_by_name(basics)) {
                 land.borrow_mut().zone = Zone::Battlefield;
-                debug!(
+                game.log(format!(
                     "[Turn {turn:002}][Action]: Searched for \"{card_name}\" with \"Veteran Explorer\" dies trigger.",
                     card_name = land.borrow().name,
                     turn = game.turn
-                );
+                ));
             }
         }
     }
@@ -171,11 +170,11 @@ impl PatternHulk {
             .find(|card| is_battlefield(&card) && is_sac_outlet(&card))
             .cloned()
         {
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Action]: Sacrificing \"Veteran Explorer\" with \"{card_name}\".",
                 card_name = sac_outlet.borrow().name,
                 turn = game.turn
-            );
+            ));
             self.sac_veteran_explorer(game, veteran_explorer);
             return true;
         }
@@ -186,11 +185,11 @@ impl PatternHulk {
             .find(|card| is_graveyard(card) && is_named(card, "Cabal Therapy"))
             .cloned()
         {
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Action]: Sacrificing \"Veteran Explorer\" with \"{card_name}\".",
                 card_name = cabal_therapy.borrow().name,
                 turn = game.turn
-            );
+            ));
             self.sac_veteran_explorer(game, veteran_explorer);
             cabal_therapy.borrow_mut().zone = Zone::Exile;
             return true;
@@ -204,11 +203,11 @@ impl PatternHulk {
             })
             .cloned()
         {
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Action]: Sacrificing \"Veteran Explorer\" with \"{card_name}\".",
                 card_name = phyrexian_tower.borrow().name,
                 turn = game.turn
-            );
+            ));
             self.sac_veteran_explorer(game, veteran_explorer);
             phyrexian_tower.borrow_mut().is_tapped = true;
             *game.floating_mana.entry(Mana::Black).or_insert(0) += 2;
@@ -348,10 +347,10 @@ impl Strategy for PatternHulk {
 
     fn game_status(&self, game: &Game) -> super::GameStatus {
         if game.life_total <= 0 {
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Game]: Out of life points, lost the game!",
                 turn = game.turn
-            );
+            ));
             return GameStatus::Finished(GameResult::Lose);
         }
 
@@ -412,10 +411,10 @@ impl Strategy for PatternHulk {
             && !main_kill_available
             && !backup_kill_available
         {
-            debug!(
+            game.log(format!(
                 "[Turn {turn:002}][Game]: Can't combo anymore, lost the game!",
                 turn = game.turn
-            );
+            ));
             return GameStatus::Finished(GameResult::Lose);
         }
 
