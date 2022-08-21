@@ -93,7 +93,7 @@ pub trait Strategy {
     fn cast_named(
         &self,
         game: &mut Game,
-        castable: Vec<(CardRef, Option<PaymentAndFloating>)>,
+        castable: Vec<(CardRef, PaymentAndFloating)>,
         card_name: &str,
     ) -> bool
     where
@@ -102,7 +102,7 @@ pub trait Strategy {
         if let Some((card_ref, payment)) =
             castable.iter().find(|(c, _)| c.borrow().name == card_name)
         {
-            game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
+            game.cast_spell(self, card_ref, payment, None);
             return true;
         }
 
@@ -124,7 +124,7 @@ pub trait Strategy {
         mana_producers.sort_by(|(a, _), (b, _)| sort_by_best_mana_to_play(a, b));
 
         if let Some((card_ref, payment)) = mana_producers.last() {
-            game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
+            game.cast_spell(self, card_ref, payment, None);
             return true;
         }
 

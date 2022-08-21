@@ -119,7 +119,7 @@ impl Game {
     }
 
     /// Finds all castable game objects with their payments and floating mana left over afterwards.
-    pub fn find_castable(&self) -> Vec<(CardRef, Option<PaymentAndFloating>)> {
+    pub fn find_castable(&self) -> Vec<(CardRef, PaymentAndFloating)> {
         let nonlands_in_hand = self.game_objects.iter().filter(|card| {
             let card = card.borrow();
             card.zone == Zone::Hand && card.card_type != CardType::Land
@@ -155,18 +155,13 @@ impl Game {
             .collect::<Vec<_>>();
 
         let castable = nonlands_in_hand
-            .map(|card| {
-                (
-                    card.clone(),
-                    find_payment_for(
-                        card.clone(),
-                        &mana_sources,
-                        self.floating_mana.clone(),
-                        &cost_reductions,
-                    ),
-                )
-            })
-            .filter(|(_, payment)| payment.is_some());
+            .flat_map(|card| find_payment_for(
+                card.clone(),
+                &mana_sources,
+                self.floating_mana.clone(),
+                &cost_reductions,
+            ).and_then(|payment| Some((card.clone(), payment)))
+        );
 
         castable.collect()
     }
@@ -256,7 +251,7 @@ impl Game {
         &mut self,
         strategy: &impl Strategy,
         source: &CardRef,
-        (payment, floating): &PaymentAndFloating,
+        PaymentAndFloating{ payment, floating }: &PaymentAndFloating,
         attach_to: Option<CardRef>,
     ) {
         self.storm += 1;
@@ -686,7 +681,7 @@ mod tests {
 
             assert_eq!(true, expected_cast.is_some());
 
-            let payment = &expected_cast.unwrap().1.as_ref().unwrap().0;
+            let payment = &expected_cast.unwrap().1.payment;
 
             assert_eq!(1, payment.len());
             assert_eq!(expected_source, payment[0].borrow().name);

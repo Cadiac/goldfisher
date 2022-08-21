@@ -56,7 +56,7 @@ impl PatternHulk {
         let pattern_of_rebirth = castable.iter().find(|(card, _)| is_pattern(&card));
 
         if let Some((card_ref, payment)) = pattern_of_rebirth {
-            if payment.is_some() && is_creature_on_battlefield && !is_pattern_on_battlefield {
+            if is_creature_on_battlefield && !is_pattern_on_battlefield {
                 // Target non-sacrifice outlets over sac outlets
                 let non_sac_creature = game.game_objects.iter().find(|card| {
                     is_battlefield(card)
@@ -77,7 +77,7 @@ impl PatternHulk {
                     Rc::clone(sac_creature.unwrap())
                 };
 
-                game.cast_spell(self, card_ref, payment.as_ref().unwrap(), Some(target));
+                game.cast_spell(self, card_ref, payment, Some(target));
 
                 return true;
             }
@@ -95,9 +95,9 @@ impl PatternHulk {
             .iter()
             .any(|card| is_battlefield(&card) && is_pattern(&card));
 
-        if let Some((card_ref, payment)) = rector {
-            if payment.is_some() && !is_pattern_on_battlefield {
-                game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
+        if !is_pattern_on_battlefield {
+            if let Some((card_ref, payment)) = rector {
+                game.cast_spell(self, card_ref, payment, None);
                 return true;
             }
         }
@@ -117,7 +117,7 @@ impl PatternHulk {
         mana_dorks.sort_by(|(a, _), (b, _)| sort_by_best_mana_to_play(a, b));
 
         if let Some((card_ref, payment)) = mana_dorks.last() {
-            game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
+            game.cast_spell(self, card_ref, payment, None);
             return true;
         }
 
@@ -126,7 +126,7 @@ impl PatternHulk {
             .find(|(card, _)| is_named(&card, "Veteran Explorer"));
 
         if let Some((card_ref, payment)) = veteran_explorer {
-            game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
+            game.cast_spell(self, card_ref, payment, None);
             return true;
         }
 
@@ -230,7 +230,7 @@ impl PatternHulk {
         sac_outlets.sort_by(|(a, _), (b, _)| sort_by_cmc(a, b));
 
         if let Some((card_ref, payment)) = sac_outlets.first() {
-            game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
+            game.cast_spell(self, card_ref, payment, None);
             return true;
         }
 
@@ -249,7 +249,7 @@ impl PatternHulk {
         creatures.sort_by(|(a, _), (b, _)| sort_by_cmc(a, b));
 
         if let Some((card_ref, payment)) = creatures.first() {
-            game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
+            game.cast_spell(self, card_ref, payment, None);
             return true;
         }
 
@@ -263,7 +263,7 @@ impl PatternHulk {
         castable.sort_by(|(a, _), (b, _)| sort_by_cmc(a, b));
 
         if let Some((card_ref, payment)) = castable.first() {
-            game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
+            game.cast_spell(self, card_ref, payment, None);
             return true;
         }
 

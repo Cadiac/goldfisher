@@ -5,8 +5,6 @@ use std::vec;
 use crate::card::{CardRef, CardType};
 use crate::utils::*;
 
-pub type PaymentAndFloating = (Vec<CardRef>, HashMap<Mana, u32>);
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Mana {
     White,
@@ -15,6 +13,12 @@ pub enum Mana {
     Red,
     Green,
     Colorless,
+}
+
+#[derive(Clone, Debug)]
+pub struct PaymentAndFloating {
+    pub payment: Vec<CardRef>,
+    pub floating: HashMap<Mana, u32>
 }
 
 const COLORS: [Mana; 5] = [Mana::White, Mana::Blue, Mana::Black, Mana::Red, Mana::Green];
@@ -26,7 +30,6 @@ pub enum CostReduction {
     Aluren
 }
 
-// TODO: Cost reductions, maybe treat aluren as one
 pub fn find_payment_for(
     card: CardRef,
     mana_sources: &[CardRef],
@@ -36,7 +39,10 @@ pub fn find_payment_for(
     let mut cost_after_reductions = card.borrow().cost.clone();
 
     if cost_after_reductions.is_empty() {
-        return Some((vec![], floating));
+        return Some(PaymentAndFloating{
+            payment: vec![],
+            floating
+        });
     }
     
     for reduction in cost_reductions {
@@ -44,7 +50,10 @@ pub fn find_payment_for(
             CostReduction::Aluren => {
                 if card.borrow().card_type == CardType::Creature && cost_after_reductions.values().sum::<i32>() <= 3 {
                     // "Any player may cast creature spells with mana value 3 or less without paying their mana costs"
-                    return Some((vec![], floating));
+                    return Some(PaymentAndFloating{
+                        payment: vec![],
+                        floating
+                    });
                 }
             },
             CostReduction::Color(color, (mana, reduction)) => {
@@ -135,7 +144,10 @@ pub fn find_payment_for(
 
     if let Some(cost) = cost_after_reductions.get(&Mana::Colorless) {
         if *cost <= 0 {
-            return Some((used_sources, floating));
+            return Some(PaymentAndFloating{
+                payment: used_sources,
+                floating
+            });
         }
 
         let cost = *cost as u32;
@@ -200,7 +212,10 @@ pub fn find_payment_for(
         }
     }
 
-    Some((used_sources, floating))
+    return Some(PaymentAndFloating{
+        payment: used_sources,
+        floating
+    });
 }
 
 
@@ -237,7 +252,7 @@ mod tests {
         );
 
         assert_eq!(true, payment.is_some());
-        let (payment, floating) = payment.unwrap();
+        let PaymentAndFloating{ payment, floating } = payment.unwrap();
         assert_eq!(1, payment.len());
         assert_eq!(true, Rc::ptr_eq(&forest, &payment[0]));
         assert_eq!(true, is_empty_mana_pool(floating));
@@ -275,7 +290,7 @@ mod tests {
         );
 
         assert_eq!(true, payment.is_some());
-        let (payment, floating) = payment.unwrap();
+        let PaymentAndFloating{ payment, floating } = payment.unwrap();
         assert_eq!(1, payment.len());
         assert_eq!(true, Rc::ptr_eq(&forest, &payment[0]));
         assert_eq!(true, is_empty_mana_pool(floating));
@@ -294,7 +309,7 @@ mod tests {
         );
 
         assert_eq!(true, payment.is_some());
-        let (payment, floating) = payment.unwrap();
+        let PaymentAndFloating{ payment, floating } = payment.unwrap();
         assert_eq!(1, payment.len());
         assert_eq!(true, Rc::ptr_eq(&taiga, &payment[0]));
         assert_eq!(true, is_empty_mana_pool(floating));
@@ -314,7 +329,7 @@ mod tests {
         );
 
         assert_eq!(true, payment.is_some());
-        let (payment, floating) = payment.unwrap();
+        let PaymentAndFloating{ payment, floating } = payment.unwrap();
         assert_eq!(1, payment.len());
         assert_eq!(true, Rc::ptr_eq(&hickory_woodlot, &payment[0]));
         assert_eq!(1, floating.len());
@@ -340,7 +355,7 @@ mod tests {
         );
 
         assert_eq!(true, payment.is_some());
-        let (payment, floating) = payment.unwrap();
+        let PaymentAndFloating{ payment, floating } = payment.unwrap();
         assert_eq!(2, payment.len());
         assert_eq!(true, Rc::ptr_eq(&forest_1, &payment[0]));
         assert_eq!(true, Rc::ptr_eq(&forest_2, &payment[1]));
@@ -367,7 +382,7 @@ mod tests {
         );
 
         assert_eq!(true, payment.is_some());
-        let (payment, floating) = payment.unwrap();
+        let PaymentAndFloating{ payment, floating } = payment.unwrap();
         assert_eq!(2, payment.len());
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest, source)));
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&plains, source)));
@@ -395,7 +410,7 @@ mod tests {
         );
 
         assert_eq!(true, payment.is_some());
-        let (payment, floating) = payment.unwrap();
+        let PaymentAndFloating{ payment, floating } = payment.unwrap();
         assert_eq!(3, payment.len());
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&plains, source)));
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&swamp, source)));
@@ -421,7 +436,7 @@ mod tests {
         );
 
         assert_eq!(true, payment.is_some());
-        let (payment, floating) = payment.unwrap();
+        let PaymentAndFloating{ payment, floating } = payment.unwrap();
         assert_eq!(2, payment.len());
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&forest, source)));
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&mountain, source)));
@@ -448,7 +463,7 @@ mod tests {
         );
 
         assert_eq!(true, payment.is_some());
-        let (payment, floating) = payment.unwrap();
+        let PaymentAndFloating{ payment, floating } = payment.unwrap();
         assert_eq!(1, payment.len());
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&ancient_tomb, source)));
         assert_eq!(true, is_empty_mana_pool(floating));
@@ -481,7 +496,7 @@ mod tests {
         );
 
         assert_eq!(true, payment.is_some());
-        let (payment, floating) = payment.unwrap();
+        let PaymentAndFloating{ payment, floating } = payment.unwrap();
         assert_eq!(3, payment.len());
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&plains_1, source)));
         assert_eq!(true, payment.iter().any(|source| Rc::ptr_eq(&plains_2, source)));
@@ -502,7 +517,7 @@ mod tests {
         );
 
         assert_eq!(true, payment.is_some());
-        let (payment, floating) = payment.unwrap();
+        let PaymentAndFloating{ payment, floating } = payment.unwrap();
         assert_eq!(true, payment.is_empty());
         assert_eq!(true, is_empty_mana_pool(floating));
     }
@@ -520,7 +535,7 @@ mod tests {
         );
 
         assert_eq!(true, payment.is_some());
-        let (payment, floating) = payment.unwrap();
+        let PaymentAndFloating{ payment, floating } = payment.unwrap();
         assert_eq!(true, payment.is_empty());
         assert_eq!(1, *floating.get(&Mana::Green).unwrap());
         assert_eq!(1, *floating.get(&Mana::Red).unwrap());
@@ -539,7 +554,7 @@ mod tests {
         );
 
         assert_eq!(true, payment.is_some());
-        let (payment, floating) = payment.unwrap();
+        let PaymentAndFloating{ payment, floating } = payment.unwrap();
         assert_eq!(1, payment.len());
         assert_eq!(true, Rc::ptr_eq(&forest, &payment[0]));
         assert_eq!(1, *floating.get(&Mana::Red).unwrap());

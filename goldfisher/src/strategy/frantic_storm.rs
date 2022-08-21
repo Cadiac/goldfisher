@@ -259,7 +259,7 @@ impl Strategy for FranticStorm {
             castable.sort_by(|(a, _), (b, _)| sort_by_cmc(a, b));
 
             if let Some((card_ref, payment)) = castable.first() {
-                game.cast_spell(self, card_ref, payment.as_ref().unwrap(), None);
+                game.cast_spell(self, card_ref, payment, None);
                 return true;
             }
         } else {
