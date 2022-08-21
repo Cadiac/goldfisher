@@ -42,6 +42,7 @@ pub struct Game {
     pub floating_mana: HashMap<Mana, u32>,
     pub is_first_player: bool,
     pub mulligan_count: usize,
+    pub turns_to_skip: usize,
     pub storm: usize,
     pub output: Rc<Mutex<Vec<String>>>,
 }
@@ -71,6 +72,7 @@ impl Game {
             is_first_player: true,
             available_land_drops: 1,
             mulligan_count: 0,
+            turns_to_skip: 0,
             storm: 0,
             output: Rc::new(Mutex::new(Vec::new())),
         };
@@ -453,6 +455,21 @@ impl Game {
     pub fn begin_turn(&mut self) {
         self.available_land_drops = 1;
         self.storm = 0;
+
+        // Skip any turns due to cards like "Meditate"
+        for _ in 0..self.turns_to_skip {
+            self.turn += 1;
+            self.log(format!(
+                "======================[ TURN {turn:002} ]===========================",
+                turn = self.turn
+            ));
+            self.log(format!(
+                "[Turn {turn:002}][Game]: Skipping the turn.",
+                turn = self.turn,
+            ));
+        }
+
+        self.turns_to_skip = 0;
         self.turn += 1;
     }
 

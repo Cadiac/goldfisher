@@ -72,8 +72,8 @@ impl Effect {
                 self.untap_lands(game, source, strategy, Some(3));
             },
             Effect::Meditate => {
-                // TODO: Skip the next turn
                 game.draw_n(4);
+                game.turns_to_skip += 1;
             },
             Effect::Mill(amount) => {
                 game.opponent_library -= *amount as i32;
