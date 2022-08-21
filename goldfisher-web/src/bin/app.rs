@@ -1,6 +1,6 @@
 use gloo_worker::{Spawnable, WorkerBridge};
 use log::debug;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use wasm_bindgen::JsCast;
 use web_sys::{EventTarget, HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement};
@@ -20,6 +20,7 @@ pub enum Msg {
     ChangeStrategy(String),
     ChangeSimulationsCount(usize),
     ChangeDecklist(String),
+    ChangeSampleGame(usize),
     BeginSimulation,
     CancelSimulation,
     UpdateProgress(usize, usize, Vec<GameResult>),
@@ -34,6 +35,7 @@ impl fmt::Display for Msg {
             Msg::ChangeStrategy(name) => write!(f, "ChangeStrategy(\"{name:?}\")"),
             Msg::ChangeSimulationsCount(count) => write!(f, "ChangeSimulationsCount({count})"),
             Msg::ChangeDecklist(_decklist) => write!(f, "ChangeDecklist"),
+            Msg::ChangeSampleGame(turn) => write!(f, "ChangeSampleGame({turn})"),
             Msg::BeginSimulation => write!(f, "BeginSimulation"),
             Msg::CancelSimulation => write!(f, "CancelSimulation"),
             Msg::UpdateProgress(current, total, _results) => {
@@ -57,26 +59,29 @@ struct Results {
     average_mulligans: f32,
     percentage_wins: BTreeMap<usize, f32>,
     cumulative_wins: BTreeMap<usize, f32>,
+    sample_games: HashMap<usize, Vec<String>>
 }
 
 pub struct App {
-    current_strategy: Option<DeckStrategy>,
+    strategy: Option<DeckStrategy>,
     decklist: String,
     is_busy: bool,
     is_decklist_error: bool,
     error_msg: Option<String>,
     simulations: usize,
     progress: (usize, usize),
+    sample_game: Option<usize>,
     results: Results,
     worker: WorkerBridge<Goldfish>,
 }
 
 impl App {
     fn update_results(&mut self, new_results: Vec<GameResult>) {
-        for GameResult { result, turn, mulligan_count, output: _ } in new_results.into_iter() {
+        for GameResult { result, turn, mulligan_count, output } in new_results.into_iter() {
             match result {
                 Outcome::Win => {
                     *self.results.wins.entry(turn).or_insert(0) += 1;
+                    self.results.sample_games.entry(turn).or_insert(output);
                 }
                 Outcome::Lose | Outcome::Draw => {
                     self.results.losses += 1;
@@ -134,7 +139,8 @@ impl Component for App {
             .spawn("/worker.js");
 
         Self {
-            current_strategy: None,
+            strategy: None,
+            sample_game: None,
             decklist: String::new(),
             is_busy: false,
             is_decklist_error: false,
@@ -156,13 +162,13 @@ impl Component for App {
         match msg {
             Msg::ChangeStrategy(deck_strategy) => match deck_strategy.parse::<DeckStrategy>() {
                 Err(_) => {
-                    self.current_strategy = None;
+                    self.strategy = None;
                 }
                 Ok(strategy) => {
                     self.decklist = goldfisher::strategy::from_enum(&strategy)
                         .default_decklist()
                         .to_string();
-                    self.current_strategy = Some(strategy);
+                    self.strategy = Some(strategy);
                 }
             },
             Msg::ChangeSimulationsCount(count) => {
@@ -179,14 +185,18 @@ impl Component for App {
 
                 self.decklist = decklist_str;
             }
+            Msg::ChangeSampleGame(turn) => {
+                self.sample_game = Some(turn);
+            }
             Msg::BeginSimulation => {
-                if !self.decklist.is_empty() && self.current_strategy.is_some() {
+                if !self.decklist.is_empty() && self.strategy.is_some() {
                     self.is_busy = true;
                     self.error_msg = None;
+                    self.sample_game = None;
                     self.results = Results::default();
 
                     self.worker.send(Cmd::Begin {
-                        strategy: self.current_strategy.as_ref().unwrap().clone(),
+                        strategy: self.strategy.as_ref().unwrap().clone(),
                         decklist: self.decklist.clone(),
                         simulations: self.simulations,
                     });
@@ -219,7 +229,7 @@ impl Component for App {
 
         let is_ready = !self.is_busy
             && self.simulations > 0
-            && self.current_strategy.is_some()
+            && self.strategy.is_some()
             && !self.decklist.is_empty()
             && !self.is_decklist_error;
 
@@ -242,12 +252,12 @@ impl Component for App {
                                                 let select = target.and_then(|t| t.dyn_into::<HtmlSelectElement>().ok());
                                                 select.map(|select| Msg::ChangeStrategy(select.value()))
                                             })}>
-                                                <option selected={self.current_strategy.is_none()} value={""}>{"-- Please select a strategy --"}</option>
+                                                <option selected={self.strategy.is_none()} value={""}>{"-- Please select a strategy --"}</option>
                                                 {
                                                     STRATEGIES.iter().map(|strategy| {
                                                         html! {
                                                             <option
-                                                                selected={self.current_strategy.as_ref().map(|current| current == strategy).unwrap_or(false)}
+                                                                selected={self.strategy.as_ref().map(|current| current == strategy).unwrap_or(false)}
                                                                 value={strategy.to_string()}>
                                                                 {strategy.to_string()}
                                                             </option> }
@@ -383,14 +393,20 @@ impl Component for App {
                                                     self.results.wins.iter().map(|(turn, wins)| {
                                                         let win_percentage = self.results.percentage_wins.get(turn).unwrap_or(&0.0);
                                                         let cumulative = self.results.cumulative_wins.get(turn).unwrap_or(&0.0);
+                                                        let turn = turn.clone();
                                                         html! {
-                                                            <tr>
+                                                            <tr onclick={link.callback(move |_| Msg::ChangeSampleGame(turn))}>
                                                                 <th>{turn}</th>
                                                                 <td>{wins}</td>
                                                                 <td>{format!("{cumulative:.1}%")}</td>
                                                                 <td>
                                                                     <span>{ format!("{win_percentage:.1}%") }</span>
-                                                                    <progress class="progress is-small is-primary" style="min-width: 200px" value={wins.to_string()} max={progress.to_string()} />
+                                                                    <progress
+                                                                        class="progress is-small is-primary"
+                                                                        style="min-width: 200px"
+                                                                        value={wins.to_string()}
+                                                                        max={progress.to_string()}
+                                                                    />
                                                                 </td>
                                                             </tr>
                                                         }
@@ -400,6 +416,36 @@ impl Component for App {
                                         </table>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div class="columns">
+                            <div class="column">
+                                {
+                                    if let Some(turn) = self.sample_game {
+                                        html! {
+                                            <div class="box">
+                                                <pre>
+                                                    {
+                                                        match self.results.sample_games.get(&turn) {
+                                                            Some(sample_game) => {
+                                                                let lines = sample_game.iter().map(|log_line| {
+                                                                    let wrapped = wrap_string(log_line, 80).join("\n");
+                                                                    wrapped
+                                                                }).collect::<Vec<_>>();
+
+                                                                lines.join("\n")
+                                                            }
+                                                            None => String::from("Error.")
+                                                        }
+                                                    }
+                                                </pre>
+                                            </div>
+                                        }
+                                    } else {
+                                        html! {}
+                                    }
+                                }
                             </div>
                         </div>
                     </div>
@@ -421,6 +467,18 @@ impl Component for App {
             </>
         }
     }
+}
+
+fn wrap_string(s: &str, max_len: usize) -> Vec<&str> {
+    let mut lines = vec![];
+    let mut remaining = s;
+    while !remaining.is_empty() {
+        let (chunk, rest) = remaining.split_at(std::cmp::min(max_len, remaining.len()));
+        lines.push(chunk);
+        remaining = rest;
+    }
+
+    lines
 }
 
 fn main() {

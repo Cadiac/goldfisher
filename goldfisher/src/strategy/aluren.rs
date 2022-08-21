@@ -340,7 +340,6 @@ impl Strategy for Aluren {
                 cards.push(card);
             }
 
-            game.log(format!("Found {:?}", cards));
             if cards.len() != 3 && cards.len() != game.deck.len() {
                 warn!("Unexpected number of cards found, ignoring...")
             }
