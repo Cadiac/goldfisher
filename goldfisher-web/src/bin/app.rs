@@ -442,7 +442,7 @@ impl Component for App {
                             if let Some(turn) = self.sample_game {
                                 html! {
                                     <div class="box">
-                                        <pre style="font-size: 12px">
+                                        <pre style="font-size: 0.75rem">
                                             {
                                                 match self.results.sample_games.get(&turn) {
                                                     Some(sample_game) => {
