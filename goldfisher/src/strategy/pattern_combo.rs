@@ -8,7 +8,7 @@ use crate::mana::Mana;
 use crate::strategy::Strategy;
 use crate::utils::*;
 
-const DEFAULT_DECKLIST: &str = include_str!("../../resources/pattern-hulk-greedy.txt");
+const DEFAULT_DECKLIST: &str = include_str!("../../resources/pattern-combo-greedy.txt");
 const COMBO_PIECES: &[&str] = &[
     "Body Snatcher",
     "Iridescent Drake",
@@ -20,7 +20,7 @@ const COMBO_PIECES: &[&str] = &[
     "Akroma, Angel of Wrath",
     "Caller of the Claw",
 ];
-pub const NAME: &str = "Premodern - Pattern Hulk";
+pub const NAME: &str = "Premodern - Pattern Combo";
 
 struct ComboStatus {
     mana_sources: usize,
@@ -33,9 +33,9 @@ struct ComboStatus {
     pattern_on_sac_outlet: bool,
 }
 
-pub struct PatternHulk {}
+pub struct PatternCombo {}
 
-impl PatternHulk {
+impl PatternCombo {
     pub fn new() -> Self {
         Self {}
     }
@@ -338,7 +338,7 @@ impl PatternHulk {
     }
 }
 
-impl Strategy for PatternHulk {
+impl Strategy for PatternCombo {
     fn name(&self) -> String { NAME.to_owned() }
 
     fn default_decklist(&self) -> Decklist {

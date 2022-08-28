@@ -86,10 +86,10 @@ impl Game {
     /// Runs the game to completion.
     ///
     /// ```
-    /// use goldfisher::strategy::{pattern_hulk, Strategy};
+    /// use goldfisher::strategy::{pattern_combo, Strategy};
     /// use goldfisher::game::{Game};
     ///
-    /// let mut strategy: Box<dyn Strategy> = Box::new(pattern_hulk::PatternHulk {});
+    /// let mut strategy: Box<dyn Strategy> = Box::new(pattern_combo::PatternCombo {});
     /// let mut game = Game::new(&strategy.default_decklist()).unwrap();
     ///
     /// game.run(&mut strategy);

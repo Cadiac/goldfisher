@@ -12,11 +12,11 @@ use crate::utils::*;
 
 pub mod aluren;
 pub mod frantic_storm;
-pub mod pattern_hulk;
+pub mod pattern_combo;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum DeckStrategy {
-    PatternHulk,
+    PatternCombo,
     Aluren,
     FranticStorm,
 }
@@ -26,7 +26,7 @@ impl FromStr for DeckStrategy {
 
     fn from_str(input: &str) -> Result<DeckStrategy, Self::Err> {
         match input {
-            pattern_hulk::NAME => Ok(DeckStrategy::PatternHulk),
+            pattern_combo::NAME => Ok(DeckStrategy::PatternCombo),
             aluren::NAME => Ok(DeckStrategy::Aluren),
             frantic_storm::NAME => Ok(DeckStrategy::FranticStorm),
             _ => Err(()),
@@ -40,7 +40,7 @@ impl fmt::Display for DeckStrategy {
             f,
             "{}",
             match self {
-                DeckStrategy::PatternHulk => pattern_hulk::NAME,
+                DeckStrategy::PatternCombo => pattern_combo::NAME,
                 DeckStrategy::Aluren => aluren::NAME,
                 DeckStrategy::FranticStorm => frantic_storm::NAME,
             }
@@ -49,14 +49,14 @@ impl fmt::Display for DeckStrategy {
 }
 
 pub const STRATEGIES: &[DeckStrategy] = &[
-    DeckStrategy::PatternHulk,
+    DeckStrategy::PatternCombo,
     DeckStrategy::Aluren,
     DeckStrategy::FranticStorm,
 ];
 
 pub fn from_enum(strategy: &DeckStrategy) -> Box<dyn Strategy> {
     match strategy {
-        DeckStrategy::PatternHulk => Box::new(pattern_hulk::PatternHulk::new()),
+        DeckStrategy::PatternCombo => Box::new(pattern_combo::PatternCombo::new()),
         DeckStrategy::Aluren => Box::new(aluren::Aluren::new()),
         DeckStrategy::FranticStorm => Box::new(frantic_storm::FranticStorm::new()),
     }
@@ -191,7 +191,7 @@ mod tests {
 
     use crate::card::{Card, Zone};
     use crate::deck::{Deck, Decklist};
-    use crate::strategy::pattern_hulk::{PatternHulk};
+    use crate::strategy::pattern_combo::{PatternCombo};
     
     use rand::seq::SliceRandom;
     use rand::thread_rng;
@@ -223,7 +223,7 @@ mod tests {
             ..Default::default()
         };
 
-        let strategy = PatternHulk{};
+        let strategy = PatternCombo{};
 
         for land_drops in 1..=10 {
             assert_eq!(true, strategy.play_land(&mut game));
