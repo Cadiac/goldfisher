@@ -1,5 +1,5 @@
 use crate::{
-    card::{CardRef, CardType, SearchFilter, Zone},
+    card::{CardRef, CardType, SearchFilter, SubType, Zone},
     game::Game,
     mana::Mana,
 };
@@ -43,7 +43,7 @@ pub fn is_basic(card: &&CardRef) -> bool {
 
 pub fn is_mana_dork(card: &&CardRef) -> bool {
     let card = card.borrow();
-    card.card_type == CardType::Creature && !card.produced_mana.is_empty()
+    card.card_types.contains(&CardType::Creature) && !card.produced_mana.is_empty()
 }
 
 pub fn is_mana_source(card: &&CardRef) -> bool {
@@ -57,8 +57,12 @@ pub fn is_single_use_mana(card: &&CardRef) -> bool {
     }
 }
 
-pub fn is_card_type(card: &&CardRef, card_type: CardType) -> bool {
-    card.borrow().card_type == card_type
+pub fn is_card_type(card: &&CardRef, card_type: &CardType) -> bool {
+    card.borrow().card_types.contains(card_type)
+}
+
+pub fn is_sub_type(card: &&CardRef, sub_type: &SubType) -> bool {
+    card.borrow().sub_types.contains(sub_type)
 }
 
 pub fn is_cost_reducer(card: &&CardRef) -> bool {
@@ -148,7 +152,7 @@ pub fn apply_search_filter(game: &Game, search_filter: &Option<SearchFilter>) ->
         Some(SearchFilter::Creature) => game
             .game_objects
             .iter()
-            .filter(|card| is_library(card) && is_card_type(card, CardType::Creature))
+            .filter(|card| is_library(card) && is_card_type(card, &CardType::Creature))
             .cloned()
             .collect(),
         Some(SearchFilter::EnchantmentArtifact) => game
@@ -156,8 +160,8 @@ pub fn apply_search_filter(game: &Game, search_filter: &Option<SearchFilter>) ->
             .iter()
             .filter(|card| {
                 is_library(card)
-                    && (is_card_type(card, CardType::Enchantment)
-                        || is_card_type(card, CardType::Artifact))
+                    && (is_card_type(card, &CardType::Enchantment)
+                        || is_card_type(card, &CardType::Artifact))
             })
             .cloned()
             .collect(),
@@ -168,7 +172,7 @@ pub fn apply_search_filter(game: &Game, search_filter: &Option<SearchFilter>) ->
             .filter(|card| {
                 card_types
                     .iter()
-                    .any(|card_type| is_card_type(card, card_type.clone()))
+                    .any(|card_type| is_card_type(card, card_type))
             })
             .cloned()
             .collect(),
@@ -177,8 +181,18 @@ pub fn apply_search_filter(game: &Game, search_filter: &Option<SearchFilter>) ->
             .iter()
             .filter(|card| {
                 is_library(card)
-                    && is_card_type(card, CardType::Instant)
+                    && is_card_type(card, &CardType::Instant)
                     && is_color(card, Mana::Blue)
+            })
+            .cloned()
+            .collect(),
+        Some(SearchFilter::GreenCreature) => game
+            .game_objects
+            .iter()
+            .filter(|card| {
+                is_library(card)
+                    && is_card_type(card, &CardType::Creature)
+                    && is_color(card, Mana::Green)
             })
             .cloned()
             .collect(),
@@ -186,6 +200,18 @@ pub fn apply_search_filter(game: &Game, search_filter: &Option<SearchFilter>) ->
             .game_objects
             .iter()
             .filter(|card| is_color(card, Mana::Blue))
+            .cloned()
+            .collect(),
+        Some(SearchFilter::Land(land_types)) => game
+            .game_objects
+            .iter()
+            .filter(|card| {
+                is_library(card)
+                    && is_card_type(card, &CardType::Land)
+                    && land_types
+                        .iter()
+                        .any(|land_type| is_sub_type(card, &SubType::Land(land_type.clone())))
+            })
             .cloned()
             .collect(),
         None => game

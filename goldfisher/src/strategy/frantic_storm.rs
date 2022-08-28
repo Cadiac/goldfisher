@@ -58,12 +58,12 @@ impl FranticStorm {
 
         let lands = game_objects
             .clone()
-            .filter(|card| is_card_type(card, CardType::Land))
+            .filter(|card| is_card_type(card, &CardType::Land))
             .count();
 
         let mana_sources = game_objects
             .clone()
-            .filter(|card| is_card_type(card, CardType::Land) || is_mana_source(card))
+            .filter(|card| is_card_type(card, &CardType::Land) || is_mana_source(card))
             .count();
 
         ComboStatus {

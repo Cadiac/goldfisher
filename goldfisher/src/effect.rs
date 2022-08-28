@@ -9,6 +9,7 @@ use crate::utils::*;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Effect {
     Mill(usize),
+    Draw(usize),
     UntapLands(Option<usize>),
     DamageEach(i32),
     SearchAndPutHand(Option<SearchFilter>),
@@ -77,6 +78,9 @@ impl Effect {
             },
             Effect::Mill(amount) => {
                 game.opponent_library -= *amount as i32;
+            },
+            Effect::Draw(amount) => {
+                game.draw_n(*amount);
             },
             Effect::BrainFreeze => {
                 // TODO: Make this target
@@ -227,7 +231,7 @@ impl Effect {
             .filter(|card| {
                 let card = card.borrow();
                 card.zone == Zone::Graveyard
-                    && card.card_type == CardType::Creature
+                    && card.card_types.contains(&CardType::Creature)
                     && card.cost.values().sum::<i32>() <= 3
             })
             .cloned()
@@ -252,7 +256,7 @@ impl Effect {
                         .game_objects
                         .iter()
                         .filter(|card| {
-                            is_battlefield(card) && is_card_type(card, CardType::Land) && is_tapped(card)
+                            is_battlefield(card) && is_card_type(card, &CardType::Land) && is_tapped(card)
                         })
                         .count()
                 }
@@ -263,7 +267,7 @@ impl Effect {
                 .game_objects
                 .iter()
                 .filter(|card| {
-                    is_battlefield(card) && is_card_type(card, CardType::Land) && is_tapped(card)
+                    is_battlefield(card) && is_card_type(card, &CardType::Land) && is_tapped(card)
                 })
                 .cloned()
                 .collect::<Vec<_>>();

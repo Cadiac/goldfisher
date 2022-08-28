@@ -1,0 +1,29 @@
+4 Cabal Therapy
+4 Academy Rector
+2 Noble Hierarch
+1 Reveillark
+4 Pattern of Rebirth
+2 Protean Hulk
+4 Natural Order
+1 Progenitus
+4 Windswept Heath
+4 Verdant Catacombs
+1 Misty Rainforest
+1 Viscera Seer
+2 Phyrexian Tower
+4 Birds of Paradise
+2 Xantid Swarm
+1 Body Double
+2 Bayou
+2 Ancient Tomb
+3 Gitaxian Probe
+4 Carrion Feeder
+1 Mogg Fanatic
+1 Forest
+1 Savannah
+1 Swamp
+2 Dryad Arbor
+1 Scrubland
+1 Body Snatcher
+
+// Sideboard

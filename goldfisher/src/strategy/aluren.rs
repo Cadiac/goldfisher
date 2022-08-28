@@ -69,7 +69,7 @@ impl Aluren {
 
         let lands = game_objects
             .clone()
-            .filter(|card| is_card_type(card, CardType::Land))
+            .filter(|card| is_card_type(card, &CardType::Land))
             .count();
 
         let mana_sources = game_objects
@@ -92,7 +92,9 @@ impl Aluren {
 }
 
 impl Strategy for Aluren {
-    fn name(&self) -> String { NAME.to_owned() }
+    fn name(&self) -> String {
+        NAME.to_owned()
+    }
 
     fn default_decklist(&self) -> Decklist {
         DEFAULT_DECKLIST.parse::<Decklist>().unwrap()
@@ -140,11 +142,7 @@ impl Strategy for Aluren {
         false
     }
 
-    fn select_best(
-        &self,
-        game: &Game,
-        cards: HashMap<String, Vec<CardRef>>,
-    ) -> Option<CardRef> {
+    fn select_best(&self, game: &Game, cards: HashMap<String, Vec<CardRef>>) -> Option<CardRef> {
         let status = self.combo_status(game, vec![Zone::Hand, Zone::Battlefield]);
         let battlefield = self.combo_status(game, vec![Zone::Battlefield]);
 
@@ -213,7 +211,7 @@ impl Strategy for Aluren {
                     let mut lands: Vec<CardRef> = cards
                         .values()
                         .flatten()
-                        .filter(|card| is_card_type(card, CardType::Land))
+                        .filter(|card| is_card_type(card, &CardType::Land))
                         .cloned()
                         .collect();
                     lands.sort_by(sort_by_best_mana_to_play);
@@ -308,14 +306,14 @@ impl Strategy for Aluren {
                     "City of Brass",
                     "Gemstone Mine",
                 ]
-            } else if found.borrow().card_type == CardType::Land {
+            } else if is_card_type(&&found, &CardType::Land) {
                 vec![
                     "City of Brass",
                     "Gemstone Mine",
                     "Llawnowar Wastes",
                     "Forest",
                 ]
-            } else if found.borrow().card_type == CardType::Creature {
+            } else if is_card_type(&&found, &CardType::Creature) {
                 cards.push(found);
                 vec![
                     "Unearth",
@@ -372,27 +370,27 @@ impl Strategy for Aluren {
         let hand = game.game_objects.iter().filter(is_hand);
 
         for card in hand {
-            let c = card.borrow();
-
-            if c.card_type == CardType::Land {
-                lands.push(card.clone());
-            } else if c.name == "Aluren" {
-                alurens.push(card.clone());
-            } else if c.name == "Cavern Harpy" {
-                cavern_harpies.push(card.clone());
-            } else if c.name == "Wirewood Savage" || c.name == "Raven Familiar" {
-                draw_engines.push(card.clone());
-            } else if c.name == "Living Wish" || c.name == "Intuition" {
-                tutors.push(card.clone());
-            } else if c.name == "Maggot Carrier" || c.name == "Soul Warden" {
-                wincons.push(card.clone());
-            } else if is_aluren_on_battlefield && c.name == "Unearth" {
-                wincons.push(card.clone());
-            } else if c.card_type == CardType::Creature && !c.produced_mana.is_empty() {
-                mana_dorks.push(card.clone());
-            } else {
-                other_cards.push(card.clone());
-            }
+            let borrowed = card.borrow();
+            match borrowed.name.as_str() {
+                "Aluren" => alurens.push(card.clone()),
+                "Cavern Harpy" => cavern_harpies.push(card.clone()),
+                "Wirewood Savage" | "Raven Familiar" => draw_engines.push(card.clone()),
+                "Living Wish" | "Intuition" | "Worldly Tutor" => tutors.push(card.clone()),
+                "Maggot Carrier" | "Soul Warden" => wincons.push(card.clone()),
+                name => {
+                    if is_aluren_on_battlefield && name == "Unearth" {
+                        wincons.push(card.clone())
+                    } else if is_card_type(&card, &CardType::Land) {
+                        lands.push(card.clone())
+                    } else if is_card_type(&card, &CardType::Creature)
+                        && !borrowed.produced_mana.is_empty()
+                    {
+                        mana_dorks.push(card.clone())
+                    } else {
+                        other_cards.push(card.clone())
+                    }
+                }
+            };
         }
 
         lands.sort_by(sort_by_best_mana_to_play);
@@ -597,7 +595,7 @@ impl Strategy for Aluren {
             let land_count = game
                 .game_objects
                 .iter()
-                .filter(|card| is_card_type(card, CardType::Land) && is_battlefield(card))
+                .filter(|card| is_card_type(card, &CardType::Land) && is_battlefield(card))
                 .count();
 
             if hand.cloud_of_faeries >= 1
@@ -693,8 +691,7 @@ mod tests {
                 .sideboard
                 .iter()
                 .filter(|card| {
-                    card.borrow().card_type == CardType::Creature
-                        || card.borrow().card_type == CardType::Land
+                    is_card_type(card, &CardType::Creature) || is_card_type(card, &CardType::Land)
                 })
                 .cloned()
                 .collect(),

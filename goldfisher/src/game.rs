@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Mutex;
 
-use crate::card::{CardRef, CardType, SubType, Zone};
+use crate::card::{CardRef, CardType, CreatureType, SubType, Zone};
 use crate::deck::{Deck, Decklist, ParseDeckError};
 use crate::mana::find_payment_for;
 use crate::mana::{Mana, PaymentAndFloating};
@@ -149,7 +149,7 @@ impl Game {
     pub fn find_castable(&self) -> Vec<(CardRef, PaymentAndFloating)> {
         let nonlands_in_hand = self.game_objects.iter().filter(|card| {
             let card = card.borrow();
-            card.zone == Zone::Hand && card.card_type != CardType::Land
+            card.zone == Zone::Hand && !card.card_types.contains(&CardType::Land)
         });
 
         let mut mana_sources: Vec<_> = self
@@ -322,21 +322,26 @@ impl Game {
             turn = self.turn,
             card_name = source.borrow().name));
 
-        let new_zone = match source.borrow().card_type {
-            CardType::Creature | CardType::Enchantment | CardType::Land | CardType::Artifact => {
-                Zone::Battlefield
-            }
-            CardType::Sorcery | CardType::Instant => Zone::Graveyard,
+        let new_zone = if source.borrow().card_types.contains(&CardType::Instant)
+            || source.borrow().card_types.contains(&CardType::Sorcery)
+        {
+            Zone::Graveyard
+        } else {
+            Zone::Battlefield
         };
 
         source.borrow_mut().zone = new_zone;
         source.borrow_mut().attached_to = attach_to;
 
-        if source.borrow().card_type == CardType::Creature {
+        if source.borrow().card_types.contains(&CardType::Creature) {
             let has_haste = source.borrow().is_haste;
             source.borrow_mut().is_summoning_sick = !has_haste;
 
-            if source.borrow().sub_types.contains(&SubType::Beast) {
+            if source
+                .borrow()
+                .sub_types
+                .contains(&SubType::Creature(CreatureType::Beast))
+            {
                 let etb_draw_triggers = self
                     .game_objects
                     .iter()
@@ -557,7 +562,7 @@ impl Game {
         let colors = [Mana::Green, Mana::Blue, Mana::Black, Mana::White, Mana::Red];
 
         for land in self.game_objects.iter().filter(|card| {
-            is_battlefield(card) && is_card_type(card, CardType::Land) && !is_tapped(card)
+            is_battlefield(card) && is_card_type(card, &CardType::Land) && !is_tapped(card)
         }) {
             let mut land_used = false;
             // First try to produce colors we have the least of

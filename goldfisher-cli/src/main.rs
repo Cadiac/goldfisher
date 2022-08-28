@@ -15,7 +15,7 @@ extern crate log;
 
 #[derive(clap::ValueEnum, Clone, Debug)]
 pub enum ArgDeckStrategy {
-    PatternHulk,
+    PatternCombo,
     Aluren,
     FranticStorm,
 }
@@ -23,7 +23,7 @@ pub enum ArgDeckStrategy {
 impl From<ArgDeckStrategy> for DeckStrategy {
     fn from(other: ArgDeckStrategy) -> DeckStrategy {
         match other {
-            ArgDeckStrategy::PatternHulk => DeckStrategy::PatternHulk,
+            ArgDeckStrategy::PatternCombo => DeckStrategy::PatternCombo,
             ArgDeckStrategy::Aluren => DeckStrategy::Aluren,
             ArgDeckStrategy::FranticStorm => DeckStrategy::FranticStorm,
         }

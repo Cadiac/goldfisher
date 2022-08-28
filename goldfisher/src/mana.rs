@@ -48,7 +48,7 @@ pub fn find_payment_for(
     for reduction in cost_reductions {
         match reduction {
             CostReduction::Aluren => {
-                if card.borrow().card_type == CardType::Creature && cost_after_reductions.values().sum::<i32>() <= 3 {
+                if is_card_type(&&card, &CardType::Creature) && cost_after_reductions.values().sum::<i32>() <= 3 {
                     // "Any player may cast creature spells with mana value 3 or less without paying their mana costs"
                     return Some(PaymentAndFloating{
                         payment: vec![],

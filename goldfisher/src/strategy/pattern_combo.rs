@@ -46,7 +46,7 @@ impl PatternCombo {
         let is_creature_on_battlefield = game
             .game_objects
             .iter()
-            .any(|card| is_battlefield(&card) && is_card_type(&card, CardType::Creature));
+            .any(|card| is_battlefield(&card) && is_card_type(&card, &CardType::Creature));
         let is_pattern_on_battlefield = game
             .game_objects
             .iter()
@@ -59,7 +59,7 @@ impl PatternCombo {
                 // Target non-sacrifice outlets over sac outlets
                 let non_sac_creature = game.game_objects.iter().find(|card| {
                     is_battlefield(card)
-                        && is_card_type(card, CardType::Creature)
+                        && is_card_type(card, &CardType::Creature)
                         && !is_sac_outlet(card)
                 });
 
@@ -69,7 +69,7 @@ impl PatternCombo {
                     // Otherwise just cast it on a sac outlet
                     let sac_creature = game.game_objects.iter().find(|card| {
                         is_battlefield(card)
-                            && is_card_type(card, CardType::Creature)
+                            && is_card_type(card, &CardType::Creature)
                             && is_sac_outlet(card)
                     });
 
@@ -241,7 +241,7 @@ impl PatternCombo {
 
         let mut creatures = castable
             .iter()
-            .filter(|(c, _)| is_card_type(&c, CardType::Creature))
+            .filter(|(c, _)| is_card_type(&c, &CardType::Creature))
             .collect::<Vec<_>>();
 
         // Cast the cheapest creatures first
@@ -281,14 +281,14 @@ impl PatternCombo {
 
         let creatures = game_objects
             .clone()
-            .filter(|card| is_card_type(card, CardType::Creature))
+            .filter(|card| is_card_type(card, &CardType::Creature))
             .count();
         let academy_rectors = game_objects.clone().filter(is_rector).count();
         let multi_use_sac_outlets = game_objects.clone().filter(is_sac_outlet).count();
         let patterns = game_objects.clone().filter(is_pattern).count();
         let lands = game_objects
             .clone()
-            .filter(|card| is_card_type(card, CardType::Land))
+            .filter(|card| is_card_type(card, &CardType::Land))
             .count();
 
         let mana_sources = game_objects
@@ -587,7 +587,7 @@ impl Strategy for PatternCombo {
                 let mut lands: Vec<CardRef> = cards
                     .values()
                     .flatten()
-                    .filter(|card| is_card_type(card, CardType::Land))
+                    .filter(|card| is_card_type(card, &CardType::Land))
                     .cloned()
                     .collect();
                 lands.sort_by(sort_by_best_mana_to_play);
@@ -642,13 +642,13 @@ impl Strategy for PatternCombo {
         for card in hand {
             let c = card.borrow();
 
-            if c.card_type == CardType::Land {
+            if c.card_types.contains(&CardType::Land) {
                 lands.push(card.clone());
             } else if c.name == "Pattern of Rebirth" || c.name == "Academy Rector" {
                 patterns_or_rectors.push(card.clone());
             } else if c.is_sac_outlet {
                 sac_outlets.push(card.clone());
-            } else if c.card_type == CardType::Creature && !c.produced_mana.is_empty() {
+            } else if c.card_types.contains(&CardType::Creature) && !c.produced_mana.is_empty() {
                 mana_dorks.push(card.clone());
             } else {
                 redundant_cards.push(card.clone());

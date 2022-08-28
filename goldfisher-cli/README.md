@@ -4,7 +4,7 @@ This tool aims to [goldfish](https://mtg.fandom.com/wiki/Goldfishing) the fastes
 
 For now, the supported decks are:
 
-[Premodern Pattern Hulk](https://scryfall.com/@Cadiac/decks/79289c7a-f60c-4eff-809e-d83f86dd37c0), which contains a deterministic combo kill if the following condition is met:
+[Premodern Pattern Combo](https://scryfall.com/@Cadiac/decks/79289c7a-f60c-4eff-809e-d83f86dd37c0), which contains a deterministic combo kill if the following condition is met:
 1. Any repeatable sac outlet is available
 2. You control a creature that isn't the sac outlet
 3. You resolve a Pattern of Rebirth on the creature or you have Academy Rector on the battlefield
@@ -28,7 +28,7 @@ OPTIONS:
     -g, --games <GAMES>          Number of games to simulate [default: 100]
     -h, --help                   Print help information
     -s, --strategy <STRATEGY>    The name of the deck strategy to use [possible values:
-                                 pattern-hulk, aluren]
+                                 pattern-combo, aluren]
     -v, --verbose                Print game actions debug output (slow)
     -V, --version                Print version information
 
@@ -37,25 +37,25 @@ OPTIONS:
 You can run debug builds of the tool with cargo:
 
 ```console
-$ cargo run -- --strategy pattern-hulk --games 10 -v
+$ cargo run -- --strategy pattern-combo --games 10 -v
 ```
 
 For faster simulations adjust the `simulated_games` variable in `main.rs` and run executable as release build:
 
 ```console
-$ cargo run --release --strategy pattern-hulk --games 100000
+$ cargo run --release --strategy pattern-combo --games 100000
 ```
 
 To use your own custom decklist provide a path to the file:
 
 ```console
-$ cargo run --release --strategy pattern-hulk --games 100000 -d ./path/to/your/decklist.txt
+$ cargo run --release --strategy pattern-combo --games 100000 -d ./path/to/your/decklist.txt
 ```
 
 ## Example game
 
 ```console
-goldfisher-cli --strategy pattern-hulk --games 1 -v
+goldfisher-cli --strategy pattern-combo --games 1 -v
 [DEBUG] Deck size: 60
 [DEBUG] ====================[ START OF GAME ]=======================
 [DEBUG] [Turn 00][Action]: Drew card: "Pattern of Rebirth", 59 cards remaining.
@@ -119,7 +119,7 @@ goldfisher-cli --strategy pattern-hulk --games 1 -v
 ## Example results
 
 ```
-goldfisher-cli --strategy pattern-hulk --games 100000
+goldfisher-cli --strategy pattern-combo --games 100000
 [INFO ] =======================[ RESULTS ]==========================
 [INFO ]                    Average turn: 5.50
 [INFO ]               Wins per turn after 100000 games:

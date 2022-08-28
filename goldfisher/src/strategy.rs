@@ -136,7 +136,7 @@ pub trait Strategy {
             let mut lands_in_hand = game
                 .game_objects
                 .iter()
-                .filter(|card| is_hand(card) && is_card_type(card, CardType::Land))
+                .filter(|card| is_hand(card) && is_card_type(card, &CardType::Land))
                 .cloned()
                 .collect::<Vec<_>>();
 

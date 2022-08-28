@@ -25,7 +25,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug 'Pattern Hulk' with executable 'goldfisher-cli'",
+            "name": "Debug 'Pattern Combo' with executable 'goldfisher-cli'",
             "cargo": {
                 "args": [
                     "build",
@@ -37,7 +37,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["--strategy", "pattern-hulk", "--games", "1", "-v"],
+            "args": ["--strategy", "pattern-combo", "--games", "1", "-v"],
             "cwd": "${workspaceFolder}"
         },
         {
