@@ -1,0 +1,33 @@
+1 Island
+1 Swamp
+2 Underground Sea
+2 Tropical Island
+1 Bayou
+4 Misty Rainforest
+4 Polluted Delta
+1 Sylvan Safekeeper
+4 Witherbloom Apprentice
+2 Sedgemoor Witch
+2 Elvish Spirit Guide
+4 Summoner's Pact
+4 Brainstorm
+2 Veil of Summer
+4 Dark Ritual
+1 Lim-Dûl's Vault
+4 Preordain
+3 Thoughtseize
+2 Duress
+4 Ponder
+4 Chain of Smog
+4 Lotus Petal
+
+// Sideboard
+2 Xantid Swarm
+2 Carpet of Flowers
+2 Surgical Extraction
+2 Flusterstorm
+2 Defense Grid
+2 Abrupt Decay
+1 Assassin's Trophy
+1 Energy Flux
+1 Massacre

@@ -122,6 +122,12 @@ impl Card {
                 cost: HashMap::from([(Mana::Green, 1)]),
                 ..Default::default()
             },
+            "Sylvan Safekeeper" => Card {
+                name,
+                card_types: HashSet::from([CardType::Creature]),
+                cost: HashMap::from([(Mana::Green, 1)]),
+                ..Default::default()
+            },
             "Fyndhorn Elves" => Card {
                 name,
                 card_types: HashSet::from([CardType::Creature]),
@@ -996,6 +1002,131 @@ impl Card {
                     (Mana::Red, 2),
                     (Mana::Green, 2),
                 ]),
+                ..Default::default()
+            },
+            "Witherbloom Apprentice" => Card {
+                name,
+                card_types: HashSet::from([CardType::Creature]),
+                cost: HashMap::from([
+                    (Mana::Black, 1),
+                    (Mana::Green, 1),
+                ]),
+                ..Default::default()
+            },
+            "Sedgemoor Witch" => Card {
+                name,
+                card_types: HashSet::from([CardType::Creature]),
+                cost: HashMap::from([
+                    (Mana::Black, 1),
+                    (Mana::Colorless, 2),
+                ]),
+                ..Default::default()
+            },
+            "Summoner's Pact" => Card {
+                name,
+                card_types: HashSet::from([CardType::Sorcery]),
+                cost: HashMap::new(),
+                // TODO: pay or lose game next turn
+                on_resolve: Some(Effect::SearchAndPutHand(Some(SearchFilter::GreenCreature))),
+                ..Default::default()
+            },
+            "Brainstorm" => Card {
+                name,
+                card_types: HashSet::from([CardType::Instant]),
+                cost: HashMap::from([(Mana::Blue, 1)]),
+                on_resolve: Some(Effect::Brainstorm),
+                ..Default::default()
+            },
+            "Preordain" => Card {
+                name,
+                card_types: HashSet::from([CardType::Sorcery]),
+                cost: HashMap::from([(Mana::Blue, 1)]),
+                // TODO: Scrying
+                on_resolve: Some(Effect::Preordain),
+                ..Default::default()
+            },
+            "Ponder" => Card {
+                name,
+                card_types: HashSet::from([CardType::Sorcery]),
+                cost: HashMap::from([(Mana::Blue, 1)]),
+                // TODO: Scrying
+                on_resolve: Some(Effect::Ponder),
+                ..Default::default()
+            },
+            "Dark Ritual" => Card {
+                name,
+                card_types: HashSet::from([CardType::Instant]),
+                cost: HashMap::from([(Mana::Black, 1)]),
+                produced_mana: HashMap::from([(Mana::Black, 3)]),
+                remaining_uses: Some(1),
+                ..Default::default()
+            },
+            "Veil of Summer" => Card {
+                name,
+                card_types: HashSet::from([CardType::Instant]),
+                cost: HashMap::from([(Mana::Green, 1)]),
+                ..Default::default()
+            },
+            "Thoughtseize" => Card {
+                name,
+                card_types: HashSet::from([CardType::Sorcery]),
+                cost: HashMap::from([(Mana::Black, 1)]),
+                ..Default::default()
+            },
+            "Lim-Dûl's Vault" => Card {
+                name,
+                card_types: HashSet::from([CardType::Instant]),
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Black, 1)]),
+                // TOOD: shuffle tutoring effect properly
+                on_resolve: Some(Effect::SearchAndPutTopOfLibrary(None)),
+                ..Default::default()
+            },
+            "Chain of Smog" => Card {
+                name,
+                card_types: HashSet::from([CardType::Sorcery]),
+                cost: HashMap::from([(Mana::Black, 1), (Mana::Colorless, 1)]),
+                ..Default::default()
+            },
+            "Carpet of Flowers" => Card {
+                name,
+                card_types: HashSet::from([CardType::Enchantment]),
+                cost: HashMap::from([(Mana::Green, 1)]),
+                ..Default::default()
+            },
+            "Surgical Extraction" => Card {
+                name,
+                card_types: HashSet::from([CardType::Instant]),
+                cost: HashMap::new(),
+                ..Default::default()
+            },
+            "Flusterstorm" => Card {
+                name,
+                card_types: HashSet::from([CardType::Instant]),
+                cost: HashMap::from([(Mana::Blue, 1)]),
+                ..Default::default()
+            },
+            "Abrupt Decay" => Card {
+                name,
+                card_types: HashSet::from([CardType::Instant]),
+                cost: HashMap::from([(Mana::Black, 1), (Mana::Green, 1)]),
+                ..Default::default()
+            },
+            "Assassin's Trophy" => Card {
+                name,
+                card_types: HashSet::from([CardType::Instant]),
+                cost: HashMap::from([(Mana::Black, 1), (Mana::Green, 1)]),
+                ..Default::default()
+            },
+            "Energy Flux" => Card {
+                name,
+                card_types: HashSet::from([CardType::Enchantment]),
+                cost: HashMap::from([(Mana::Blue, 1), (Mana::Colorless, 2)]),
+                ..Default::default()
+            },
+            "Massacre" => Card {
+                name,
+                card_types: HashSet::from([CardType::Instant]),
+                cost: HashMap::from([(Mana::Black, 2), (Mana::Colorless, 1)]),
                 ..Default::default()
             },
             name => {

@@ -24,6 +24,9 @@ pub enum Effect {
     FranticSearch,
     BrainFreeze,
     Meditate,
+    Brainstorm,
+    Ponder,
+    Preordain,
 }
 
 impl Effect {
@@ -93,7 +96,25 @@ impl Effect {
                 ));
 
                 game.opponent_library -= cards_to_mill;
-            }
+            },
+            Effect::Brainstorm => {
+                // At this time the card is on graveyard already
+                let hand_size = game.game_objects.iter().filter(is_hand).count();
+                game.draw_n(3);
+                let cards_to_discard = strategy.discard_to_hand_size(game, hand_size + 1);
+                for card in cards_to_discard {
+                    card.borrow_mut().zone = Zone::Library;
+                    game.deck.put_top(card);
+                }
+            },
+            Effect::Ponder => {
+                // TODO: actual ponder
+                self.impulse(game, source, strategy, 3)
+            },
+            Effect::Preordain => {
+                // TODO: actual Preordain
+                self.impulse(game, source, strategy, 2)
+            },
             _ => unimplemented!(),
         }
     }

@@ -13,12 +13,14 @@ use crate::utils::*;
 pub mod aluren;
 pub mod frantic_storm;
 pub mod pattern_combo;
+pub mod turbo_smog;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum DeckStrategy {
     PatternCombo,
     Aluren,
     FranticStorm,
+    TurboSmog,
 }
 
 impl FromStr for DeckStrategy {
@@ -29,6 +31,7 @@ impl FromStr for DeckStrategy {
             pattern_combo::NAME => Ok(DeckStrategy::PatternCombo),
             aluren::NAME => Ok(DeckStrategy::Aluren),
             frantic_storm::NAME => Ok(DeckStrategy::FranticStorm),
+            turbo_smog::NAME => Ok(DeckStrategy::TurboSmog),
             _ => Err(()),
         }
     }
@@ -43,6 +46,7 @@ impl fmt::Display for DeckStrategy {
                 DeckStrategy::PatternCombo => pattern_combo::NAME,
                 DeckStrategy::Aluren => aluren::NAME,
                 DeckStrategy::FranticStorm => frantic_storm::NAME,
+                DeckStrategy::TurboSmog => turbo_smog::NAME,
             }
         )
     }
@@ -52,6 +56,7 @@ pub const STRATEGIES: &[DeckStrategy] = &[
     DeckStrategy::PatternCombo,
     DeckStrategy::Aluren,
     DeckStrategy::FranticStorm,
+    DeckStrategy::TurboSmog,
 ];
 
 pub fn from_enum(strategy: &DeckStrategy) -> Box<dyn Strategy> {
@@ -59,6 +64,7 @@ pub fn from_enum(strategy: &DeckStrategy) -> Box<dyn Strategy> {
         DeckStrategy::PatternCombo => Box::new(pattern_combo::PatternCombo::new()),
         DeckStrategy::Aluren => Box::new(aluren::Aluren::new()),
         DeckStrategy::FranticStorm => Box::new(frantic_storm::FranticStorm::new()),
+        DeckStrategy::TurboSmog => Box::new(turbo_smog::TurboSmog::new()),
     }
 }
 

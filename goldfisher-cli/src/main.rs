@@ -18,6 +18,7 @@ pub enum ArgDeckStrategy {
     PatternCombo,
     Aluren,
     FranticStorm,
+    TurboSmog,
 }
 
 impl From<ArgDeckStrategy> for DeckStrategy {
@@ -26,6 +27,7 @@ impl From<ArgDeckStrategy> for DeckStrategy {
             ArgDeckStrategy::PatternCombo => DeckStrategy::PatternCombo,
             ArgDeckStrategy::Aluren => DeckStrategy::Aluren,
             ArgDeckStrategy::FranticStorm => DeckStrategy::FranticStorm,
+            ArgDeckStrategy::TurboSmog => DeckStrategy::TurboSmog,
         }
     }
 }

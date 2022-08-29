@@ -27,3 +27,4 @@
 1 Body Snatcher
 
 // Sideboard
+1 Grand Abolisher
